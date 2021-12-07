@@ -1,0 +1,966 @@
+---
+title: "nimble"
+author: "Danny Foster"
+date: "8/3/2021"
+output: html_document
+---
+
+```{r}
+library(here)
+library(tidyverse)
+library(nimble)
+library(MCMCvis)
+```
+
+# Survival
+
+Modelling survival / mortality rates. 
+
+## Simple
+
+The simplest model is:
+$$y_{i[t+1]} = y_{i[t]} * Bern(1-m)$$
+where $y_{i[t+1]}$ and $y_{i[t]}$ is the live/dead status (1 = alive, 0 = dead) 
+of individual $i$ at times $t+1$ and $t$ respectively, and $m$ is the mortality 
+rate for all individuals over the census duration (which here is 1 timestep).
+
+### Simulate data
+
+Using for loop:
+```{r}
+## define parameters
+N = 1000 # number of observations
+snag = 0.1 # initial proportion of snags
+phi= 0.98 # survival rate for time interval T
+
+## transformed parameters
+mu = log(phi / (1-phi)) # logit-transformed survival rate
+
+## define data
+z_i0 = integer(N) # starting state
+z_iT = integer(N) # ending state
+phi_i = numeric(N) # individual survival rate
+mu_i = numeric(N) # logit-transformed survival rate
+
+## simulate data
+for (i in 1:N){
+  
+  # mortality rate is the same for all individuals, depends only on intercept
+  mu_i[i] = mu
+  
+  # logit link for survival rate
+  phi_i[i] = exp(mu_i[i])/(1+exp(mu_i[i]))
+  
+  # mixture of live and dead individuals at initial census
+  z_i0[i] = rbinom(n = 1, size = 1, prob = 1-snag)
+  
+  # draw survival from a bernoulli distribution
+  z_iT[i] = 
+    rbinom(n = 1, size = 1, 
+           prob = phi_i[i]*z_i0[i])
+  
+}
+
+### combine data
+survival_sim = 
+  data.frame(mu_i, phi_i, z_i0, z_iT) %>%
+  as_tibble()
+
+summary(survival_sim)
+```
+
+### Estimate parameters
+
+Using nimble:
+
+```{r}
+# define model
+modelCode = 
+  nimbleCode({
+    # define parameters and priors
+    beta0 ~ dnorm(0, sd = 1000)
+    
+    # vector of fixed effects
+    mu_i[1:N] <- beta0
+    
+    # iterate over observations
+    for (i in 1:N){
+      
+      # logit link for survival rate
+      logit(phi_i[i]) <- mu_i[i]
+      
+      # vector of status from t to t+1
+      z_iT[i] ~ dbern(prob = phi_i[i]*z_i0[i])
+      
+    }
+
+  })
+
+# define constants
+modelConstants = 
+  list(N = N)
+
+# define data
+modelData = 
+  survival_sim %>%
+  select(z_i0, z_iT)
+
+# define inits
+modelInits = 
+  list(beta0 = 0)
+# build the model object
+mymodel = 
+  nimbleModel(code = 
+                modelCode,
+              constants = 
+                modelConstants,
+              data = 
+                modelData,
+              inits = 
+                modelInits)
+
+# configure the mcmc
+mcmc_config = configureMCMC(mymodel)
+
+# build the mcmc object
+myMCMC = 
+  buildMCMC(mcmc_config)
+
+# compile the mcmc
+# weirdness... had to initially run this (because model never compiled) as 
+# compiledNimble(mymodel, myMCMC); but then runMCMC doesnt work right 
+# (think its related to the last line of section 7.3 here: 
+# https://r-nimble.org/html_manual/cha-mcmc.html). To get runMCMC to work,
+# re-compile now listing project = mymodel as below
+compiledModel = compileNimble(mymodel)
+compiledMCMC = 
+  compileNimble(myMCMC, project = compiledModel)
+
+# run the mcmc
+mcmcResults = 
+  runMCMC(mcmc = compiledMCMC,
+          niter = 10000,
+          nburnin = 1000,
+          thin = 10,
+          nchains = 4)
+
+# format the results
+reformat_results = 
+  function(mcmc_output){
+      bind_rows(lapply(X = 1:length(mcmc_output),
+                 FUN = 
+                   function(chain_i){
+                     chain_id = names(mcmc_output)[chain_i]
+                     chain_samples = 
+                       as.data.frame(mcmc_output[chain_i]) %>%
+                       rowid_to_column('iter') %>%
+                       mutate(chain = chain_id) %>%
+                       as_tibble()
+                     return(chain_samples)
+                   }))
+  }
+
+
+results = reformat_results(mcmc_output = mcmcResults)
+
+head(results)
+
+# back-transform to get the survival rate and mortality rate...
+results = 
+  results %>%
+  mutate(phi = exp(beta0)/(1+exp(beta0)),
+         m = 1-phi)
+
+
+ggplot(results,
+       aes(x = phi))+
+  geom_density()
+
+# can I get some diagnostics? want traceplots and whatever thing brms spits out
+# duh just make a traceplot:
+ggplot(results,
+       aes(x= iter, y = phi, color = chain))+
+  geom_line(alpha = 0.75)+
+  theme_minimal()
+
+# easier way
+MCMCsummary(mcmcResults, round = 2)
+MCMCtrace(mcmcResults, pdf = FALSE, Rhat = TRUE, n.eff = TRUE, 
+          priors = rnorm(1000, mean = 0, sd = 1000),
+          gvals = c(mu))
+
+
+
+```
+
+
+
+## Fixed effects for species
+
+Next we add a fixed effect for species on the survival rate.
+
+The model is:
+$$z_{i[t+1]} \sim Bern(z_{i[t]}*\phi_i)$$
+where $z_{i[t+1]}$ and $z_{i[t]}$ is the live/dead status (1 = alive, 0 = dead) 
+of individual $i$ at times $t+1$ and $t$ respectively, and $\phi_i$ is the 
+survival rate for individual $i$.
+
+We use the logit link:
+
+$$logit(\phi_i) = \mu_i$$
+
+And model the effect of species as a linear fixed effect:
+
+$$\mu_i = \beta_0 + \beta_{spp}(spp_i)$$
+
+### Simulate data
+
+Using for loop:
+```{r}
+## define parameters
+N = 1000 # number of observations
+snag = 0.1 # initial proportion of snags
+J = 6 # number of species
+species_codes = c('abco_i', 'cade_i', 'pila_i', 'pipo_i', 'psme_i', 'quke_i')
+spp_prob = c(1/6, 1/6, 1/6, 1/6, 1/6, 1/6) # proportion of each species
+phi_j = c(0.98, 0.76, 0.88, 0.99, 0.93, 0.95) # J-length vector of survival rates
+
+## transformed parameters
+mu_j = log(phi_j / (1-phi_j)) # logit-transformed survival rates
+beta_spp = mu_j
+
+## define data
+z_i0 = logical(N) # starting state
+z_iT = logical(N) # ending state
+phi_i = numeric(N) # individual survival rate
+mu_i = numeric(N) # logit-transformed survival rate
+spp_i = integer(N) # factor level of species
+
+# dummy variable matrix for fixed effects
+SPP_ij = 
+  matrix(data = as.logical(0),
+         nrow = N, 
+         ncol = J,
+         dimnames = list(1:N, species_codes))
+
+
+## simulate data
+for (i in 1:N){
+  
+  # randomly assign a species
+  spp_i[i] = sample(x = 1:length(species_codes),
+                    size = 1,
+                    prob = spp_prob)
+  
+  # mortality rate varies only by species
+  mu_i[i] = beta_spp[spp_i[i]]
+  
+  # logit link for survival rate
+  phi_i[i] = exp(mu_i[i])/(1+exp(mu_i[i]))
+  
+  # mixture of live and dead individuals at initial census
+  z_i0[i] = 
+    rbinom(n = 1, size = 1, prob = 1-snag) %>%
+    as.logical()
+  
+  # draw survival from a bernoulli distribution
+  z_iT[i] = 
+    rbinom(n = 1, size = 1, 
+           prob = phi_i[i]*z_i0[i]) %>%
+    as.logical()
+  
+}
+
+### combine data
+survival_sim = 
+  data.frame(mu_i, phi_i, z_i0, z_iT, spp_i) %>%
+  as_tibble()
+
+summary(survival_sim)
+
+ggplot(data = survival_sim,
+       aes(x = spp_i,
+           fill = z_iT))+
+  geom_bar()+
+  facet_grid(.~z_i0)
+```
+
+### Estimate parameters
+
+Using nimble:
+
+```{r}
+# define model
+modelCode = 
+  nimbleCode({
+    # define parameters and priors
+    #beta_0 ~ dnorm(0, sd = 1000)
+    #beta_cade ~ dnorm(0, sd = 1000)
+    #beta_pila ~ dnorm(0, sd = 1000)
+    #beta_pipo ~ dnorm(0, sd = 1000)
+    #beta_psme ~ dnorm(0, sd = 1000)
+    #beta_quke ~ dnorm(0, sd = 1000)
+    # iterate over species
+    for (j in 1:J) {
+      beta_spp[j] ~ dnorm(0, sd = 1000)
+    }
+    
+    # iterate over observations
+    for (i in 1:N){
+      
+      # fixed effects
+      mu_i[i] <- beta_spp[spp_i[i]] # not working?
+      #mu_i[i] <- 
+      #  beta_0*abco_i[i]+
+      #  beta_cade*cade_i[i]+
+      #  beta_pila*pila_i[i]+
+      #  beta_pipo*pipo_i[i]+
+      #  beta_psme*psme_i[i]+
+      #  beta_quke*quke_i[i]
+      
+      # logit link for survival rate
+      logit(phi_i[i]) <- mu_i[i]
+      
+      # vector of status from t to t+1
+      z_iT[i] ~ dbern(prob = phi_i[i]*z_i0[i])
+      
+    }
+
+  })
+
+# define constants
+modelConstants = 
+  list(N = N,
+       J = J,
+       spp_i = survival_sim$spp_i)
+
+# define data
+modelData = 
+  survival_sim %>%
+         select(z_i0,
+                z_iT)
+                #abco_i,
+                #cade_i,
+                #pila_i,
+                #pipo_i,
+                #psme_i,
+                #quke_i)
+
+# define inits
+modelInits = 
+  list(beta_spp = numeric(J))
+  #list(beta_0 = 0,
+  #     beta_cade = 0,
+  #     beta_pila = 0,
+  #     beta_pipo = 0,
+  #     beta_psme = 0,
+  #     beta_quke = 0)
+# build the model object
+mymodel = 
+  nimbleModel(code = 
+                modelCode,
+              constants = 
+                modelConstants,
+              data = 
+                modelData,
+              inits = 
+                modelInits)
+
+# configure the mcmc
+mcmc_config = configureMCMC(mymodel)
+
+# build the mcmc object
+myMCMC = 
+  buildMCMC(mcmc_config)
+
+# compile the mcmc
+# weirdness... had to initially run this (because model never compiled) as 
+# compiledNimble(mymodel, myMCMC); but then runMCMC doesnt work right 
+# (think its related to the last line of section 7.3 here: 
+# https://r-nimble.org/html_manual/cha-mcmc.html). To get runMCMC to work,
+# re-compile now listing project = mymodel as below
+compiledModel = compileNimble(mymodel)
+compiledMCMC = 
+  compileNimble(myMCMC, project = compiledModel)
+
+# run the mcmc
+mcmcResults = 
+  runMCMC(mcmc = compiledMCMC,
+          niter = 10000,
+          nburnin = 1000,
+          thin = 10,
+          nchains = 4)
+
+
+
+
+# format the results
+reformat_results = 
+  function(mcmc_output){
+      bind_rows(lapply(X = 1:length(mcmc_output),
+                 FUN = 
+                   function(chain_i){
+                     chain_id = names(mcmc_output)[chain_i]
+                     chain_samples = 
+                       as.data.frame(mcmc_output[chain_i]) %>%
+                       rowid_to_column('iter') %>%
+                       mutate(chain = chain_id) %>%
+                       as_tibble() %>%
+                       pivot_longer(cols = !iter&!chain,
+                                    names_to = 'parameter',
+                                    values_to = 'value') %>%
+                       mutate(parameter = gsub(x = parameter,
+                                               pattern = paste0('^',chain_id,'\\.'),
+                                               replacement = '')) %>%
+                       pivot_wider(id_cols = c('iter', 'chain'),
+                                   names_from = 'parameter',
+                                   values_from = 'value') %>%
+                       mutate(mu_abco = beta_0,
+                              mu_cade = beta_0+beta_cade,
+                              mu_pila = beta_0+beta_pila,
+                              mu_pipo = beta_0+beta_pipo,
+                              mu_psme = beta_0+beta_psme,
+                              mu_quke = beta_0+beta_quke) %>%
+                       mutate(phi_abco = expit(mu_abco),
+                              phi_cade = expit(mu_cade),
+                              phi_pila = expit(mu_pila),
+                              phi_pipo = expit(mu_pipo),
+                              phi_psme = expit(mu_psme),
+                              phi_quke = expit(mu_quke)) %>%
+                       mutate(m_abco = 1-phi_abco,
+                              m_cade = 1-phi_cade,
+                              m_pila = 1-phi_pila,
+                              m_pipo = 1-phi_pipo,
+                              m_psme = 1-phi_psme,
+                              m_quke = 1-phi_quke)
+                     return(chain_samples)
+                   }))
+  }
+
+
+#results = reformat_results(mcmc_output = mcmcResults)
+
+head(results)
+
+# easier way
+MCMCsummary(mcmcResults, round = 2) # rhat values really bad with only 1k datapoints, 
+# fine with 10k datapoints and 20k samples with thin=20, soso with 10k data,
+# 10k samples, and thin = 10
+# edit: rhat, eff, and mixing all look much better with the model reparameterized
+# to be varying-intercept, and the sampling goes much faster.... 
+# even on only 1k datapoints. I'm surprised it 
+# made SUCH a huge difference. moving the species indeces out to constants
+# was helpful? not doing 6x vector lookups and writes every obs? would 
+# account for the speedup, but IDK about improving the quality of the samples.
+# clearly I don't understand some parts of how this MCMC sampler works.
+MCMCtrace(mcmcResults, pdf = FALSE, Rhat = TRUE, n.eff = TRUE, 
+          priors = rnorm(1000, mean = 0, sd = 1000),
+          gvals = logit(phi_j))
+
+
+
+
+
+
+```
+
+
+## Fixed effects for size and species:size
+
+
+Next we add fixed effects for size and the interaction between species and 
+size.
+
+The model is:
+$$z_{i[t+1]} \sim Bern(z_{i[t]}*\phi_i)$$
+where $z_{i[t+1]}$ and $z_{i[t]}$ is the live/dead status (1 = alive, 0 = dead) 
+of individual $i$ at times $t+1$ and $t$ respectively, and $\phi_i$ is the 
+survival rate for individual $i$.
+
+We use the logit link:
+
+$$logit(\phi_i) = \mu_i$$
+
+And model the effect of species, size, and their interaction as a linear fixed 
+effect:
+
+$$\mu_i = \beta_{spp}(spp_i) + 
+\beta_{size}(size_i) + \beta_{spp:size}(spp_i:size_i)$$
+
+### Using matrix algebra
+
+#### Simulate data
+
+Using for loop:
+```{r}
+## define parameters
+N = 10000 # number of observations
+snag = 0.01 # initial proportion of snags
+J = 6 # number of species
+K = 4 # number of sizes
+P = 1+(J-1)+(K-1)+((J-1)*(K-1)) # number of fixed effect parameters
+species_codes = c('abco', 'cade', 'pila', 'pipo', 'psme', 'quke')
+size_codes = c('x1_15', 'x15_30', 'x30_60', 'x60plus')
+spp_prob = c(1/6, 1/6, 1/6, 1/6, 1/6, 1/6) # proportion of each species
+size_prob = c(0.3, 0.3, 0.3, 0.1)
+
+
+intercept = 1
+beta_spp = runif(n = J-1, min = -2, max = 2)
+beta_size = c(0.5, 1, 2)
+beta_sppsize = rnorm(n = (J-1)*(K-1), mean = 0, sd = 0.5)
+
+B = c(intercept, beta_spp, beta_size, beta_sppsize)
+names(B) = 
+  c('intercept',
+    species_codes[2:J],
+    size_codes[2:K],
+    as.vector(outer(species_codes[2:J],
+                    size_codes[2:K],
+                    paste,
+                    sep = ':')))
+B
+## define data
+z_i0 = logical(N) # starting state
+z_iT = logical(N) # ending state
+phi_i = numeric(N) # individual survival rate
+mu_i = numeric(N) # logit-transformed survival rate
+spp_i = integer(N) # factor level of species
+size_i = integer(N) # factor level of size
+X = 
+  matrix(data = integer(1),
+         nrow = N, ncol = length(B),
+         dimnames = 
+           list(1:N, 
+                names(B)))
+
+head(X)
+## simulate data
+spp_i = sample(x = species_codes,
+               size = N,
+               prob = spp_prob,
+               replace = TRUE)
+
+size_i = sample(x = size_codes,
+                size = N,
+                prob = size_prob,
+                replace = TRUE)
+
+X = 
+  data.frame('spp' = spp_i, 'size' = size_i) %>%
+  model.matrix(~spp*size, .)
+X = X[1:N, 1:P]
+
+# check that the column order of X matches that of B
+names(B)
+colnames(X)
+
+# sum the linear fixed effects
+mu_i = as.numeric(X %*% B)
+  
+# logit link for survival rate
+phi_i = exp(mu_i)/(1+exp(mu_i))
+
+# mixture of live and dead individuals at initial census
+z_i0 = 
+  rbinom(n = N, size = 1, prob = 1-snag) %>%
+  as.logical()
+  
+# draw survival from a bernoulli distribution
+z_iT = 
+  rbinom(n = N, size = 1, 
+         prob = phi_i*z_i0) %>%
+    as.logical()
+  
+
+
+### combine data
+survival_sim = 
+  data.frame(mu_i, phi_i, z_i0, z_iT, spp_i, size_i) %>%
+  as_tibble() %>%
+  bind_cols(as.data.frame(X))
+
+summary(survival_sim)
+
+ggplot(data = survival_sim,
+       aes(x = spp_i,
+           fill = z_iT))+
+  geom_bar()+
+  facet_grid(size_i~z_i0)
+
+```
+
+
+
+#### Estimate parameters
+
+Using nimble:
+
+```{r}
+# define model
+modelCode = 
+  nimbleCode({
+    
+    beta[1:P] ~ dmnorm(zeros[1:P], omega[1:P, 1:P])
+    
+    # sum the fixed effects (all at once; faster but ??cant make X stochastic??)
+    XB[1:N] <- (X[1:N, 1:P] %*% beta[1:P])[1:N,1]
+    
+    # iterate over observations
+    for (i in 1:N){
+      
+      # sum the fixed effects (rowwise; slower but more flexible?)
+      #mu_i[i] <- (beta[1:p] %*% X[i, 1:p])[1,1]
+      
+      # sum the intercept and fixed effects (for doing the fixeff outside)
+      mu_i[i] <- XB[i]
+      
+      # logit link for survival rate
+      logit(phi_i[i]) <- mu_i[i]
+      
+      # vector of status from t to t+1
+      z_iT[i] ~ dbern(prob = phi_i[i]*z_i0[i])
+      
+    }
+
+  })
+
+# define constants
+modelConstants = 
+  list(N = N,
+       P = P,
+       omega = 1*diag(P),
+       zeros = rep(0, P),
+       X = X)
+
+# define data
+modelData = 
+  list(z_iT = survival_sim$z_iT,
+       z_i0 = survival_sim$z_i0)
+
+# define inits
+modelInits = 
+  list(beta = rep(0, P))
+# build the model object
+mymodel = 
+  nimbleModel(code = 
+                modelCode,
+              constants = 
+                modelConstants,
+              data = 
+                modelData,
+              inits = 
+                modelInits)
+
+# configure the mcmc
+mcmc_config = configureMCMC(mymodel)
+
+# build the mcmc object
+myMCMC = 
+  buildMCMC(mcmc_config)
+
+# compile the mcmc
+# weirdness... had to initially run this (because model never compiled) as 
+# compiledNimble(mymodel, myMCMC); but then runMCMC doesnt work right 
+# (think its related to the last line of section 7.3 here: 
+# https://r-nimble.org/html_manual/cha-mcmc.html). To get runMCMC to work,
+# re-compile now listing project = mymodel as below
+compiledModel = compileNimble(mymodel)
+compiledMCMC = 
+  compileNimble(myMCMC, project = compiledModel)
+
+# run the mcmc
+mcmcResults = 
+  runMCMC(mcmc = compiledMCMC,
+          niter = 10000,
+          nburnin = 2000,
+          thin = 10,
+          nchains = 4)
+
+
+
+MCMCsummary(mcmcResults, round = 2) # looks shitty again
+MCMCtrace(mcmcResults, pdf = FALSE, Rhat = TRUE, n.eff = TRUE, 
+          priors = rnorm(n = 10000, mean = 0, sd = 1),
+          gvals = B)
+
+
+
+
+head(survival_sim)
+survival_sim %>%
+  filter(z_i0) %>%
+  group_by(spp_i, size_i) %>%
+  summarise(count = n()) %>%
+  print(n = Inf)
+
+```
+
+Possible solutions:
+  - are the species/size interactions too weak? do the samplers for those 
+  coefficients mix better when the effects are stronger?
+  - if so, does using a more strongly regulating prior (mean = 0 with smaller sd)
+  help keep the sampler well behaved when there isn't much information about 
+  the effects?
+    - didn't seem to help much, even with a strongly informative prior 
+    (mean = 0, sd = 1)
+    
+  - continuing in the theme of "i dont really understand the mcmc" I wonder 
+  if re-coding as group means with indices would help?
+  
+  - moving z_i0 back from constants into data helped significantly
+  
+### As group means
+
+#### Simulate data
+
+Using for loop:
+```{r}
+## define parameters
+N = 10000 # number of observations
+snag = 0.01 # initial proportion of snags
+J = 6 # number of species
+K = 4 # number of sizes
+P = 1+(J-1)+(K-1)+((J-1)*(K-1)) # number of fixed effect parameters
+species_codes = c('abco', 'cade', 'pila', 'pipo', 'psme', 'quke')
+size_codes = c('x1_15', 'x15_30', 'x30_60', 'x60plus')
+spp_prob = c(1/6, 1/6, 1/6, 1/6, 1/6, 1/6) # proportion of each species
+size_prob = c(0.3, 0.3, 0.3, 0.1)
+
+
+intercept = 1
+beta_spp = runif(n = J-1, min = -2, max = 2)
+beta_size = c(0.5, 1, 2)
+beta_sppsize = rnorm(n = (J-1)*(K-1), mean = 0, sd = 0.5)
+
+B = c(intercept, beta_spp, beta_size, beta_sppsize)
+names(B) = 
+  c('intercept',
+    species_codes[2:J],
+    size_codes[2:K],
+    as.vector(outer(species_codes[2:J],
+                    size_codes[2:K],
+                    paste,
+                    sep = ':')))
+B
+## define data
+z_i0 = logical(N) # starting state
+z_iT = logical(N) # ending state
+phi_i = numeric(N) # individual survival rate
+mu_i = numeric(N) # logit-transformed survival rate
+spp_i = integer(N) # factor level of species
+size_i = integer(N) # factor level of size
+X = 
+  matrix(data = integer(1),
+         nrow = N, ncol = length(B),
+         dimnames = 
+           list(1:N, 
+                names(B)))
+
+head(X)
+## simulate data
+spp_i = sample(x = species_codes,
+               size = N,
+               prob = spp_prob,
+               replace = TRUE)
+
+size_i = sample(x = size_codes,
+                size = N,
+                prob = size_prob,
+                replace = TRUE)
+
+X = 
+  data.frame('spp' = spp_i, 'size' = size_i) %>%
+  model.matrix(~spp*size, .)
+X = X[1:N, 1:P]
+
+# check that the column order of X matches that of B
+names(B)
+colnames(X)
+
+# sum the linear fixed effects
+mu_i = as.numeric(X %*% B)
+  
+# logit link for survival rate
+phi_i = exp(mu_i)/(1+exp(mu_i))
+
+# mixture of live and dead individuals at initial census
+z_i0 = 
+  rbinom(n = N, size = 1, prob = 1-snag) %>%
+  as.logical()
+  
+# draw survival from a bernoulli distribution
+z_iT = 
+  rbinom(n = N, size = 1, 
+         prob = phi_i*z_i0) %>%
+    as.logical()
+  
+
+
+### combine data
+survival_sim = 
+  data.frame(mu_i, phi_i, z_i0, z_iT, spp_i, size_i) %>%
+  as_tibble() %>%
+  bind_cols(as.data.frame(X))
+
+summary(survival_sim)
+
+ggplot(data = survival_sim,
+       aes(x = spp_i,
+           fill = z_iT))+
+  geom_bar()+
+  facet_grid(size_i~z_i0)
+
+survival_sim = 
+  survival_sim %>%
+  select(mu_i, phi_i, z_i0, z_iT, spp = spp_i, size = size_i) %>%
+  mutate(sppsize = paste0(spp, ':', size)) %>%
+  mutate(sppsize_i = as.integer(as.factor(sppsize)),
+         spp_i = as.integer(as.factor(spp)),
+         size_i = as.integer(as.factor(size)))
+
+survival_sim
+
+```
+
+
+
+#### Estimate parameters
+
+Using nimble:
+
+```{r}
+# define model
+modelCode = 
+  nimbleCode({
+    
+    # iterate over the group means
+    for (g in 1:G){
+      betas[g] ~ dnorm(0, sd = 1000)
+    }
+    
+    # iterate over observations
+    for (i in 1:N){
+      
+      # sum the intercept and fixed effects (for doing the fixeff outside)
+      mu_i[i] <- betas[sppsize_i[i]]
+      
+      # logit link for survival rate
+      logit(phi_i[i]) <- mu_i[i]
+      
+      # vector of status from t to t+1
+      z_iT[i] ~ dbern(prob = phi_i[i]*z_i0[i])
+      
+    }
+
+  })
+
+# define constants
+modelConstants = 
+  list(N = N,
+       G = J*K,
+       sppsize_i = survival_sim$sppsize_i)
+
+# define data
+modelData = 
+  list(z_iT = survival_sim$z_iT,
+       z_i0 = survival_sim$z_i0)
+
+# define inits
+modelInits = 
+  list(betas = rep(0, J*K))
+# build the model object
+mymodel = 
+  nimbleModel(code = 
+                modelCode,
+              constants = 
+                modelConstants,
+              data = 
+                modelData,
+              inits = 
+                modelInits)
+
+# configure the mcmc
+mcmc_config = configureMCMC(mymodel)
+
+# build the mcmc object
+myMCMC = 
+  buildMCMC(mcmc_config)
+
+# compile the mcmc
+# weirdness... had to initially run this (because model never compiled) as 
+# compiledNimble(mymodel, myMCMC); but then runMCMC doesnt work right 
+# (think its related to the last line of section 7.3 here: 
+# https://r-nimble.org/html_manual/cha-mcmc.html). To get runMCMC to work,
+# re-compile now listing project = mymodel as below
+compiledModel = compileNimble(mymodel)
+compiledMCMC = 
+  compileNimble(myMCMC, project = compiledModel)
+
+# run the mcmc
+mcmcResults = 
+  runMCMC(mcmc = compiledMCMC,
+          niter = 10000,
+          nburnin = 2000,
+          thin = 10,
+          nchains = 4)
+
+
+
+MCMCsummary(mcmcResults, round = 2) # rhats are wayyyy better this way...
+#### START HERE ####
+true_group_means = 
+  numeric(J*K)
+names(true_group_means) = levels(survival_sim$sppsize)
+true_group_means = 
+  c(B[1])
+
+MCMCtrace(mcmcResults, pdf = FALSE, Rhat = TRUE, n.eff = TRUE, 
+          priors = rnorm(n = 10000, mean = 0, sd = 1000))
+
+
+
+
+head(survival_sim)
+survival_sim %>%
+  filter(z_i0) %>%
+  group_by(spp_i, size_i) %>%
+  summarise(count = n()) %>%
+  print(n = Inf)
+
+```
+
+Possible solutions:
+  - are the species/size interactions too weak? do the samplers for those 
+  coefficients mix better when the effects are stronger?
+  - if so, does using a more strongly regulating prior (mean = 0 with smaller sd)
+  help keep the sampler well behaved when there isn't much information about 
+  the effects?
+    - didn't seem to help much, even with a strongly informative prior 
+    (mean = 0, sd = 1)
+    
+  - continuing in the theme of "i dont really understand the mcmc" I wonder 
+  if re-coding as group means with indices would help?
+    - yup, totally does
+
+
+## Fixed effects of fire/insects/disease/cwd
+
+## Random effect of plot
+
+## Multiple timesteps
+
+## Multilevel model for fire/insects/disease/cwd
+
+## Unobserved timesteps
+
+# Growth
+
+## Simple
+
+# Recruitment
+
+## Simple
+
+# Combined
+
