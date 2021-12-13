@@ -46,7 +46,7 @@ db.PLOT =
                          sep = '/'))) %>%
   # keep only the still-useful columns
   select(CN, STATECD, INVYR, UNITCD, COUNTYCD, PLOT, 
-       inv_date, KINDCD, DESIGNCD, PLOT_STATUS_CD,
+       inv_date, KINDCD, DESIGNCD, MANUAL, PLOT_STATUS_CD,
        PLOT_NONSAMPLE_REASN_CD, PLOT_NONSAMPLE_REASN_CD_PNWRS,
        PREV_PLT_CN, ECOSUBCD, ELEV, LAT, LON,
        MACRO_BREAKPOINT_DIA, TOPO_POSITION_PNW)
@@ -61,7 +61,7 @@ plot_plot_cats =
            title = response)
   }
 
-purrr::map(names(db.PLOT)[c(8,9,10)],
+purrr::map(names(db.PLOT)[c(8,9,10, 11)],
            ~plot_plot_cats(.x))
 
 
@@ -297,6 +297,12 @@ db.SEEDLING =
   fiatables$SEEDLING %>%
   select(CN,
          PLT_CN,
+         STATECD,
+         UNITCD,
+         COUNTYCD,
+         PLOT,
+         SUBP,
+         CONDID,
          SPCD,
          TPA_UNADJ,
          TREECOUNT,
@@ -898,6 +904,17 @@ treelist_full =
               select(SPCD,
                      spp = SPECIES_SYMBOL))
 
+head(db.SEEDLING)
+
+seedlings_full = 
+  db.SEEDLING  %>%
+  left_join(db.REF_SPECIES %>%
+              select(SPCD,
+                     spp = SPECIES_SYMBOL))
+
+
+
+
 #### select useful columns from context and treelist ###########################
 
 names(context_full)[order(names(context_full))]
@@ -927,6 +944,7 @@ context_full =
     inv_date, # actual measurement date
     KINDCD, KINDCD.type, # TYPE OF SAMPLING: 
     DESIGNCD, DESIGNCD.type, # PLOT SAMPLING DESIGN; 
+    MANUAL, # Plot sampling manual version
     PLOT_STATUS_CD, PLOT_STATUS_CD.TYPE, # STATUS CODE
     PLOT_NONSAMPLE_REASN_CD, PLOT_NONSAMPLE_REASN_CD.TYPE,
     MACRO_BREAKPOINT_DIA, # MINIMUM SIZE FOR TREES IN THE MACROPLOT; VARIES
@@ -1095,6 +1113,7 @@ context =
     inv_date = inv_date,
     inv_kind = KINDCD.type,
     inv_design = DESIGNCD.type,
+    inv_manual = MANUAL,
     inv_macrobrk = MACRO_BREAKPOINT_DIA,
     inv_plotstatus = PLOT_STATUS_CD.TYPE,
     inv_nonsamp = PLOT_NONSAMPLE_REASN_CD.TYPE,
@@ -1120,6 +1139,25 @@ context =
     forest_type
     
   )
+
+names(seedlings_full)
+
+seedlings = 
+  seedlings_full %>%
+  mutate(
+    plot_id = paste(STATECD,UNITCD,COUNTYCD,PLOT, sep = '-'),
+    subp_id = paste(STATECD,UNITCD,COUNTYCD,PLOT,SUBP, sep = '-')) %>%
+  
+  select(seedling_cn = CN, 
+         plt_cn = PLT_CN,
+         state_id = STATECD,
+         plot_id,
+         subp_id,
+         cond_id = CONDID,
+         spp,
+         tpa_unadj = TPA_UNADJ,
+         treecount = TREECOUNT,
+         treecount_calc = TREECOUNT_CALC)
 
 names(treelist_full)
 
@@ -1175,12 +1213,15 @@ treelist =
 
 #### write results #############################################################
 
+
+
 # has all the columns and all rows
 write.csv(treelist_full,
           here::here('02-data', '01-preprocessed', 'fia_treelist_full.csv'),
           row.names = FALSE)
 saveRDS(treelist_full,
         here::here('02-data', '01-preprocessed', 'fia_treelist_full.rds'))
+
 
 # only the more useful columns
 write.csv(treelist,
@@ -1204,3 +1245,15 @@ write.csv(context,
 saveRDS(context,
         here::here('02-data', '01-preprocessed', 'fia_context.rds'))
 
+
+write.csv(seedlings_full,
+          here::here('02-data', '01-preprocessed', 'fia_seedlings_full.csv'),
+          row.names = FALSE)
+saveRDS(seedlings_full,
+        here::here('02-data', '01-preprocessed', 'fia_seedlings_full.rds'))
+
+write.csv(seedlings,
+          here::here('02-data', '01-preprocessed', 'fia_seedlings.csv'),
+          row.names = FALSE)
+saveRDS(seedlings,
+        here::here('02-data', '01-preprocessed', 'fia_seedlings.rds'))

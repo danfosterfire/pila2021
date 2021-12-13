@@ -13,10 +13,29 @@ context = readRDS(here::here('02-data',
                              '01-preprocessed',
                              'fia_context.rds'))
 
+seedlings = readRDS(here::here('02-data',
+                               '01-preprocessed',
+                               'fia_seedlings.rds'))
+
 pila_range.sf = 
   st_read(here::here('02-data',
                      '01-preprocessed',
                      'pila_range_map.shp'))
+
+#### quality control ###########################################################
+
+# trees got duplicated at some point, check to see that tree CNs are unique 
+# here, and that there are at most 2 instances of a tree_id
+nrow(treelist) == length(unique(treelist$tre_cn))
+treelist %>%
+  group_by(tree_id) %>%
+  summarise(n = n()) %>%
+  ungroup() %>%
+  filter(n>2)
+# there are 205 instances where a tree appears more than twice; probably not a
+# problem here because I still am including plots which were inventoried more than 
+# twice
+
 
 #### aggregate context data to subplots ########################################
 
@@ -129,7 +148,7 @@ subplots =
   
   # aggregate the conds together to subplots
   group_by(plt_cn, state_id, plot_id, subp_id, inv_year_nominal,
-           inv_date, inv_kind, inv_design, inv_macrobrk, inv_plotstatus,
+           inv_date, inv_kind, inv_design, inv_manual, inv_macrobrk, inv_plotstatus,
            inv_nonsamp, inv_subpstatus, prev_plt_cn, 
            elev_ft, lat, lon, ecosub_cd, topographic) %>%
   summarise(
@@ -307,6 +326,7 @@ treelist_wide =
             suffix = c('.re', '.init'))
 
 names(treelist_wide)
+
 
 # these columns should match up too, or one of them should be NA
 treelist_wide %>%
@@ -574,6 +594,35 @@ combined_wide.filtered =
                                      'shrank',
                                      'area nonsampled')))
 
+
+#### seedlings #################################################################
+
+# when plot manual < 2.0, they didn't actually count more than 6 seedlings, 
+# instead recording NA for treecount and 6 for treecount_calc. Rather than 
+# try to incorporate the seedlings counts from 2001-2003, i'm just 
+# going to ditch them
+head(seedlings)
+head(subplots)
+head(treelist)
+seedlings_combined = 
+  seedlings %>%
+  as_tibble() %>%
+  
+  # keep only observations on included subplots
+  right_join(select(subplots, plt_cn, state_id, plot_id, subp_id)) %>%
+  
+  select(plt_cn, state_id, plot_id, subp_id, spp, treecount_calc) %>%
+  
+  # get complete combinations of plt_cn and spp, fill in the missings with 0
+  complete(nesting(plt_cn, state_id, plot_id, subp_id), spp) %>%
+  mutate(treecount_calc = ifelse(is.na(treecount_calc), 0, treecount_calc)) %>%
+  
+  right_join(subplots) %>%
+  
+  # ditch observations with manual < 2.0
+  filter(inv_manual >= 2.0)
+
+
 #### quality control ###########################################################
 
 
@@ -761,6 +810,31 @@ combined_wide.filtered =
 
 summary(combined_wide.filtered)
 
+#### derived columns ###########################################################
+
+# can we just use crown class as a proxy for competition? looks like yes
+ggplot(data = combined_wide.filtered,
+       aes(x = inv_year_nominal.init, fill = cclass.init))+
+  geom_bar()+
+  facet_wrap(~tree_status.init)
+
+ggplot(data = combined_wide.filtered,
+       aes(x = inv_year_nominal.re, fill = cclass.re))+
+  geom_bar()+
+  facet_wrap(~tree_status.re)
+
+
+#### quality control ###########################################################
+
+# checking for duplicates
+nrow(combined_wide.filtered)
+length(unique(combined_wide.filtered$tre_cn.init))
+length(unique(combined_wide.filtered$tre_cn.re))
+
+length(unique(treelist$tre_cn))
+head(treelist_wide)
+length(unique(treelist_wide$tre_cn))
+nrow(treelist_wide %>% filter(!is.na(tre_cn)))
 #### write results #############################################################
 write.csv(combined_wide.filtered,
           here::here('02-data',
@@ -771,3 +845,13 @@ saveRDS(combined_wide.filtered,
         here::here('02-data',
                    '02-for_analysis',
                    'FIA_censuses.rds'))
+
+write.csv(seedlings_combined,
+          here::here('02-data',
+                     '02-for_analysis',
+                     'FIA_seedlings.csv'),
+          row.names = FALSE)
+saveRDS(seedlings_combined,
+        here::here('02-data',
+                   '02-for_analysis',
+                   'FIA_seedlings.rds'))
