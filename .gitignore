@@ -3,21 +3,14 @@
 .RData
 .Ruserdata
 
-02-data/00-source/FIAPNW/FIAPNW.db
+02-data/00-source/fia/FIADB_CA.db
+02-data/00-source/fia/FIADB_NV.db
+02-data/00-source/fia/FIADB_OR.db
+02-data/00-source/fia/FIADB_WA.db
 02-data/00-source/wilson2013/s117.img
+02-data/00-source/terraclimate/*
 
-02-data/01-preprocessed/fia_treelist_full.csv
-02-data/01-preprocessed/fia_treelist_full.rds
-02-data/01-preprocessed/fia_treelist.csv
-02-data/01-preprocessed/fia_treelist.rds
-02-data/01-preprocessed/fia_context_full.csv
-02-data/01-preprocessed/fia_context_full.rds
-02-data/01-preprocessed/fia_context.csv
-02-data/01-preprocessed/fia_context.rds
-02-data/01-preprocessed/fia_seedlings_full.csv
-02-data/01-preprocessed/fia_seedlings.csv
-02-data/01-preprocessed/fia_seedlings_full.rds
-02-data/01-preprocessed/fia_seedlings.rds
-
-02-data/02-for_analysis/fia_censuses.csv
-02-data/02-for_analysis/FIA_seedlings.csv
+02-data/02-for_analysis/growth_data.csv
+02-data/02-for_analysis/mort_data.csv
+02-data/02-for_analysis/sizedist_data.csv
+02-data/02-for_analysis/subplot_data.csv

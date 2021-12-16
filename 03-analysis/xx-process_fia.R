@@ -225,6 +225,327 @@ ggplot(data = subplots,
 
 #### joining other spatial data ################################################
 
+#### creating input data for models ############################################
+
+mort_data = 
+  treelist %>%
+  # filter treelist to only trees which are on included remeasurementsubplots
+  filter(is.element(plt_cn,
+                    filter(subplots,
+                           inv_kind == 'national_remeasure') %>%
+                      pull(plt_cn))) %>%
+  
+  # left join in the initial data (dbh, status, cclass) for these trees
+  left_join(.,
+            treelist %>%
+              select(tre_cn, tree_status, dbh_in, cclass),
+            by = c('prev_tre_cn' = 'tre_cn'),
+            suffix = c('.re', '.init')) %>%
+  # exclude trees which are excluded on remeasurement for some reason
+  filter(tree_status.re != 'outofsample') %>%
+  # exclude trees which were dead or missing on initial measurement
+  filter(tree_status.init=='live'&!is.na(tree_status.init)) %>%
+  
+  # filter to just mcf spp
+  #filter(is.element(spp, c('CADE27', 'PILA', 'PIPO', 'ABCO', 'PSME', 'QUKE')))
+  mutate(spp = 
+           ifelse(is.element(spp, c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE')),
+                  spp,
+                  'OTHER'))
+
+grow_data = 
+  treelist %>%
+  # filter treelist to only trees which are on included remeasurementsubplots
+  filter(is.element(plt_cn,
+                    filter(subplots,
+                           inv_kind == 'national_remeasure') %>%
+                      pull(plt_cn))) %>%
+  
+  # left join in the initial data (dbh, status, cclass) for these trees
+  left_join(.,
+            treelist %>%
+              select(tre_cn, tree_status, dbh_in, cclass),
+            by = c('prev_tre_cn' = 'tre_cn'),
+            suffix = c('.re', '.init')) %>%
+  # exclude trees which are excluded on remeasurement for some reason
+  filter(tree_status.re != 'outofsample') %>%
+  # exclude trees which were dead on initial measurement or remeasurement
+  filter(tree_status.init=='live'&tree_status.re=='live') %>%
+  
+  # filter to just mcf spp
+  #filter(is.element(spp, c('CADE27', 'PILA', 'PIPO', 'ABCO', 'PSME', 'QUKE')))
+  mutate(spp = 
+           ifelse(is.element(spp, c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE')),
+                  spp,
+                  'OTHER'))
+
+summary(growmort_data)
+
+seedlings = 
+  seedlings %>%
+  # filter to just mcf spp
+  #filter(is.element(spp, c('CADE27', 'PILA', 'PIPO', 'ABCO', 'PSME', 'QUKE')))
+  mutate(spp = 
+         ifelse(is.element(spp, c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE')),
+                spp,
+                'OTHER')) %>%
+  
+  # combine the other categories
+  group_by(plt_cn, state_id, plot_id, subp_id,
+           spp) %>%
+  summarise(tpa_unadj = sum(tpa_unadj, na.rm = TRUE)) %>%
+  ungroup()
+
+# table of complete plt_cn/subplot:dbh_class combinations
+sizedist_data = 
+  
+  subplots %>%
+  
+  # start with all the remeasure subplots
+  filter(inv_kind=='national_remeasure') %>%
+  
+  select(plt_cn, plot_id, subp_id) %>%
+  
+  # keep only those ones where the initial measurement is manual >= 2.0, and 
+  # add columns for the initial cn
+  inner_join(subplots %>%
+               filter(inv_kind=='national_initial' & 
+                        inv_manual >= 2.0) %>%
+               select(subp_id, plt_cn),
+             by = c('subp_id' = 'subp_id'),
+             suffix = c('.re', '.init')) %>%
+  
+  # pivot longer to get a separate row for each observation
+  pivot_longer(cols = c(plt_cn.re, plt_cn.init),
+               values_to = 'plt_cn',
+               names_to = c('extra', 'timestep'),
+               names_sep = '\\.') %>%
+  select(-extra) %>%
+  
+  # expand to get a row for eadh DBH bin for each species in each subplot observation
+  expand(nesting(plot_id, subp_id, timestep, plt_cn), 
+           dbh_in = seq(from = 0.5, to = 99.5, by = 1),
+         spp = c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE', 'OTHER')) %>%
+  mutate(dbh_class = as.character(cut(dbh_in,
+                         breaks = seq(from = 0, to = 100, by = 1)))) %>%
+  select(-dbh_in)  %>%
+  
+  # left join in the seedlings data to fill in the smallest bin
+  left_join(.,
+            seedlings %>%
+              mutate(dbh_class = '(0,1]') %>%
+              select(plt_cn, subp_id, spp, dbh_class, tpa_unadj),
+            by = c('plt_cn' = 'plt_cn',
+                   'subp_id' = 'subp_id',
+                   'spp' = 'spp',
+                   'dbh_class' = 'dbh_class')) %>%
+  
+  # left join in the big trees data to fill in the other bins
+  left_join(.,
+            treelist %>%
+              select(plot_id, subp_id, plt_cn, spp, dbh_in, tpa_unadj) %>%
+              filter(!is.na(dbh_in)) %>%
+              mutate(dbh_class = as.character(cut(dbh_in,
+                                                  breaks = seq(from = 0, to = 100, by = 1)))) %>%
+              select(-dbh_in) %>%
+              group_by(plot_id, subp_id, plt_cn, spp, dbh_class) %>%
+              summarise(tpa_unadj = sum(tpa_unadj, na.rm = TRUE)) %>%
+              ungroup(),
+            by = c('plot_id' = 'plot_id', 
+                   'subp_id' = 'subp_id',
+                   'plt_cn' = 'plt_cn',
+                   'spp' = 'spp',
+                   'dbh_class' = 'dbh_class'),
+            suffix = c('.little', '.big')) %>%
+  
+  mutate(tpa_unadj.little = 
+           ifelse(is.na(tpa_unadj.little), 0, tpa_unadj.little),
+         tpa_unadj.big = 
+           ifelse(is.na(tpa_unadj.big), 0, tpa_unadj.big),
+         tpa_unadj = tpa_unadj.little+tpa_unadj.big)
+
+head(sizedist_data)
+head(treelist)
+
+# 12936 remeasure subplots
+# 8584 remeasure subplots where the initial inventory was manual >= 2.0
+# 17168 initial or remeasure subplot samples
+# 100 dbh classes and 7 spp = 700 cats; 12017600 samples:cats
+
+
+head(sizedist_data)
+
+
+ggplot(data = sizedist_data,
+       aes(x = dbh_class, y = tpa_unadj))+
+  geom_boxplot(outlier.shape = NA)+
+  facet_wrap(~spp)+
+  scale_y_continuous(limits = c(0, 10))
+
+summary(sizedist_data)
+
+
+sizedist_data = 
+  
+  # exclude trees which were excluded on remeasurement
+  filter(!is.element(tre_cn,
+                     treelist %>% 
+                       filter(!is.na(reconcile)) %>%
+                       pull(prev_tre_cn))) %>%
+  
+  # include only live trees
+  filter(tree_status == 'live') %>%
+  
+  # keep only useful columns
+  select(plt_cn, subp_id, spp, dbh_in, tpa_unadj) %>%
+  
+  # add rows for seedlings
+  bind_rows(seedlings %>%
+              select(plt_cn, subp_id, spp, tpa_unadj) %>%
+              filter(spp == 'PILA') %>%
+              mutate(dbh_in = 0.5)) %>%
+  
+  # include only observations where they actually counted all the seedlings
+  filter(is.element(plt_cn, 
+                    filter(subplots, inv_manual >= 2.0) %>%
+                      pull(plt_cn))) %>%
+  
+  # add in 0-tpa instances of each DBH class
+  bind_rows(group_by(., plt_cn, subp_id, spp) %>%
+              summarise() %>%
+              ungroup() %>%
+              expand(nesting(plt_cn, subp_id), spp, dbh_in = 0.5:100.5) %>%
+              mutate(tpa_unadj = 0)) %>%
+  
+  # bin DBHs into classes
+  mutate(dbh_class = cut(dbh_in,
+                         breaks = seq(from = 0, to = 101, by = 1))) %>%
+  
+  # group by plt_cn and subplt id and spp and sum the tpa
+  group_by(plt_cn, subp_id, spp, dbh_class) %>%
+  summarise(tpa = sum(tpa_unadj)) %>%
+  ungroup() %>%
+  
+  # add in a flag for initial or remasure
+  left_join(subplots %>%
+              select(plt_cn, subp_id, inv_kind)) %>%
+  
+  filter(!is.na(inv_kind)) %>%
+  mutate(timestep = ifelse(inv_kind=='national_initial', '.init', 
+                           ifelse(inv_kind=='national_remeasure', '.re', NA))) %>%
+#### START HERE ##########################
+  pivot_wider(names_from = 'timestep', 
+              values_from = c('plt_cn', 'tpa'))
+names(subplots)
+
+ggplot(data = subplots,
+       aes(x = lubridate::year(inv_date), fill = inv_kind))+
+  geom_bar()
+
+
+
+# growmort data already excludes trees which were excluded from later inventories
+growmort_data %>%
+  
+  # also exclude trees which were inventoried using manual < 2.0 (seedling 
+  # counts are bad for these)
+  left_join(subplots %>%
+              select(plt_cn, inv_manual),
+            by = c('plt_cn.init' = 'plt_cn')) %>%
+  filter(manual >= 2.0) 
+
+
+# only want to keep count data where they tallied more than 6 seedlings (ie 
+# where manual >= 2.0)
+seedlings = 
+  
+  seedlings %>%
+  left_join(subplots %>%
+              select(plt_cn, inv_manual)) %>%
+  filter(inv_manual >= 2.0)
+
+
+
+head(treelist)
+test = 
+  treelist %>%
+  select(plt_cn, subp_id, tree_status)
+
+
+size_dist_data = 
+  treelist.init %>%
+  
+  # only trees which were alive initially, and weren't excluded from a remeasure 
+  # for reason other than death, and are from inventories with manual >= 2.0
+  filter(tree_status=='live' &
+           is.element(tre_cn, growmort_data$tre_cn)&
+           is.element(plt_cn, seedlings$plt_cn)) %>%
+  select(plt_cn, subp_id, spp, dbh_in, tpa_unadj) %>% 
+  
+  # to fill in missing size classes
+  bind_rows(complete(., nesting(plt_cn, subp_id, spp), dbh_in = 1:99) %>%
+              mutate(tpa_unadj = 0)) %>%
+  
+  # bin sizes 
+  mutate(dbh_class = cut(dbh_in,
+                         breaks = seq(from = 1, to = 100, by = 1),
+                         right = FALSE)) %>%
+  
+  # tally within each bin
+  group_by(plt_cn, subp_id, spp, dbh_class) %>%
+  summarise(tpa = sum(tpa_unadj)) %>%
+  ungroup() %>%
+  
+  left_join(
+   treelist %>%
+   filter(is.element(plt_cn,
+                     filter(subplots, inv_kind == 'national_remeasure') %>%
+                       pull(plt_cn))) %>%
+   select(tre_cn, plt_cn, subp_id, tree_id, tree_status, dbh_in, prev_tre_cn, reconcile, tpa_unadj) %>%
+      # only trees which were alive at followup (all remeasures use manual 
+      # > 2.0)
+      filter(tree_status=='live' & is.na(reconcile)) %>%
+      
+      # fillin missing size classes
+      bind_rows(complete(., nesting(plt_cn, subp_id), dbh_in = 1:99) %>%
+                  mutate(tpa_unadj = 0)) %>%
+      
+      # bin sizes
+      mutate(dbh_class = cut(dbh_in,
+                             breaks = seq(from = 1, to = 100, by = 1),
+                             right = FALSE)) %>%
+      
+      # tally within each bin
+      group_by(plt_cn, subp_id, dbh_class) %>%
+      summarise(tpa = sum(tpa_unadj)) %>%
+      ungroup(),
+   by = c('subp_id' = 'subp_id', 'dbh_class' = 'dbh_class'),
+   suffix = c('.init', '.re'))
+  
+  # add in the smallest size class
+
+
+head(size_dist_data)
+
+
+
+head(seedlings)
+
+seedlings %>%
+  group_by(plt_cn, spp) %>%
+  summarise(tpa = sum(tpa_unadj)) %>%
+  ungroup() %>%
+  mutate(dbh_class = '[0,1)') %>%
+  filter(spp=='PILA' &
+           is.element(plt_cn, size_dist_data$plt_cn.init)) %>%
+  bind_rows()
+
+
+
+
+
+#### scratch ###################################################################
+
 
 #### pivot across time and join trees with subplot data ########################
 

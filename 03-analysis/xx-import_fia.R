@@ -1,6 +1,11 @@
 
 #### setup #####################################################################
 
+# on this, ans presumably many other plt_cns, the plot code is 
+# inconsistent between the PLOT table and the TREE table in the FIAPNW
+# database. wtf
+bad_cn = "290008535489998"
+
 library(here)
 library(tidyverse)
 library(DBI)

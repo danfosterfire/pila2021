@@ -1,0 +1,1025 @@
+
+library(here)
+library(tidyverse)
+library(DBI)
+library(RSQLite)
+
+pila_range.sf = 
+  sf::st_read(here::here('02-data',
+                     '01-preprocessed',
+                     'pila_range_map.shp'))
+
+#### read in data from SQLite databases ########################################
+
+# sqlite dbs downloaded from 
+# https://apps.fs.usda.gov/fia/datamart/datamart_sqlite.html
+# on 12/14/2021
+
+fiadb.ca = 
+  dbConnect(RSQLite::SQLite(),
+            here::here('02-data',
+                       '00-source',
+                       'fia',
+                       'FIADB_CA.db'))
+
+fiadb.nv = 
+  dbConnect(RSQLite::SQLite(),
+            here::here('02-data',
+                       '00-source',
+                       'fia',
+                       'FIADB_NV.db'))
+  
+fiadb.or = 
+  dbConnect(RSQLite::SQLite(),
+            here::here('02-data',
+                       '00-source',
+                       'fia',
+                       'FIADB_OR.db'))
+
+fiadb.wa = 
+  dbConnect(RSQLite::SQLite(),
+            here::here('02-data',
+                       '00-source',
+                       'fia',
+                       'FIADB_WA.db'))
+
+# they're not all the same which is super annoying
+dbListTables(fiadb.ca) == dbListTables(fiadb.nv) &
+  dbListTables(fiadb.ca) == dbListTables(fiadb.or) &
+  dbListTables(fiadb.ca) == dbListTables(fiadb.wa)
+
+
+fia = 
+  lapply(X =  c('COND', 'PLOT', 'REF_FOREST_TYPE',
+                'REF_FOREST_TYPE_GROUP', 'REF_SPECIES', 'SEEDLING', 'SUBPLOT', 
+                'SUBP_COND', 'TREE'),
+         FUN = function(tname){
+           dbReadTable(fiadb.ca, tname) %>%
+             bind_rows(dbReadTable(fiadb.nv, tname)) %>%
+             bind_rows(dbReadTable(fiadb.or, tname)) %>%
+             bind_rows(dbReadTable(fiadb.wa, tname)) %>%
+             as_tibble()
+         })
+
+names(fia) = c('COND', 'PLOT', 'REF_FOREST_TYPE',
+               'REF_FOREST_TYPE_GROUP', 'REF_SPECIES', 'SEEDLING', 'SUBPLOT', 
+               'SUBP_COND', 'TREE')
+         
+dbDisconnect(fiadb.ca)
+dbDisconnect(fiadb.or)
+dbDisconnect(fiadb.nv)
+dbDisconnect(fiadb.wa)
+
+# on this, ans presumably many other plt_cns, the plot code is 
+# inconsistent between the PLOT table and the TREE table in the FIAPNW
+# database. Is it also broken here? No.
+bad_cn = "290008535489998"
+fia$PLOT %>% filter(CN==bad_cn)
+fia$TREE %>% filter(PLT_CN==bad_cn)
+
+#### create crosswalks for codes ###############################################
+
+
+# copying the relevant crosswalks from the FIA documentation
+cond_dstrbcds = 
+  data.frame(
+    code = 
+      c(0, 10, 11, 12, 20, 21, 22, 30, 31, 32, 40, 41, 42, 43, 44,
+        45, 46, 50, 51, 52, 53, 54, 60, 70, 80, 90, 91, 92, 93, 94,
+        95),
+    cond_dstrbdesc = 
+      c('no visible disturbance',
+        'insect damage', 'insect damage to understory vegetation', 
+        'insect damage to rees, including seedlings and saplings',
+        'disease damage', 'disease damage to understory vegetation',
+        'disease damage to trees, including seedlings and saplings',
+        'fire damage (from crown and ground fire, either rx or natural',
+        'ground fire damage', 'crown fire damage',
+        'animal damage', 'beaver (includes flooding caused by beaver',
+        'porcupine', 'deer-ungulate', 'bear', 'rabbit', 
+        'domestic animal / livestock',
+        'weather damage', 'ice', 'wind (includes hurricane, tornado)', 
+        'flooding (weather induced)', 'drought', 
+        'vegetation (suppression, competition, vines)',
+        'unknown / not sure / other',
+        'human-induced damage - any significant level of human-caused damage not described in the disturbance codes or the treatment codes',
+        'geologic disturbances', 'landslide', 'avalanche track', 'volcanic blast zone', 
+        'other geologic event', 'earth movement / avalanches'),
+    cond_dstrbtype = 
+      c('none', 'insects', 'insects (understory)', 'insects (trees)',
+        'disease', 'disease (understory)', 'disease (trees)', 
+        'fire', 'fire (ground)', 'fire (crown)', 
+        'animal', 'animal', 'animal', 'animal', 'animal', 'animal', 'animal',
+        'weather (other)', 'weather (other)', 'weather (other)', 'weather (other)',
+        'drought', 'vegetation', 'unknown / other', 'human (other)', 
+        'geologic', 'geologic', 'geologic', 'geologic', 'geologic', 'geologic'))  %>%
+  mutate(cond_dstrbdesc = as.character(cond_dstrbdesc),
+         cond_dstrbtype = as.character(cond_dstrbtype)) %>%
+  as_tibble()
+
+cond_trtcds = 
+  data.frame(
+    code = 
+      c('0', '10', '20', '30', '40', '50'),
+    cond_trtdesc = 
+      c('no observable treatment',
+        'cutting - removal of one or more trees',
+        'site prep - clearing, slash burning, chopping, disking, bedding, or other practices clearly intended to prepare a site for either natural or artificial regeneration',
+        'artificial regeneration - following a disturbance or treatment (usually cutting), a new stand where at least 50 percent of the live trees present resulted from planting or direct seeding',
+        'natural regeneration - following a disturbance or treatment (usually cutting), a new stand where at least 50 percent of the live trees present (of any size) were established through the growth of existing trees and/or natural regen or sprouting',
+        'other silvicultural treatment - the use of fertilizers, herbicides, girdling, purning, or other activities (not covered by codes 10-40) designed to improve the commercial value of the residual stand; or chaining, which is a practice used on woodlands to encourage wildlife forage'),
+    cond_trttype = 
+      c('none',
+        'cutting',
+        'siteprep',
+        'regen (artificial)',
+        'regen (natural)',
+        'other')
+  ) %>%
+  mutate(code = as.integer(as.character(code)),
+         cond_trtdesc = as.character(cond_trtdesc),
+         cond_trttype = as.character(cond_trttype)) %>%
+  as_tibble()
+
+cond_statuscds = 
+  data.frame(
+    code = c(1, 2, 3, 4, 5),
+    cond_statustype = 
+      c('accessible_forest',
+        'nonforest',
+        'noncensus_water',
+        'census_water',
+        'nonsampled_potentialforest')
+  ) %>%
+  mutate(cond_statustype = as.character(cond_statustype)) %>%
+  as_tibble()
+
+plot_kindcds = 
+  data.frame(
+    code = c(0, 1, 2, 3, 4),
+    plot_kindtype = 
+      c('periodic', 'national_initial', 'national_remeasure', 'national_replacement',
+        'modeled_periodic')
+  ) %>%
+  mutate(across(plot_kindtype, as.character)) %>%
+  as_tibble()
+
+plot_statuscds = 
+  data.frame(
+    code = c(1, 2, 3),
+    plot_statustype = 
+      c('sampled_accessible_forest',
+        'sampled_no_forest',
+        'nonsampled')
+  ) %>%
+  mutate(across(plot_statustype, as.character)) %>%
+  as_tibble()
+
+plot_designcds = 
+  data.frame(
+    code = c(1, 501, 502), 
+    plot_designtype = 
+      c('standard', 'macro_24', 'macro_30')
+  ) %>%
+  mutate(plot_designtype = as.character(plot_designtype))
+
+subp_statuscds = plot_statuscds
+
+tree_statuscds = 
+  data.frame(
+    code = c('0', '1', '2', '3'),
+    tree_statustype = 
+      c('outofsample', 'live', 'dead', 'harvested')
+  ) %>%
+  mutate(code = as.integer(as.character(code)),
+         tree_statustype = as.character(tree_statustype)) %>%
+  as_tibble()
+
+tree_cclasscds = 
+  data.frame(
+    code = c('1', '2', '3', '4', '5'),
+    cclctype = 
+      c('opengrown', 'dominant', 'codominant', 'intermediate', 'overtopped')
+  ) %>%
+  mutate(code = as.integer(as.character(code)),
+         cclctype = as.character(cclctype)) %>%
+  as_tibble()
+
+
+tree_reconcilecds = 
+  data.frame(
+    code = c(1, 2, 3, 4, 5, 6, 7, 8, 9),
+    tree_reconciletype = 
+      c('ingrowth (other)',
+        'ingrowth (growth)',
+        'missed live',
+        'missed dead',
+        'shrank',
+        'missing (moved)',
+        'previous error',
+        'procedural change',
+        'area nonsampled')
+  ) %>%
+  mutate(across(tree_reconciletype, as.character)) %>%
+  as_tibble()
+
+
+tree_snagdiscds = 
+  data.frame(
+    code = 
+      c(2, 3, 4, 5, 6),
+    tree_snagdistype = 
+      c('fell_present',
+        'fell_missing',
+        'cut_present',
+        'cut_missing',
+        'shrank')
+  ) %>%
+  mutate(across(tree_snagdistype, as.character)) %>%
+  as_tibble()
+
+cond_physclcds = 
+  data.frame(
+    code = 
+      c(11, 12, 13, 19, 
+        21, 22, 23, 24, 25, 29,
+        31, 32, 33, 34, 35, 39),
+    physcldesc = 
+      c('dry_tops', 'dry_slopes', 'deep_sands', 'other_xeric',
+        'flatwoods', 'rolling_uplands', 'moist_slopes', 'narrow_bottomlands',
+        'broad_bottomlands', 'other_mesic',
+        'swampsbogs', 'small_drains', 'bays_pocosins', 'beaver_ponds',
+        'cypress_ponds', 'other_hydric'),
+    physcltype = 
+      c(rep('xeric', 4), rep('mesic', 6), rep('hydric', 6))
+  ) %>%
+  mutate(across(c(physcldesc, physcltype), as.character)) %>%
+  as_tibble()
+
+# ecoregion subsection codes; disabled for now
+# join the descriptive names with the codes
+#plot_ecosubcds = 
+#  st_read(here::here('02-data','00-source',
+#                     'usda', 'ecoregions',
+#                     'S_USA.EcoMapProvinces.shp')) %>%
+#  as.data.frame() %>%
+#  dplyr::select(province_code = MAP_UNIT_S,
+#                province_name = MAP_UNIT_N) %>%
+#  left_join(st_read(here::here('02-data','00-source',
+#                               'usda', 'ecoregions',
+#                               'S_USA.EcomapSections.shp')) %>%
+#              as.data.frame() %>%
+#              select(section_code = MAP_UNIT_S,
+#                     section_name = MAP_UNIT_N) %>%
+#              mutate(province_code = stringr::str_sub(section_code, end = -2)),
+#            by = 'province_code') %>%
+#  left_join(st_read(here::here('02-data','00-source',
+#                                 'usda', 'ecoregions',
+#                                 'S_USA.EcomapSubsections.shp')) %>%
+#              as.data.frame() %>%
+#              select(subsection_code = MAP_UNIT_S,
+#                     subsection_name = MAP_UNIT_N) %>%
+#              mutate(section_code = stringr::str_sub(subsection_code, end = -2))) %>%
+#  filter(!is.na(section_code)) %>%
+#  mutate_all(as.character)
+
+# join the descriptive names to the FIA plot data
+#fia_plots = 
+#  fia_plots %>%
+# get some of the more-coarse ecoregions
+#  mutate(ecosub = stringr::str_remove(ecosub, ' '),
+#         province = stringr::str_sub(ecosub, end = -3),
+#         section = stringr::str_sub(ecosub, end = -2),
+#         subsection = ecosub) %>%
+#  select(-ecosub) %>%
+#  left_join(ecoregion_defs,
+#            by = c('province' = 'province_code',
+#                   'section' = 'section_code',
+#                   'subsection' = 'subsection_code')) %>%
+#  as_tibble()
+
+plot_topopositioncds = 
+  data.frame(
+    code = 
+      c(1:9),
+    plot_topopositiontype = 
+      c('ridgetop', 'ridgetop_narrow', 'sidehill_upper', 'sidehill_middle',
+        'sidehill_lower', 'bottom_narrow', 'bench', 'bottom_alluvialflat', 
+        'swamp_wetflat')
+  ) %>%
+  mutate(across(everything(), as.character)) %>%
+  as_tibble()
+
+plot_nonsamplereasncds = 
+  data.frame(
+    code = c(2, 3, 8),
+    plot_nonsamplereasntype = 
+      c('denied_access', 'hazard', 'skipped')
+  ) %>%
+  mutate(plot_nonsamplereasntype = as.character(plot_nonsamplereasntype)) %>%
+  as_tibble()
+
+#### prepare subplots data #####################################################
+
+# one row per observation of a subplot, with columns indicating the disturbances 
+# present at that observation, the spatial location, etc.
+# the goal is to have a table with one row per observation of a condition (stand 
+# on a subplot at a specific inventory date)
+# context
+subplots = 
+  
+  # start with the plot table, with one row per plot observation
+  fia$PLOT %>%
+  as_tibble() %>%
+  rename(PLT_CN = CN) %>%
+  select(PLT_CN, PREV_PLT_CN, INVYR, STATECD, UNITCD, COUNTYCD, PLOT, 
+         PLOT_STATUS_CD, PLOT_NONSAMPLE_REASN_CD, MEASYEAR, 
+         MEASMON, MEASDAY, KINDCD, DESIGNCD, MANUAL,
+         LAT, LON, ELEV, ECOSUBCD) %>%
+  
+  # join in the subplot info, with one row per subplot observation
+  left_join(fia$SUBPLOT %>%
+              rename(SUBP_CN = CN) %>%
+              select(SUBP_CN, PLT_CN, 
+                     STATECD, UNITCD, COUNTYCD, PLOT, SUBP),
+            by = c('PLT_CN' = 'PLT_CN',
+                   'STATECD' = 'STATECD',
+                   'UNITCD' = 'UNITCD',
+                   'COUNTYCD' = 'COUNTYCD',
+                   'PLOT' = 'PLOT')) %>%
+  
+  # join the subplot conditions; this creates one row per condition:subplot:plot:time
+  left_join(fia$SUBP_COND %>%
+              rename(SUBPCOND_CN = CN) %>%
+              select(PLT_CN, SUBPCOND_CN, STATECD, UNITCD,
+                     COUNTYCD, PLOT, SUBP, CONDID),
+            by = c('PLT_CN' = 'PLT_CN', 
+                   'STATECD' = 'STATECD',
+                   'UNITCD' = 'UNITCD',
+                   'COUNTYCD' = 'COUNTYCD',
+                   'PLOT' = 'PLOT',
+                   'SUBP' = 'SUBP')) %>%
+  
+  # join the condition details
+  left_join(fia$COND %>%
+              rename(CND_CN = CN) %>%
+              select(PLT_CN, CND_CN, STATECD, UNITCD, 
+                     COUNTYCD, PLOT, CONDID, 
+                     DSTRBCD1, DSTRBCD2, DSTRBCD3,
+                     TRTCD1, TRTCD2, TRTCD3),
+            by = c('PLT_CN' = 'PLT_CN',
+                   'STATECD' = 'STATECD',
+                   'UNITCD' = 'UNITCD',
+                   'COUNTYCD' = 'COUNTYCD',
+                   'PLOT' = 'PLOT',
+                   'CONDID' = 'CONDID')) %>%
+  
+  # join the code meanings
+  left_join(cond_dstrbcds %>%
+              select(DSTRBCD1 = code,
+                     DSTRBCD1.DESC = cond_dstrbdesc,
+                     DSTRBCD1.TYPE = cond_dstrbtype)) %>%
+  
+  left_join(cond_dstrbcds %>%
+              select(DSTRBCD2 = code,
+                     DSTRBCD2.DESC = cond_dstrbdesc,
+                     DSTRBCD2.TYPE = cond_dstrbtype)) %>%
+  
+  left_join(cond_dstrbcds %>%
+              select(DSTRBCD3 = code,
+                     DSTRBCD3.DESC = cond_dstrbdesc,
+                     DSTRBCD3.TYPE = cond_dstrbtype)) %>%
+  
+  left_join(cond_trtcds %>%
+              select(TRTCD1 = code,
+                     TRTCD1.DESC = cond_trtdesc,
+                     TRTCD1.TYPE = cond_trttype)) %>%
+  
+  left_join(cond_trtcds %>%
+              select(TRTCD2 = code,
+                     TRTCD2.DESC = cond_trtdesc,
+                     TRTCD2.TYPE = cond_trttype)) %>%
+  
+  left_join(cond_trtcds %>%
+              select(TRTCD3 = code,
+                     TRTCD3.DESC = cond_trtdesc,
+                     TRTCD3.TYPE = cond_trttype)) %>%
+  
+  left_join(plot_designcds %>%
+              select(DESIGNCD = code,
+                     DESIGNCD.TYPE = plot_designtype)) %>%
+  
+  left_join(plot_kindcds %>%
+              select(KINDCD = code,
+                     KINDCD.TYPE = plot_kindtype)) %>%
+  
+  left_join(plot_statuscds %>%
+              select(PLOT_STATUS_CD = code,
+                     PLOT_STATUS_CD.TYPE = plot_statustype)) %>%
+  
+  left_join(plot_nonsamplereasncds %>%
+              select(PLOT_NONSAMPLE_REASN_CD = code,
+                     PLOT_NONSAMPLE_REASN_CD.TYPE = plot_nonsamplereasntype)) 
+
+
+subplots =
+  subplots %>%
+  
+  # convert the disturbance and treatment codes to presence/absence
+  # treat NA disturbance and treatment codes as 'none'
+  mutate(
+    disturb1 = ifelse(is.na(DSTRBCD1.TYPE), 'none', DSTRBCD1.TYPE),
+    disturb2 = ifelse(is.na(DSTRBCD2.TYPE), 'none', DSTRBCD2.TYPE),
+    disturb3 = ifelse(is.na(DSTRBCD3), 'none', DSTRBCD3.TYPE),
+    treat1 = ifelse(is.na(TRTCD1), 'none', TRTCD1),
+    treat2 = ifelse(is.na(TRTCD2), 'none', TRTCD2),
+    treat3 = ifelse(is.na(TRTCD3), 'none', TRTCD3)
+  ) %>%
+  
+  # scan the disturbance columns and turn them into relevant logicals
+  mutate(
+    
+    # first, scan disturb1, 2, and 3 separately for fire, and fill in fire year
+    # disturb_yr is well covered for fire, not so much for others
+    fire_1 = is.element(disturb1, c('fire', 'fire (crown)', 'fire (ground)')),
+    crownfire_1 = disturb1=='fire (crown)',
+    fire_2 = is.element(disturb2, c('fire', 'fire (crown)', 'fire (ground)')),
+    crownfire_2 = disturb2=='fire (crown)',
+    fire_3 = is.element(disturb3, c('fire', 'fire (crown)', 'fire (ground)')),
+    crownfire_3 = disturb3=='fire (crown)',
+    
+    fire = fire_1|fire_2|fire_3,
+    
+    insects = 
+      is.element(disturb1, c('insects (trees)', 'insects')) | 
+      is.element(disturb2, c('insects (trees)', 'insects')) | 
+      is.element(disturb3, c('insects (trees)', 'insects')),
+    
+    disease = 
+      is.element(disturb1, c('disease (trees)', 'disease')) | 
+      is.element(disturb2, c('disease (trees)', 'disease')) | 
+      is.element(disturb3, c('disease (trees)', 'disease')),
+    
+    drought = 
+      disturb1=='drought'|disturb2=='drought'|disturb3=='drought',
+    
+    suppression = 
+      disturb1=='vegetation'|disturb2=='vegetation'|disturb3=='vegetation',
+    
+    other = 
+      (is.element(disturb1, 
+                  c('weather (other)', 'human (other)', 'unknown / other',
+                    'animal', 'geologic', 'insects (understory)', 
+                    'disease (understory)')))| 
+      (is.element(disturb2, 
+                  c('weather (other)', 'human (other)', 'unknown / other',
+                    'animal', 'geologic', 'insects (understory)', 
+                    'disease (understory)')))|
+      (is.element(disturb3, 
+                  c('weather (other)', 'human (other)', 'unknown / other',
+                    'animal', 'geologic', 'insects (understory)', 
+                    'disease (understory)'))),
+    
+    cutting = 
+      treat1=='cutting'|treat2=='cutting'|treat3=='cutting',
+    
+    siteprep = 
+      treat1=='siteprep'|treat2=='siteprep'|treat3=='siteprep',
+    
+    artificialregen = 
+      treat1=='regen (artificial)'|treat2=='regen (artificial)'|treat3=='regen (artificial)',
+    
+    naturalregen = 
+      treat1=='regen (natural)'|treat2=='regen (natural)'|treat3=='regen (natural)'
+    ) %>%
+  
+  # aggregate the conds together to subplots
+  group_by(PLT_CN, PREV_PLT_CN, INVYR,
+           STATECD, UNITCD, COUNTYCD, PLOT, SUBP,
+           MEASYEAR, MEASMON, MEASDAY,
+           KINDCD.TYPE, DESIGNCD.TYPE, MANUAL,
+           PLOT_STATUS_CD.TYPE, PLOT_NONSAMPLE_REASN_CD.TYPE,
+           ELEV, LAT, LON, ECOSUBCD) %>%
+  summarise(
+    fire = any(fire),
+    insects = any(insects),
+    disease = any(disease),
+    drought = any(drought),
+    suppression = any(suppression),
+    cutting = any(cutting),
+    siteprep = any(siteprep),
+    artificialregen = any(artificialregen),
+    naturalregen = any(naturalregen)
+    
+  ) %>%
+  ungroup() %>%
+  
+  mutate(
+    plot_id = paste(STATECD, UNITCD, COUNTYCD, PLOT, 
+                    sep = '-'),
+    subp_id = paste(STATECD, UNITCD, COUNTYCD, PLOT, SUBP,
+                    sep = '-'),
+    invdate = as.Date(paste(MEASYEAR, MEASMON, MEASDAY, sep = '-'))
+  ) %>%
+  
+  select(
+    plt_cn = PLT_CN,
+    prev_plt_cn = PREV_PLT_CN,
+    invyr = INVYR,
+    plot_id, 
+    subp_id,
+    invdate,
+    inv_kind = KINDCD.TYPE,
+    inv_design = DESIGNCD.TYPE,
+    inv_manual = MANUAL,
+    plot_status = PLOT_STATUS_CD.TYPE,
+    plot_nonsamp = PLOT_NONSAMPLE_REASN_CD.TYPE,
+    elev_ft = ELEV, 
+    lat = LAT,
+    lon = LON,
+    ecosubcd = ECOSUBCD,
+    fire, insects, disease, drought, suppression, cutting, siteprep, 
+    artificialregen, naturalregen
+  )
+  
+  
+
+head(subplots)
+
+#### prepare treelist data #####################################################
+
+treelist = 
+  
+  fia$TREE %>%
+  as_tibble() %>%
+  rename(TRE_CN = CN) %>%
+  left_join(tree_cclasscds %>%
+              select(CCLCD = code,
+                     CCLCD.TYPE = cclctype)) %>%
+  
+  left_join(tree_reconcilecds %>%
+              select(RECONCILECD = code,
+                     RECONCILECD.TYPE = tree_reconciletype)) %>%
+  left_join(tree_snagdiscds %>%
+              select(SNAG_DIS_CD_PNWRS = code,
+                     SNAG_DIS_CD_PNWRS.TYPE = tree_snagdistype)) %>%
+  left_join(tree_statuscds %>%
+              select(STATUSCD = code,
+                     STATUSCD.TYPE = tree_statustype)) %>%
+  # join in the species labels
+  left_join(fia$REF_SPECIES %>%
+              select(SPCD,
+                     SPECIES = SPECIES_SYMBOL) %>%
+              group_by(SPCD, SPECIES) %>%
+              summarise() %>%
+              ungroup()) %>%
+  
+  mutate(plot_id = 
+           paste(STATECD, UNITCD, COUNTYCD, PLOT,
+                 sep = '-'),
+         subp_id = 
+           paste(STATECD, UNITCD, COUNTYCD, PLOT, SUBP,
+                 sep = '-'),
+         tree_id = 
+           paste(STATECD, UNITCD, COUNTYCD, PLOT, SUBP, TREE,
+                 sep = '-')) %>%
+  
+  select(tre_cn = TRE_CN,
+         plt_cn = PLT_CN,
+         prev_tre_cn = PREV_TRE_CN,
+         plot_id, subp_id, tree_id,
+         tree_status = STATUSCD.TYPE,
+         species = SPECIES,
+         dbh_in = DIA,
+         tpa_unadj = TPA_UNADJ,
+         cclass = CCLCD.TYPE,
+         reconcile = RECONCILECD.TYPE) %>%
+  
+  mutate(species = ifelse(is.element(species,
+                                     c('ABCO', 'CADE27', 'PILA', 'PIPO',
+                                       'PSME', 'QUKE')),
+                          species,
+                          'OTHER'))
+
+
+head(treelist)
+         
+#### prepare seedling data #####################################################
+
+names(fia$SEEDLING)
+
+seedlings = 
+  fia$SEEDLING %>%
+  rename(SED_CN = CN) %>%
+  mutate(plot_id = paste(STATECD, UNITCD, COUNTYCD, PLOT, 
+                         sep = '-'),
+         subp_id = paste(STATECD,UNITCD,COUNTYCD,PLOT,SUBP,
+                         sep = '-')) %>%
+  # join in the species labels
+  left_join(fia$REF_SPECIES %>%
+              select(SPCD,
+                     SPECIES = SPECIES_SYMBOL) %>%
+              group_by(SPCD, SPECIES) %>%
+              summarise() %>%
+              ungroup()) %>%
+  
+  select(sed_cn = SED_CN,
+         plt_cn = PLT_CN,
+         plot_id,
+         subp_id,
+         species = SPECIES,
+         tpa_unadj = TPA_UNADJ) %>%
+  mutate(species = 
+           ifelse(is.element(species,
+                             c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 
+                               'QUKE')),
+                  species,
+                  'OTHER')) %>%
+  group_by(plt_cn, plot_id, subp_id, species) %>%
+  summarise(tpa_unadj = sum(tpa_unadj, na.rm = TRUE)) %>%
+  ungroup()
+
+#### filter subplots ###########################################################
+
+# aspatial filtering first
+subplots = 
+  subplots %>%
+  
+  # within CA or OR
+  filter(is.element(gsub(x = plot_id, pattern = '-.*$', replacement = ''), 
+                    c('6', '41'))) %>%
+  
+  # invyr in correct range; drops the phase 3 "off subpanel"
+  filter(invyr >= 2000 & invyr <= 2021) %>%
+  
+  # only sampled plots
+  filter(plot_status != 'nonsampled')
+
+
+# lat,lon within PILA range polygon
+plt_cn_within_range = 
+  
+  # create spatial points
+  sf::st_as_sf(subplots,
+           coords = c('lon', 'lat'),
+           crs = 4269) %>%
+  
+  # intersect them with the range polygon
+  sf::st_intersection(sf::st_transform(pila_range.sf, sf::st_crs(.))) %>%
+  
+  # extract the plt_cns 
+  pull(plt_cn)
+
+subplots = 
+  subplots %>%
+  filter(is.element(plt_cn, plt_cn_within_range))
+
+
+
+#### filter treelist ###########################################################
+
+# want only trees from included subplots, and no trees which were 
+# excluded on remeasurement
+treelist = 
+  treelist %>%
+  filter(is.element(plt_cn, subplots$plt_cn)) %>%
+  filter(tree_status != 'outofsample' & 
+           !is.element(tre_cn, 
+                       treelist %>%
+                         filter(tree_status == 'outofsample') %>%
+                         pull(prev_tre_cn)))
+
+#### filter seedlings ##########################################################
+
+# want only seedlings from included subplots
+seedlings = 
+  seedlings %>%
+  filter(is.element(plt_cn, subplots$plt_cn))
+
+
+#### build subplot covariates data frame #######################################
+
+
+# all three models - growth, mortality, and recruitment - use the 
+# same subplot-level explanatory variables:
+# presence of fire/insects/disease/cutting flag at remeasurement
+# basal area at initial measurement
+# max CWD between initial and remeasurement
+
+# need a dataframe with one row per subplot
+subplot_data = 
+  
+  subplots %>%
+  
+  # just the remeasurement plots which have an initial measure associated
+  filter(!is.na(prev_plt_cn) & inv_kind == 'national_remeasure') %>%
+  select(plt_cn, prev_plt_cn, plot_id, subp_id,
+         elev_ft, lat, lon, ecosubcd,
+         invdate, inv_manual,
+         fire, insects, disease, cutting) %>%
+  
+  # get the invdate and inv manual for the initial measurement
+  left_join(subplots %>%
+              select(plt_cn, subp_id, invdate, inv_manual),
+            suffix = c('.re', '.init'),
+            by = c('prev_plt_cn' = 'plt_cn',
+                   'subp_id' = 'subp_id')) %>%
+  
+  # get the live BA for the initial measurement
+  left_join(treelist %>%
+              filter(tree_status == 'live') %>%
+              mutate(ba_ft2ac = (pi*((0.5*(dbh_in/12))^2))*tpa_unadj) %>%
+              group_by(plt_cn, subp_id) %>%
+              summarise(ba_ft2ac = sum(ba_ft2ac, na.rm = TRUE)) %>%
+              ungroup(),
+            by = c('prev_plt_cn' = 'plt_cn',
+                   'subp_id' = 'subp_id')) %>%
+  mutate(ba_ft2ac = 
+           ifelse(is.na(ba_ft2ac), 0, ba_ft2ac)) %>%
+  
+  mutate(subp_index = 
+           as.numeric(factor(subp_id)))
+
+
+#### pull in CWD data ##########################################################
+
+library(terra)
+
+head(subplot_data)
+
+subplots_bbox = 
+  list('lat_min' = min(subplot_data$lat)-1,
+       'lat_max' = max(subplot_data$lat)+1,
+       'lon_min' = min(subplot_data$lon)-1,
+       'lon_max' = max(subplot_data$lon)+1)
+
+subplots_bbox
+
+cwd_growseason_means = 
+  lapply(X = 2000:2020,
+         FUN = function(y){
+           
+           cwd_year = 
+             rast(here::here('02-data',
+                             '00-source',
+                             'terraclimate',
+                             paste0('TerraClimate_def_',y,'.nc')))
+           
+           cwd_year = 
+             crop(cwd_year,
+                  c(subplots_bbox$lon_min, subplots_bbox$lon_max,
+                    subplots_bbox$lat_min, subplots_bbox$lat_max))
+           
+           cwd_year = 
+             mean(cwd_year[[5:10]])
+           
+           return(cwd_year)
+           
+         }) %>%
+  rast()
+
+names(cwd_growseason_means) = 
+  paste0('growseasonmean_',as.character(2000:2020))
+
+plot(cwd_growseason_means)
+
+# get departure from "normal" (20 year mean) CWD for each 
+# year on each location
+cwd_departure = 
+  cwd_growseason_means - mean(cwd_growseason_means)
+
+names(cwd_departure) = paste0('cwddeparture_', as.character(2000:2020))
+
+plot(cwd_departure)
+
+head(subplot_data)
+
+cwd_departures = 
+  extract(cwd_departure, subplot_data[,c('lon', 'lat')]) %>%
+  bind_cols('subp_id' = subplot_data$subp_id,
+            'year_begin' = lubridate::year(subplot_data$invdate.init),
+            'year_end' = lubridate::year(subplot_data$invdate.re))
+
+cwd_departure_span = 
+  sapply(X = 1:nrow(cwd_departures),
+         FUN = function(i){
+           
+           year_range = seq(from = cwd_departures$year_begin[i],
+                            to = cwd_departures$year_end[i],
+                            by = 1)
+           
+           columns_to_select = 
+             paste0('cwddeparture_', year_range)
+           
+           values_in_span = 
+             as.numeric(cwd_departures[i,columns_to_select])
+           
+           # return the most extreme CWD departure
+           return(max(values_in_span))
+           
+         })
+
+head(cwd_departure_span)
+
+subplot_data$max_cwd_departure = cwd_departure_span
+
+#### make individual mortality data frame ######################################
+
+mort_data = 
+  
+  # start with the treelist
+  treelist %>%
+  
+  select(tre_cn, prev_tre_cn, plt_cn, subp_id, tree_status, species, dbh_in) %>%
+  
+  # filter to only trees which were recorded at remeasurement
+  filter(!is.na(prev_tre_cn)) %>%
+  
+  # join in the initial size and status
+  left_join(.,
+            treelist %>%
+              select(tre_cn, plt_cn, tree_status, dbh_in),
+            by = c('prev_tre_cn' = 'tre_cn'),
+            suffix = c('.re', '.init')) %>%
+  
+  # filter to only trees which were alive at initial measurement
+  filter(tree_status.init == 'live') %>%
+  
+  # create a column for survival 
+  mutate(survived = ifelse(tree_status.init=='live'&tree_status.re=='live',
+                           TRUE,
+                           FALSE))
+
+
+#### make individual growth data frame #########################################
+
+growth_data = 
+  
+  # start with the treelist
+  treelist %>%
+  
+  select(tre_cn, prev_tre_cn, plt_cn, subp_id, tree_status, species, dbh_in) %>%
+  
+  # filter to only trees which were recorded at remeasurement
+  filter(!is.na(prev_tre_cn)) %>%
+  
+  # join in the initial size and status
+  left_join(.,
+            treelist %>%
+              select(tre_cn, plt_cn, tree_status, dbh_in),
+            by = c('prev_tre_cn' = 'tre_cn'),
+            suffix = c('.re', '.init')) %>%
+  
+  # filter to only trees which were alive at initial measurement and the 
+  # remeasurement
+  filter(tree_status.init == 'live' & tree_status.re=='live') 
+
+
+#### make size distribution data frame #########################################
+
+# start with the subplots data
+sizedist_data = 
+  
+  subplot_data %>%
+  
+  # filter to only subplots where both initial and remeasurement had manual 
+  # greater than or equal to 2
+  filter(inv_manual.init >= 2.0 & inv_manual.re >= 2.0) %>%
+  
+  select(plt_cn, prev_plt_cn, subp_id) %>%
+  
+  # expand it to get 1 row per size bin and species (should be 
+  # 17232 * 7 spp * 100 bins = 12062400 rows)
+  expand(nesting(plt_cn, prev_plt_cn, subp_id),
+         species = c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE', 'OTHER'),
+         dbh_class = 
+             cut(seq(from = 0.5, to = 99.5, by = 1),
+                 breaks = seq(from = 0, to = 100, by = 1),
+                 labels = FALSE)) %>%
+  
+  # add in the counts for the smallest size class from the seedlings 
+  # data for the remeasurement
+  left_join(seedlings %>%
+              mutate(dbh_class = 1) %>%
+              select(plt_cn, subp_id, species, dbh_class, 
+                     tpa_unadj_little = tpa_unadj),
+            by = c('plt_cn' = 'plt_cn',
+                   'subp_id' = 'subp_id',
+                   'species' = 'species',
+                   'dbh_class' = 'dbh_class')) %>%
+  
+  # add in the counts for the smallest size class from the seedlings 
+  # data for the remeasurement
+  left_join(seedlings %>%
+              mutate(dbh_class = 1) %>%
+              select(plt_cn, subp_id, species, dbh_class, 
+                     tpa_unadj_little = tpa_unadj),
+            by = c('prev_plt_cn' = 'plt_cn',
+                   'subp_id' = 'subp_id',
+                   'species' = 'species',
+                   'dbh_class' = 'dbh_class'),
+            suffix = c('.re', '.init')) %>%
+  
+  # add in the counts for the other size classes from an aggregated 
+  # treelist 
+  left_join(treelist %>%
+              mutate(dbh_class = cut(dbh_in,
+                                    breaks = 
+                                      seq(from = 0, to = 100, by = 1),
+                                    labels = FALSE)) %>%
+              select(plt_cn, subp_id, species, dbh_class, tpa_unadj) %>%
+              group_by(plt_cn, subp_id, species, dbh_class) %>%
+              summarise(tpa_unadj_big = sum(tpa_unadj, na.rm = TRUE)) %>%
+              ungroup(),
+            by = c('plt_cn' = 'plt_cn',
+                   'subp_id' = 'subp_id',
+                   'species' = 'species',
+                   'dbh_class' = 'dbh_class')) %>%
+  
+  left_join(treelist %>%
+              mutate(dbh_class = cut(dbh_in,
+                                     breaks = 
+                                       seq(from = 0, to = 100, by = 1),
+                                     labels = FALSE)) %>%
+              select(plt_cn, subp_id, species, dbh_class, tpa_unadj) %>%
+              group_by(plt_cn, subp_id, species, dbh_class) %>%
+              summarise(tpa_unadj_big = sum(tpa_unadj, na.rm = TRUE)) %>%
+              ungroup(),
+            by = c('prev_plt_cn' = 'plt_cn',
+                   'subp_id' = 'subp_id',
+                   'species' = 'species',
+                   'dbh_class' = 'dbh_class'),
+            suffix = c('.re', '.init')) %>%
+  
+  
+  
+  # fill in the NAs with 0s
+  mutate(tpa_unadj_little.init = ifelse(is.na(tpa_unadj_little.init),
+                                   0,
+                                   tpa_unadj_little.init),
+         tpa_unadj_big.init = ifelse(is.na(tpa_unadj_big.init),
+                                0,
+                                tpa_unadj_big.init),
+         tpa_unadj.init = tpa_unadj_little.init+tpa_unadj_big.init,
+         
+         tpa_unadj_little.re = ifelse(is.na(tpa_unadj_little.re),
+                                   0,
+                                   tpa_unadj_little.re),
+         tpa_unadj_big.re = ifelse(is.na(tpa_unadj_big.re),
+                                0,
+                                tpa_unadj_big.re),
+         tpa_unadj.re = tpa_unadj_little.re+tpa_unadj_big.re) %>%
+  select(plt_cn, prev_plt_cn, subp_id, species, dbh_class,
+         tpa_unadj.init, tpa_unadj.re)
+
+
+
+#### write results #############################################################
+
+
+head(mort_data)
+head(growth_data)
+head(subplot_data)
+head(sizedist_data)
+
+write.csv(mort_data,
+          here::here('02-data',
+                     '02-for_analysis',
+                     'mort_data.csv'),
+          row.names = FALSE)
+saveRDS(mort_data,
+        here::here('02-data',
+                   '02-for_analysis',
+                   'mort_data.rds'))
+
+write.csv(growth_data,
+          here::here('02-data',
+                     '02-for_analysis',
+                     'growth_data.csv'),
+          row.names = FALSE)
+saveRDS(growth_data,
+        here::here('02-data',
+                   '02-for_analysis',
+                   'growth_data.rds'))
+
+write.csv(sizedist_data,
+          here::here('02-data',
+                     '02-for_analysis',
+                     'sizedist_data.csv'),
+          row.names = FALSE)
+saveRDS(sizedist_data,
+        here::here('02-data',
+                   '02-for_analysis',
+                   'sizedist_data.rds'))
+
+write.csv(subplot_data,
+          here::here('02-data',
+                     '02-for_analysis',
+                     'subplot_data.csv'),
+          row.names = FALSE)
+saveRDS(subplot_data,
+        here::here('02-data',
+                   '02-for_analysis',
+                   'subplot_data.rds'))
+
+
