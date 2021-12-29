@@ -3,14 +3,4 @@
 .RData
 .Ruserdata
 
-02-data/00-source/fia/FIADB_CA.db
-02-data/00-source/fia/FIADB_NV.db
-02-data/00-source/fia/FIADB_OR.db
-02-data/00-source/fia/FIADB_WA.db
-02-data/00-source/wilson2013/s117.img
-02-data/00-source/terraclimate/*
-
-02-data/02-for_analysis/growth_data.csv
-02-data/02-for_analysis/mort_data.csv
-02-data/02-for_analysis/sizedist_data.csv
-02-data/02-for_analysis/subplot_data.csv
+02-data/*

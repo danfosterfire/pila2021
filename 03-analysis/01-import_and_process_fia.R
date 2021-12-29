@@ -542,7 +542,6 @@ subplots =
     artificialregen, naturalregen
   )
   
-  
 
 head(subplots)
 
@@ -628,7 +627,8 @@ seedlings =
          plot_id,
          subp_id,
          species = SPECIES,
-         tpa_unadj = TPA_UNADJ) %>%
+         tpa_unadj = TPA_UNADJ,
+         count = TREECOUNT) %>%
   mutate(species = 
            ifelse(is.element(species,
                              c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 
@@ -636,7 +636,8 @@ seedlings =
                   species,
                   'OTHER')) %>%
   group_by(plt_cn, plot_id, subp_id, species) %>%
-  summarise(tpa_unadj = sum(tpa_unadj, na.rm = TRUE)) %>%
+  summarise(tpa_unadj = sum(tpa_unadj, na.rm = TRUE),
+            count = sum(count, na.rm = TRUE)) %>%
   ungroup()
 
 #### filter subplots ###########################################################
@@ -679,7 +680,8 @@ subplots =
 #### filter treelist ###########################################################
 
 # want only trees from included subplots, and no trees which were 
-# excluded on remeasurement
+# excluded on remeasurement, and no trees with NA remeasure DBH and remasure
+# status=='live' (theres 17 of the latter)
 treelist = 
   treelist %>%
   filter(is.element(plt_cn, subplots$plt_cn)) %>%
@@ -687,7 +689,12 @@ treelist =
            !is.element(tre_cn, 
                        treelist %>%
                          filter(tree_status == 'outofsample') %>%
-                         pull(prev_tre_cn)))
+                         pull(prev_tre_cn))) %>%
+  filter(!(tree_status=='live'&
+             !is.na(prev_tre_cn)&
+             is.na(dbh_in)))
+
+
 
 #### filter seedlings ##########################################################
 
@@ -735,10 +742,7 @@ subplot_data =
             by = c('prev_plt_cn' = 'plt_cn',
                    'subp_id' = 'subp_id')) %>%
   mutate(ba_ft2ac = 
-           ifelse(is.na(ba_ft2ac), 0, ba_ft2ac)) %>%
-  
-  mutate(subp_index = 
-           as.numeric(factor(subp_id)))
+           ifelse(is.na(ba_ft2ac), 0, ba_ft2ac)) 
 
 
 #### pull in CWD data ##########################################################
@@ -814,14 +818,19 @@ cwd_departure_span =
            values_in_span = 
              as.numeric(cwd_departures[i,columns_to_select])
            
-           # return the most extreme CWD departure
-           return(max(values_in_span))
+           # return the 90th percentile CWD departure
+           return(as.numeric(quantile(values_in_span, probs = 0.9)))
            
          })
 
 head(cwd_departure_span)
 
-subplot_data$max_cwd_departure = cwd_departure_span
+subplot_data$cwd_departure90 = cwd_departure_span
+
+subplot_data$cwd_mean = 
+  extract(mean(cwd_growseason_means),
+          subplot_data[,c('lon', 'lat')])$mean
+
 
 #### make individual mortality data frame ######################################
 
@@ -895,7 +904,8 @@ sizedist_data =
          dbh_class = 
              cut(seq(from = 0.5, to = 99.5, by = 1),
                  breaks = seq(from = 0, to = 100, by = 1),
-                 labels = FALSE)) %>%
+                 labels = FALSE,
+                 right = FALSE)) %>%
   
   # add in the counts for the smallest size class from the seedlings 
   # data for the remeasurement
@@ -909,7 +919,7 @@ sizedist_data =
                    'dbh_class' = 'dbh_class')) %>%
   
   # add in the counts for the smallest size class from the seedlings 
-  # data for the remeasurement
+  # data for the initial measurement
   left_join(seedlings %>%
               mutate(dbh_class = 1) %>%
               select(plt_cn, subp_id, species, dbh_class, 
@@ -923,10 +933,12 @@ sizedist_data =
   # add in the counts for the other size classes from an aggregated 
   # treelist 
   left_join(treelist %>%
+              filter(tree_status == 'live')  %>%
               mutate(dbh_class = cut(dbh_in,
                                     breaks = 
                                       seq(from = 0, to = 100, by = 1),
-                                    labels = FALSE)) %>%
+                                    labels = FALSE,
+                                    right = FALSE)) %>%
               select(plt_cn, subp_id, species, dbh_class, tpa_unadj) %>%
               group_by(plt_cn, subp_id, species, dbh_class) %>%
               summarise(tpa_unadj_big = sum(tpa_unadj, na.rm = TRUE)) %>%
@@ -937,10 +949,12 @@ sizedist_data =
                    'dbh_class' = 'dbh_class')) %>%
   
   left_join(treelist %>%
+              filter(tree_status == 'live') %>%
               mutate(dbh_class = cut(dbh_in,
                                      breaks = 
                                        seq(from = 0, to = 100, by = 1),
-                                     labels = FALSE)) %>%
+                                     labels = FALSE,
+                                     right = FALSE)) %>%
               select(plt_cn, subp_id, species, dbh_class, tpa_unadj) %>%
               group_by(plt_cn, subp_id, species, dbh_class) %>%
               summarise(tpa_unadj_big = sum(tpa_unadj, na.rm = TRUE)) %>%
@@ -972,7 +986,93 @@ sizedist_data =
   select(plt_cn, prev_plt_cn, subp_id, species, dbh_class,
          tpa_unadj.init, tpa_unadj.re)
 
+#### make untagged plants data frame ###########################################
 
+# want a 10 X S matrix, where S is the number of distinct subplots, and the 
+# rows 1-5 are 1 inch size bins, and the cell values are the counts of 
+# **untagged** (new) individuals in each size class on each plot; storing a 
+# long dataframe here 
+
+# start with a frame of all the plots and size classes
+untagged_data = 
+  subplot_data %>%
+  
+  # filter to only subplots where both initial and remeasurement had manual 
+  # greater than or equal to 2
+  filter(inv_manual.init >= 2.0 & inv_manual.re >= 2.0) %>%
+  
+  select(plt_cn, prev_plt_cn, subp_id) %>%
+  
+  # expand it to get 1 row per size bin and species (should be 
+  # 8380 * 7 spp * 5 bins =  293300 rows)
+  expand(nesting(plt_cn, prev_plt_cn, subp_id),
+         species = c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE', 'OTHER'),
+         dbh_class = 1:10) %>%
+
+  # add in the counts for the smallest size class from the seedlings 
+  # data for the remeasurement
+  left_join(seedlings %>%
+              mutate(dbh_class = 1) %>%
+              select(plt_cn, subp_id, species, dbh_class,
+                     count_little = count),
+            by = c('plt_cn' = 'plt_cn',
+                   'subp_id' = 'subp_id',
+                   'species' = 'species',
+                   'dbh_class' = 'dbh_class')) %>%
+  
+  # add in the counts from the bigger size classes from the trees data 
+  # for the remeasurement, **BUT ONLY INCLUDING UNTAGGED TREES**
+  left_join(treelist %>%
+              filter(is.na(prev_tre_cn) & tree_status=='live') %>%
+              mutate(dbh_class = cut(dbh_in,
+                                    breaks = 
+                                      seq(from = 0, to = 100, by = 1),
+                                    labels = FALSE,
+                                    right = FALSE),
+                     count_big = 1) %>%
+              select(plt_cn, subp_id, species, dbh_class, count_big) %>%
+              group_by(plt_cn, subp_id, species, dbh_class) %>%
+              summarise(count_big = sum(count_big, na.rm = TRUE)) %>%
+              ungroup(),
+            by = c('plt_cn' = 'plt_cn',
+                   'subp_id' = 'subp_id',
+                   'species' = 'species',
+                   'dbh_class' = 'dbh_class')) %>%
+  
+  # fill in the missings with 0s
+  mutate(count_little = ifelse(is.na(count_little), 0, count_little),
+         count_big = ifelse(is.na(count_big), 0, count_big),
+         count = count_little+count_big) %>%
+  
+  select(subp_id, species, dbh_class, count)
+
+
+#### size classes metadata #####################################################
+
+# the model also needs metadata about the size bins for the bins included 
+# in the recruitment model; specifically the upper 
+# and lower bounds for each bin, the midpoint of each bin, and the plot size 
+# of each bin
+size_metadata = 
+  data.frame(bin_midpoint = 
+               seq(from = 0.5, to = 9.5, by = 1)) %>%
+  mutate(bin_id = cut(bin_midpoint,
+                      breaks = seq(from = 0, to = 10, by = 1),
+                      labels = FALSE,
+                      right = FALSE),
+         bin_lower = seq(from = 0, to = 9, by = 1),
+         bin_upper = seq(from = 1, to = 10, by = 1),
+         
+         # <5" dbh are measured on a 6.8' radius (.00333ac) microcplot
+         # >= 5" dbh measured on a 24' radius (0.0415ac) subplot
+         # ignoring the macroplots here, because we only need this info for the 
+         # size classes included as responses in the recruitment submodel; 
+         # min macroplot dbh is 24"
+         plot_area_ac = 
+           c(0.00333, 0.00333, 0.00333, 0.00333, 0.00333,
+             0.0415, 0.0415, 0.0415, 0.0415, 0.0415))
+
+size_metadata
 
 #### write results #############################################################
 
@@ -984,42 +1084,61 @@ head(sizedist_data)
 
 write.csv(mort_data,
           here::here('02-data',
-                     '02-for_analysis',
+                     '01-preprocessed',
                      'mort_data.csv'),
           row.names = FALSE)
 saveRDS(mort_data,
         here::here('02-data',
-                   '02-for_analysis',
+                   '01-preprocessed',
                    'mort_data.rds'))
 
 write.csv(growth_data,
           here::here('02-data',
-                     '02-for_analysis',
+                     '01-preprocessed',
                      'growth_data.csv'),
           row.names = FALSE)
 saveRDS(growth_data,
         here::here('02-data',
-                   '02-for_analysis',
+                   '01-preprocessed',
                    'growth_data.rds'))
 
 write.csv(sizedist_data,
           here::here('02-data',
-                     '02-for_analysis',
+                     '01-preprocessed',
                      'sizedist_data.csv'),
           row.names = FALSE)
 saveRDS(sizedist_data,
         here::here('02-data',
-                   '02-for_analysis',
+                   '01-preprocessed',
                    'sizedist_data.rds'))
 
 write.csv(subplot_data,
           here::here('02-data',
-                     '02-for_analysis',
+                     '01-preprocessed',
                      'subplot_data.csv'),
           row.names = FALSE)
 saveRDS(subplot_data,
         here::here('02-data',
-                   '02-for_analysis',
+                   '01-preprocessed',
                    'subplot_data.rds'))
 
+write.csv(untagged_data,
+          here::here('02-data', 
+                     '01-preprocessed', 
+                     'untagged_data.csv'),
+          row.names = FALSE)
+saveRDS(untagged_data,
+        here::here('02-data',
+                   '01-preprocessed',
+                   'untagged_data.rds'))
+
+write.csv(size_metadata,
+          here::here('02-data',
+                     '01-preprocessed',
+                     'size_metadata.csv'),
+          row.names = FALSE)
+saveRDS(size_metadata,
+        here::here('02-data',
+                   '01-preprocessed',
+                   'size_metadata.rds'))
 

@@ -6,22 +6,22 @@ library(ggplot2)
 
 growth_data = 
   readRDS(here::here('02-data',
-                     '02-for_analysis',
+                     '01-preprocessed',
                      'growth_data.rds'))
 
 mort_data = 
   readRDS(here::here('02-data',
-                     '02-for_analysis',
+                     '01-preprocessed',
                      'mort_data.rds'))
 
 sizedist_data = 
   readRDS(here::here('02-data',
-                     '02-for_analysis',
+                     '01-preprocessed',
                      'sizedist_data.rds'))
 
 subplot_data = 
   readRDS(here::here('02-data',
-                     '02-for_analysis',
+                     '01-preprocessed',
                      'subplot_data.rds'))
 
 #### growth data ###############################################################
@@ -126,7 +126,7 @@ ggplot(data =
 head(subplot_data)
 
 lapply(X = 
-         c('elev_ft', 'lat', 'lon', 'ba_ft2ac', 'max_cwd_departure'),
+         c('elev_ft', 'lat', 'lon', 'ba_ft2ac', 'cwd_departure90', 'cwd_mean'),
        FUN = function(v){
          ggplot(data = subplot_data,
                 aes(x = .data[[v]]))+
@@ -144,11 +144,11 @@ lapply(X =
 
 # plot variables across space
 lapply(X = 
-         c('fire', 'insects', 'disease', 'ba_ft2ac', 'max_cwd_departure'),
+         c('fire', 'insects', 'disease', 'ba_ft2ac', 'cwd_departure90', 'cwd_mean'),
        FUN = function(v){
          ggplot(data = subplot_data,
                 aes(x = lon, y = lat, color = .data[[v]]))+
-           geom_point(alpha = 0.5, size = 0)+
+           geom_point(alpha = 0.25)+
            coord_sf()+
            theme_minimal()
        })
@@ -164,7 +164,7 @@ lapply(X =
        })
 
 lapply(X = 
-         c('ba_ft2ac', 'max_cwd_departure'),
+         c('ba_ft2ac', 'cwd_departure90'),
        FUN = function(v){
          ggplot(data = subplot_data,
                 aes(x = factor(lubridate::year(invdate.re)),
@@ -179,30 +179,68 @@ ggplot(data = subplot_data,
   geom_boxplot() # huh interesting looks like higher BA plots were more likely to burn
 
 ggplot(data = subplot_data,
-       aes(x = fire, y = max_cwd_departure))+
-  geom_boxplot() # not much relationship between drought and fire
+       aes(x = fire, y = cwd_departure90))+
+  geom_boxplot() # fire more likely with drought
 
 ggplot(data = subplot_data,
        aes(x = insects, y = ba_ft2ac))+
   geom_boxplot() # higher ba more likely to have insects?
 
 ggplot(data = subplot_data,
-       aes(x = insects, y = max_cwd_departure))+
-  geom_boxplot() # higher drought more likely to have insects
+       aes(x = insects, y = cwd_departure90))+
+  geom_boxplot() # not much effect of drought on insects 
+# (there was with max departure instead of 90th)
 
 ggplot(data = subplot_data,
        aes(x = disease, y = ba_ft2ac))+
   geom_boxplot() # higher BA more likley to have disease
 
 ggplot(data = subplot_data,
-       aes(x = disease, y = max_cwd_departure))+
-  geom_boxplot() # drought decreases probability of disease
+       aes(x = disease, y = cwd_departure90))+
+  geom_boxplot() # drought decreases probability of disease 
+# (detection? or diseases actually spread more under damp conditions?)
 
 ggplot(data = subplot_data,
-       aes(x = ba_ft2ac, y = max_cwd_departure))+
+       aes(x = ba_ft2ac, y = cwd_departure90))+
   geom_point()+
-  geom_smooth(method = 'lm') # very weak positive relationship between BA and CWD
+  geom_smooth(method = 'lm') # none
 
+ggplot(data = subplot_data,
+       aes(y = ba_ft2ac, x = cwd_mean))+
+  geom_point()+
+  geom_smooth(method = 'lm') # ba is lower at drier sites
+
+ggplot(data = subplot_data,
+       aes(x = fire, y = cwd_mean))+
+  geom_boxplot() # not much relationship between dryness and fire
+
+ggplot(data = subplot_data,
+       aes(x = insects, y = cwd_mean))+
+  geom_boxplot() # more insects at drier sites
+
+ggplot(data = subplot_data,
+       aes(x = disease, y= cwd_mean))+
+  geom_boxplot() # more disease at drier sites
+
+ggplot(data = subplot_data,
+       aes(x = fire, fill = insects))+
+  geom_bar(position = position_fill()) # fire doesnt affect the p(insects)
+
+ggplot(data = subplot_data,
+       aes(x = insects, fill = fire))+
+  geom_bar(position = position_fill()) # insects dont affect p(fire)
+
+ggplot(data = subplot_data,
+       aes(x = fire, fill = disease))+
+  geom_bar(position = position_fill()) # disease more likely when fire = false
+
+ggplot(data = subplot_data,
+       aes(x = disease, fill = fire))+
+  geom_bar(position = position_fill()) # fire less likely when diease = TRUE
+
+ggplot(data = subplot_data,
+       aes(x = insects, fill = disease))+
+  geom_bar(position = position_fill()) # disease way more likely when insects true
 
 
 
@@ -210,7 +248,9 @@ ggplot(data = subplot_data,
 #### notes #####################################################################
 
 # issues to go clean up in the data import script
-#  - 17 rows in growth data with NA remeasure DBH; probably just drop them
-#  - a few crazy growth deltas (ignore? thats what perry would want probably)
-# - think about what to do with the "cutting" subplot flag, which is all FALSE
-#   - consider a better measure of CWD than max; maybe 90th percentile? or max of a moving window?
+#  - 17 rows in growth data with NA remeasure DBH; probably just drop them (done)
+#  - a few crazy growth deltas (leave them in? thats what perry would want probably; done)
+# - think about what to do with the "cutting" subplot flag, which is all FALSE 
+#    (leave it in, ditch from model)
+#   - consider a better measure of CWD than max; maybe 90th percentile? or max 
+#     of a moving window? (90th percentile departure + mean cwd as separate variables)
