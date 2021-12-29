@@ -79,14 +79,10 @@ model {
   zEco_s ~ std_normal();
   zEco_g ~ std_normal();
   
-  // likelihood
-  surv ~ bernoulli_logit(logitp_s);
+  // likelihoods
+  surv ~ bernoulli_logit(logitp_s); // survival
   for (i in 1:N_g){
-    //print("size: ", size1_g[i]);
-    //print("mu_g: ", mu_g[i]);
-    //print("lpdf pre", target());
-    size1_g[i] ~ normal(mu_g[i], sigmaEpsilon_g) T[0,];
-    //print("target post", target());
+    size1_g[i] ~ normal(mu_g[i], sigmaEpsilon_g) T[0,]; // size at time t+1 (growth)
     };
 
 }

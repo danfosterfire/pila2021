@@ -168,7 +168,7 @@ predict_survival_fixeff =
 ## size main effect (no disturbances, continuous variables held at 0, which is 
 ## the subplot-level mean (so like the average subplot))
 expand.grid('intercept' = 1,
-            'dbh_in.init' = seq(from = 0.5, to = 99.5, by = 1),
+            'dbh_in.init' = seq(from = 0.5, to = 49.5, by = 1),
             'fire' = 0,
             'insects' = 0,
             'disease' = 0,
@@ -202,7 +202,7 @@ expand.grid('intercept' = 1,
 
 # size X fire
 expand.grid('intercept' = 1,
-            'dbh_in.init' = seq(from = 0.5, to = 99.5, by = 1),
+            'dbh_in.init' = seq(from = 0.5, to = 49.5, by = 1),
             'fire' = c(0,1),
             'insects' = 0,
             'disease' = 0,
@@ -237,7 +237,7 @@ expand.grid('intercept' = 1,
 
 # size X insects
 expand.grid('intercept' = 1,
-            'dbh_in.init' = seq(from = 0.5, to = 99.5, by = 1),
+            'dbh_in.init' = seq(from = 0.5, to = 49.5, by = 1),
             'fire' = 0,
             'insects' = c(0,1),
             'disease' = 0,
@@ -272,7 +272,7 @@ expand.grid('intercept' = 1,
 
 # size X disease
 expand.grid('intercept' = 1,
-            'dbh_in.init' = seq(from = 0.5, to = 99.5, by = 1),
+            'dbh_in.init' = seq(from = 0.5, to = 49.5, by = 1),
             'fire' = 0,
             'insects' = 0,
             'disease' = c(0,1),
@@ -307,7 +307,7 @@ expand.grid('intercept' = 1,
 
 # size X BA
 expand.grid('intercept' = 1,
-            'dbh_in.init' = seq(from = 0.5, to = 99.5, by = 1),
+            'dbh_in.init' = seq(from = 0.5, to = 49.5, by = 1),
             'fire' = 0,
             'insects' = 0,
             'disease' = 0,
@@ -342,7 +342,7 @@ expand.grid('intercept' = 1,
 
 # size X drought
 expand.grid('intercept' = 1,
-            'dbh_in.init' = seq(from = 0.5, to = 99.5, by = 1),
+            'dbh_in.init' = seq(from = 0.5, to = 49.5, by = 1),
             'fire' = 0,
             'insects' = 0,
             'disease' = 0,
@@ -377,7 +377,7 @@ expand.grid('intercept' = 1,
 
 # size X dryness
 expand.grid('intercept' = 1,
-            'dbh_in.init' = seq(from = 0.5, to = 99.5, by = 1),
+            'dbh_in.init' = seq(from = 0.5, to = 49.5, by = 1),
             'fire' = 0,
             'insects' = 0,
             'disease' = 0,
@@ -530,7 +530,7 @@ predict_size2_fixeff =
 ## size main effect (no disturbances, continuous variables held at 0, which is 
 ## the subplot-level mean (so like the average subplot))
 expand.grid('intercept' = 1,
-            'dbh_in.init' = seq(from = 0.5, to = 99.5, by = 1),
+            'dbh_in.init' = seq(from = 0.5, to = 49.5, by = 1),
             'fire' = 0,
             'insects' = 0,
             'disease' = 0,
@@ -563,7 +563,7 @@ expand.grid('intercept' = 1,
 
 # size X fire
 expand.grid('intercept' = 1,
-            'dbh_in.init' = seq(from = 0.5, to = 99.5, by = 1),
+            'dbh_in.init' = seq(from = 0.5, to = 49.5, by = 1),
             'fire' = c(0,1),
             'insects' = 0,
             'disease' = 0,
@@ -596,7 +596,7 @@ expand.grid('intercept' = 1,
   theme_minimal()
 
 expand.grid('intercept' = 1,
-            'dbh_in.init' = seq(from = 0.5, to = 99.5, by = 1),
+            'dbh_in.init' = seq(from = 0.5, to = 49.5, by = 1),
             'fire' = 0,
             'insects' = c(0,1),
             'disease' = 0,
@@ -630,7 +630,7 @@ expand.grid('intercept' = 1,
 
 # size X disease
 expand.grid('intercept' = 1,
-            'dbh_in.init' = seq(from = 0.5, to = 99.5, by = 1),
+            'dbh_in.init' = seq(from = 0.5, to = 49.5, by = 1),
             'fire' = 0,
             'insects' = 0,
             'disease' = c(0,1),
@@ -664,7 +664,7 @@ expand.grid('intercept' = 1,
 
 # size X basal area
 expand.grid('intercept' = 1,
-            'dbh_in.init' = seq(from = 0.5, to = 99.5, by = 1),
+            'dbh_in.init' = seq(from = 0.5, to = 49.5, by = 1),
             'fire' = 0,
             'insects' = 0,
             'disease' = 0,
@@ -698,7 +698,7 @@ expand.grid('intercept' = 1,
 
 
 expand.grid('intercept' = 1,
-            'dbh_in.init' = seq(from = 0.5, to = 99.5, by = 1),
+            'dbh_in.init' = seq(from = 0.5, to = 49.5, by = 1),
             'fire' = 0,
             'insects' = 0,
             'disease' = 0,
@@ -732,7 +732,7 @@ expand.grid('intercept' = 1,
 
 # size X dryness
 expand.grid('intercept' = 1,
-            'dbh_in.init' = seq(from = 0.5, to = 99.5, by = 1),
+            'dbh_in.init' = seq(from = 0.5, to = 49.5, by = 1),
             'fire' = 0,
             'insects' = 0,
             'disease' = 0,
