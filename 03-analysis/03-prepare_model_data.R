@@ -26,12 +26,13 @@ growth_data.pila =
                      'growth_data.rds')) %>%
   filter(species=='PILA')%>%
   left_join(subplot_data %>%
-              select(plot_id, subp_id,
+              select(plot_id, subp_id, ecosubcd,
                      intercept,
                      fire, insects, disease, 
                      ba_scaled, cwd_dep90_scaled, cwd_mean_scaled)) %>%
   # construct data for size:stressor interactions
   mutate(plot_id.i = as.integer(factor(plot_id)),
+         ecosub.i = as.integer(factor(ecosubcd)),
          dbh_fire = dbh_in.init*fire,
          dbh_insects = dbh_in.init*insects,
          dbh_disease = dbh_in.init*disease,
@@ -49,12 +50,13 @@ mort_data.pila =
                      'mort_data.rds')) %>%
   filter(species=='PILA')%>%
   left_join(subplot_data %>%
-              select(plot_id, subp_id,
+              select(plot_id, subp_id, ecosubcd,
                      intercept,
                      fire, insects, disease, 
                      ba_scaled, cwd_dep90_scaled, cwd_mean_scaled)) %>%
   # construct data for size:stressor interactions
   mutate(plot_id.i = as.integer(factor(plot_id)),
+         ecosub.i = as.integer(factor(ecosubcd)),
          dbh_fire = dbh_in.init*fire,
          dbh_insects = dbh_in.init*insects,
          dbh_disease = dbh_in.init*disease,
@@ -97,8 +99,10 @@ untagged_data =
 pila_data = 
   list(N_s = nrow(mort_data.pila),
        P_s = length(unique(mort_data.pila$plot_id)),
+       E_s = length(unique(mort_data.pila$ecosubcd)),
        surv = as.integer(mort_data.pila$survived),
        plotid_s = mort_data.pila$plot_id.i,
+       ecosub_s = mort_data.pila$ecosub.i,
        X_s = 
          mort_data.pila[,c('intercept', 'dbh_in.init', 'fire', 'insects', 
                            'disease', 'ba_scaled', 'cwd_dep90_scaled', 
@@ -106,8 +110,10 @@ pila_data =
                            'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')],
        N_g = nrow(growth_data.pila),
        P_g = length(unique(growth_data.pila$plot_id)),
+       E_g = length(unique(growth_data.pila$ecosubcd)),
        size1_g = growth_data.pila$dbh_in.re,
        plotid_g = growth_data.pila$plot_id.i,
+       ecosub_g = growth_data.pila$ecosub.i,
        X_g = 
          growth_data.pila[,c('intercept', 'dbh_in.init', 'fire', 'insects', 
                              'disease', 'ba_scaled', 'cwd_dep90_scaled', 
@@ -119,3 +125,4 @@ pila_data =
 
 saveRDS(pila_data, 
         here::here('02-data', '02-for_analysis', 'pila_data.rds'))
+
