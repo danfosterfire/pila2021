@@ -334,7 +334,7 @@ subplots =
   rename(PLT_CN = CN) %>%
   select(PLT_CN, PREV_PLT_CN, INVYR, STATECD, UNITCD, COUNTYCD, PLOT, 
          PLOT_STATUS_CD, PLOT_NONSAMPLE_REASN_CD, MEASYEAR, 
-         MEASMON, MEASDAY, KINDCD, DESIGNCD, MANUAL,
+         MEASMON, MEASDAY, KINDCD, DESIGNCD, MANUAL, MACRO_BREAKPOINT_DIA,
          LAT, LON, ELEV, ECOSUBCD) %>%
   
   # join in the subplot info, with one row per subplot observation
@@ -499,7 +499,7 @@ subplots =
            MEASYEAR, MEASMON, MEASDAY,
            KINDCD.TYPE, DESIGNCD.TYPE, MANUAL,
            PLOT_STATUS_CD.TYPE, PLOT_NONSAMPLE_REASN_CD.TYPE,
-           ELEV, LAT, LON, ECOSUBCD) %>%
+           ELEV, LAT, LON, ECOSUBCD, MACRO_BREAKPOINT_DIA) %>%
   summarise(
     fire = any(fire),
     insects = any(insects),
@@ -534,6 +534,7 @@ subplots =
     inv_manual = MANUAL,
     plot_status = PLOT_STATUS_CD.TYPE,
     plot_nonsamp = PLOT_NONSAMPLE_REASN_CD.TYPE,
+    macro_break = MACRO_BREAKPOINT_DIA,
     elev_ft = ELEV, 
     lat = LAT,
     lon = LON,
@@ -722,7 +723,7 @@ subplot_data =
   filter(!is.na(prev_plt_cn) & inv_kind == 'national_remeasure') %>%
   select(plt_cn, prev_plt_cn, plot_id, subp_id,
          elev_ft, lat, lon, ecosubcd,
-         invdate, inv_manual,
+         invdate, inv_manual, macro_break,
          fire, insects, disease, cutting) %>%
   
   # get the invdate and inv manual for the initial measurement
@@ -1003,11 +1004,10 @@ untagged_data =
   
   select(plt_cn, prev_plt_cn, subp_id) %>%
   
-  # expand it to get 1 row per size bin and species (should be 
-  # 8380 * 7 spp * 5 bins =  293300 rows)
+  # expand it to get 1 row per size bin and species 
   expand(nesting(plt_cn, prev_plt_cn, subp_id),
          species = c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE', 'OTHER'),
-         dbh_class = 1:10) %>%
+         dbh_class = 1:100) %>%
 
   # add in the counts for the smallest size class from the seedlings 
   # data for the remeasurement
@@ -1055,13 +1055,13 @@ untagged_data =
 # of each bin
 size_metadata = 
   data.frame(bin_midpoint = 
-               seq(from = 0.5, to = 9.5, by = 1)) %>%
+               seq(from = 0.5, to = 99.5, by = 1)) %>%
   mutate(bin_id = cut(bin_midpoint,
                       breaks = seq(from = 0, to = 10, by = 1),
                       labels = FALSE,
                       right = FALSE),
-         bin_lower = seq(from = 0, to = 9, by = 1),
-         bin_upper = seq(from = 1, to = 10, by = 1),
+         bin_lower = seq(from = 0, to = 99, by = 1),
+         bin_upper = seq(from = 1, to = 100, by = 1),
          
          # <5" dbh are measured on a 6.8' radius (.00333ac) microcplot
          # >= 5" dbh measured on a 24' radius (0.0415ac) subplot
@@ -1070,7 +1070,8 @@ size_metadata =
          # min macroplot dbh is 24"
          plot_area_ac = 
            c(0.00333, 0.00333, 0.00333, 0.00333, 0.00333,
-             0.0415, 0.0415, 0.0415, 0.0415, 0.0415))
+             0.0415, 0.0415, 0.0415, 0.0415, 0.0415,
+             rep(NA, times = 90)))
 
 size_metadata
 

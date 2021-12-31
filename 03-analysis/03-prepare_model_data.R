@@ -26,19 +26,19 @@ growth_data.pila =
                      'growth_data.rds')) %>%
   filter(species=='PILA')%>%
   left_join(subplot_data %>%
-              select(plot_id, subp_id, ecosubcd,
+              select(plot_id, subp_id, ecosubcd, 
                      intercept,
                      fire, insects, disease, 
                      ba_scaled, cwd_dep90_scaled, cwd_mean_scaled)) %>%
   # construct data for size:stressor interactions
-  mutate(plot_id.i = as.integer(factor(plot_id)),
-         ecosub.i = as.integer(factor(ecosubcd)),
-         dbh_fire = dbh_in.init*fire,
+  mutate(dbh_fire = dbh_in.init*fire,
          dbh_insects = dbh_in.init*insects,
          dbh_disease = dbh_in.init*disease,
          dbh_ba = dbh_in.init*ba_scaled,
          dbh_cwd90 = dbh_in.init*cwd_dep90_scaled,
-         dbh_cwdmean = dbh_in.init*cwd_mean_scaled)
+         dbh_cwdmean = dbh_in.init*cwd_mean_scaled,
+         plot_id.i = as.integer(factor(plot_id)),
+         ecosub.i = as.integer(factor(ecosubcd)))
 
 
 # a row for every individual tagged tree which was alive at the initial 
@@ -55,14 +55,14 @@ mort_data.pila =
                      fire, insects, disease, 
                      ba_scaled, cwd_dep90_scaled, cwd_mean_scaled)) %>%
   # construct data for size:stressor interactions
-  mutate(plot_id.i = as.integer(factor(plot_id)),
-         ecosub.i = as.integer(factor(ecosubcd)),
-         dbh_fire = dbh_in.init*fire,
+  mutate(dbh_fire = dbh_in.init*fire,
          dbh_insects = dbh_in.init*insects,
          dbh_disease = dbh_in.init*disease,
          dbh_ba = dbh_in.init*ba_scaled,
          dbh_cwd90 = dbh_in.init*cwd_dep90_scaled,
-         dbh_cwdmean = dbh_in.init*cwd_mean_scaled)
+         dbh_cwdmean = dbh_in.init*cwd_mean_scaled,
+         plot_id.i = as.integer(factor(plot_id)),
+         ecosub.i = as.integer(factor(ecosubcd)))
 
 # a row for each unique combination of subplot:species:size class, for 
 # 1 inch size bins from 0.5-99.5"; "tpa_unadj.init" and "tpa_unadj.re" give 
@@ -76,28 +76,84 @@ sizedist_data.pila =
                      'sizedist_data.rds')) %>%
   filter(species=='PILA')
 
-# a row for each size class, for 1 inch size bins from 0.5-9.5"; gives 
+# a row for each size class, for 1 inch size bins from 0.5-99.5"; gives 
 # metadata about each class including the midpoints, upper and lower bounds, 
-# and the sampling area in the FIA design. Only includes the smallest 10 
-# size bins, which are modeled as the response in the recruitment submodel.
+# and the sampling area in the FIA design.
 size_metadata = 
   readRDS(here::here('02-data',
                      '01-preprocessed',
                      'size_metadata.rds'))
 
+
+
+# a row for each size class and subplot, with only subplots which are in 
+# BOTH the growth and mortality datasets
+recr_data.pila = 
+  subplot_data %>%
+  filter(is.element(subp_id, mort_data.pila$subp_id)&
+           is.element(subp_id, growth_data.pila$subp_id)) %>%  
+  # filter to only subplots where both initial and remeasurement had manual 
+  # greater than or equal to 2
+  filter(inv_manual.init >= 2.0 & inv_manual.re >= 2.0) %>%
+  expand(nesting(plt_cn, prev_plt_cn, plot_id, subp_id, elev_ft, lat, lon,
+                 ecosubcd, invdate.re, inv_manual.re, macro_break, fire,
+                 insects, disease, cutting, invdate.init, inv_manual.init, 
+                 ba_ft2ac, cwd_departure90, cwd_mean, ba_scaled, cwd_dep90_scaled,
+                 cwd_mean_scaled, intercept),
+         dbh_in.init = seq(from = 0.5, to = 99.5, by = 1)) %>%
+  mutate(dbh_class = round(dbh_in.init+0.5, 0),
+         dbh_fire = dbh_in.init*fire,
+         dbh_insects = dbh_in.init*insects,
+         dbh_disease = dbh_in.init*disease,
+         dbh_ba = dbh_in.init*ba_scaled,
+         dbh_cwd90 = dbh_in.init*cwd_dep90_scaled,
+         dbh_cwdmean = dbh_in.init*cwd_mean_scaled) %>%
+  left_join(mort_data.pila %>%
+              group_by(subp_id, plot_id.i, ecosub.i) %>%
+              summarise() %>%
+              ungroup() %>%
+              select(subp_id, plot_id.s = plot_id.i, ecosub.s = ecosub.i)) %>%
+  left_join(growth_data.pila %>%
+              group_by(subp_id, plot_id.i, ecosub.i) %>%
+              summarise() %>%
+              ungroup() %>%
+              select(subp_id, plot_id.g = plot_id.i, ecosub.g = ecosub.i)) %>%
+  mutate(plot_id.f = as.integer(factor(plot_id)),
+         ecosub.f = as.integer(factor(ecosubcd))) %>%
+  
+  # add in the observed counts START HERE, JOIN NOT WORKING HAVE A BUNCH OF NA COUNTS WHERE IS HOULDNT
+  left_join(readRDS(here::here('02-data',
+                               '01-preprocessed',
+                               'untagged_data.rds')) %>%
+              filter(species=='PILA')) %>%
+  
+  left_join(sizedist_data.pila %>%
+              select(subp_id, species, dbh_class, tpa_unadj.re)) %>%
+  
+  # order by size and subplot
+  arrange(subp_id, dbh_in.init) %>%
+  
+  rename(untagged_count = count)
+
+
+head(recr_data.pila)
+
+
 # a row for each unique combination of subplot:species:size class, for 1 
 # inch size bins from 0.5-9.5"; "count" gives the number of untagged 
 # trees on the subplot in the species:size bin at the remeasurement (ie 
 # ingrowth)
-untagged_data = 
+untagged_data.pila = 
   readRDS(here::here('02-data',
                      '01-preprocessed',
-                     'untagged_data.rds'))
-
+                     'untagged_data.rds')) %>%
+  filter(species=='PILA'&is.element(subp_id, recr_data.pila$subp_id))
 
 #### prepare model data ########################################################
 pila_data = 
-  list(N_s = nrow(mort_data.pila),
+  list(
+    # survival data
+    N_s = nrow(mort_data.pila),
        P_s = length(unique(mort_data.pila$plot_id)),
        E_s = length(unique(mort_data.pila$ecosubcd)),
        surv = as.integer(mort_data.pila$survived),
@@ -108,6 +164,8 @@ pila_data =
                            'disease', 'ba_scaled', 'cwd_dep90_scaled', 
                            'cwd_mean_scaled', 'dbh_fire', 'dbh_insects',
                            'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')],
+    
+    # growth data
        N_g = nrow(growth_data.pila),
        P_g = length(unique(growth_data.pila$plot_id)),
        E_g = length(unique(growth_data.pila$ecosubcd)),
@@ -118,7 +176,37 @@ pila_data =
          growth_data.pila[,c('intercept', 'dbh_in.init', 'fire', 'insects', 
                              'disease', 'ba_scaled', 'cwd_dep90_scaled', 
                              'cwd_mean_scaled', 'dbh_fire', 'dbh_insects',
-                             'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')])
+                             'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')],
+    
+    # recruitment data
+    N_r = nrow(recr_data.pila),
+    S_r = length(unique(recr_data.pila$subp_id)),
+    P_f = length(unique(recr_data.pila$plot_id)),
+    E_f = length(unique(recr_data.pila$ecosubcd)),
+    X_r = 
+      recr_data.pila[,c('intercept', 'dbh_in.init', 'fire', 'insects', 
+                             'disease', 'ba_scaled', 'cwd_dep90_scaled', 
+                             'cwd_mean_scaled', 'dbh_fire', 'dbh_insects',
+                             'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')],
+    plotid_sr = recr_data.pila$plot_id.s,
+    ecosub_sr = recr_data.pila$ecosub.s,
+    plotid_gr = recr_data.pila$plot_id.g,
+    ecosub_gr = recr_data.pila$ecosub.g,
+    plotid_fr = recr_data.pila$plot_id.f,
+    ecosub_fr = recr_data.pila$ecosub.f,
+    M_r = nrow(size_metadata),
+    u_bounds = size_metadata$bin_upper,
+    l_bounds = size_metadata$bin_lower,
+    midpoints = size_metadata$bin_midpoint,
+    a = size_metadata$plot_area_ac[1:10],
+    cprime = matrix(ncol = length(unique(recr_data.pila$subp_id)),
+                    nrow = nrow(size_metadata),
+                    data = recr_data.pila$untagged_count,
+                    byrow = FALSE),
+    n = matrix(nrow = length(unique(recr_data.pila$subp_id)),
+               ncol = nrow(size_metadata),
+               data = recr_data.pila$tpa_unadj.re,
+               byrow = TRUE))
 
 
 #### write results #############################################################

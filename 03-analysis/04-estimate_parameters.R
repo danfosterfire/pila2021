@@ -24,7 +24,6 @@ pila_fit.model =
   cmdstan_model(here::here('03-analysis', 'model.stan'))
 
 
-
 pila_fit.samples = 
   pila_fit.model$sample(data = pila_data,
                         init = 
@@ -52,35 +51,10 @@ pila_fit.samples =
                                       c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
                                     sigmaPlot_g = 1,
                                     sigmaEco_g = 1,
-                                    sigmaEpsilon_g = 1),
-                               list(beta_s = 
-                                      c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-                                    sigmaPlot_s = 1,
-                                    sigmaEco_s = 1,
-                                    beta_g = 
-                                      c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-                                    sigmaPlot_g = 1,
-                                    sigmaEco_g = 1,
-                                    sigmaEpsilon_g = 1),
-                               list(beta_s = 
-                                      c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-                                    sigmaPlot_s = 1,
-                                    sigmaEco_s = 1,
-                                    beta_g = 
-                                      c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-                                    sigmaPlot_g = 1,
-                                    sigmaEco_g = 1,
-                                    sigmaEpsilon_g = 1),
-                               list(beta_s = 
-                                      c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-                                    sigmaPlot_s = 1,
-                                    sigmaEco_s = 1,
-                                    beta_g = 
-                                      c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-                                    sigmaPlot_g = 1,
-                                    sigmaEco_g = 1,
-                                    sigmaEpsilon_g = 1)),
-                        parallel_chains = 4)
+                                    sigmaEpsilon_g = 1,
+                                    upsilon = 1,
+                                    nu = 1)),
+                        chains = 1, iter_sampling = 1)
 
 
 #### model diagnostics #########################################################
