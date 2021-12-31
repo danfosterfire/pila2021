@@ -24,6 +24,11 @@ pila_fit.model =
   cmdstan_model(here::here('03-analysis', 'model.stan'))
 
 
+# HAVING TROUBLE WITH THE RECRUITMENT MODEL; THE VARIABLE "r" KEEPS GETTING 
+# SET TO A VECTOR OF NANS INSTEAD OF A VECTOR OF REALS. LOOKING AT THE 
+# PARAMETER VALUES THIS IS HAPPENING WHEN NU IS A LARGE NEGATIVE NUMBER AND UPSILON IS 
+# VERY SMALL; IT LOOKS LIKE THE SAMPLER CATCHES ON THAT THOSE VALUES SUCK AND STOPS 
+# PROPOSING THEM
 pila_fit.samples = 
   pila_fit.model$sample(data = pila_data,
                         init = 
@@ -53,8 +58,41 @@ pila_fit.samples =
                                     sigmaEco_g = 1,
                                     sigmaEpsilon_g = 1,
                                     upsilon = 1,
+                                    nu = 1),
+                               list(beta_s = 
+                                      c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                    sigmaPlot_s = 1,
+                                    sigmaEco_s = 1,
+                                    beta_g = 
+                                      c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                    sigmaPlot_g = 1,
+                                    sigmaEco_g = 1,
+                                    sigmaEpsilon_g = 1,
+                                    upsilon = 1,
+                                    nu = 1),
+                               list(beta_s = 
+                                      c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                    sigmaPlot_s = 1,
+                                    sigmaEco_s = 1,
+                                    beta_g = 
+                                      c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                    sigmaPlot_g = 1,
+                                    sigmaEco_g = 1,
+                                    sigmaEpsilon_g = 1,
+                                    upsilon = 1,
+                                    nu = 1),
+                               list(beta_s = 
+                                      c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                    sigmaPlot_s = 1,
+                                    sigmaEco_s = 1,
+                                    beta_g = 
+                                      c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                    sigmaPlot_g = 1,
+                                    sigmaEco_g = 1,
+                                    sigmaEpsilon_g = 1,
+                                    upsilon = 1,
                                     nu = 1)),
-                        chains = 1, iter_sampling = 1)
+                        parallel_chains = 2)
 
 
 #### model diagnostics #########################################################
