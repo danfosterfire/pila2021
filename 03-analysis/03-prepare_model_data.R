@@ -84,8 +84,9 @@ size_metadata =
                      '01-preprocessed',
                      'size_metadata.rds'))
 
-
-
+mort_data.pila %>% filter(subp_id =='41-1-39-79537-2') %>% print(width = Inf)
+growth_data.pila %>% filter(subp_id == '41-1-39-79537-2') %>% print(width = Inf)
+sizedist_data.pila %>% filter(subp_id == '41-1-39-79537-2')
 # a row for each size class and subplot, with only subplots which are in 
 # BOTH the growth and mortality datasets
 recr_data.pila = 
@@ -100,14 +101,17 @@ recr_data.pila =
                  insects, disease, cutting, invdate.init, inv_manual.init, 
                  ba_ft2ac, cwd_departure90, cwd_mean, ba_scaled, cwd_dep90_scaled,
                  cwd_mean_scaled, intercept),
-         dbh_in.init = seq(from = 0.5, to = 99.5, by = 1)) %>%
-  mutate(dbh_class = round(dbh_in.init+0.5, 0),
+         dbh_in.init = seq(from = 2.5, to = 97.5, by = 5)) %>%
+  mutate(dbh_class = cut(dbh_in.init,
+                         breaks = seq(from = 0, to= 100, by = 5),
+                         labels = FALSE,
+                         right = FALSE),
          dbh_fire = dbh_in.init*fire,
          dbh_insects = dbh_in.init*insects,
          dbh_disease = dbh_in.init*disease,
          dbh_ba = dbh_in.init*ba_scaled,
          dbh_cwd90 = dbh_in.init*cwd_dep90_scaled,
-         dbh_cwdmean = dbh_in.init*cwd_mean_scaled) %>%
+         dbh_cwdmean = dbh_in.init*cwd_mean_scaled) %>% 
   left_join(mort_data.pila %>%
               group_by(subp_id, plot_id.i, ecosub.i) %>%
               summarise() %>%
@@ -118,8 +122,6 @@ recr_data.pila =
               summarise() %>%
               ungroup() %>%
               select(subp_id, plot_id.g = plot_id.i, ecosub.g = ecosub.i)) %>%
-  mutate(plot_id.f = as.integer(factor(plot_id)),
-         ecosub.f = as.integer(factor(ecosubcd))) %>%
   
   # add in the observed counts START HERE, JOIN NOT WORKING HAVE A BUNCH OF NA COUNTS WHERE IS HOULDNT
   left_join(readRDS(here::here('02-data',
@@ -128,15 +130,31 @@ recr_data.pila =
               filter(species=='PILA')) %>%
   
   left_join(sizedist_data.pila %>%
-              select(subp_id, species, dbh_class, tpa_unadj.re)) %>%
+              select(subp_id, species, dbh_class, tpa_unadj.init)) %>%
+  
+  # there are 22 subplots which, despite being included in the mortality and 
+  # growth data (ie, have PILA which are alive at initial and remeasurement), 
+  # have 0 TPA of pila in any size class at initial measurement. Upon investigating,
+  # I think these are all cases where the species ID of the tree was changed 
+  # from something else to PILA, so the tree number shows alive at initial 
+  # and remasurement and the species at remeasurement is PILA (ensuring the 
+  # subplot is included in the growth and mortality data frames) but 0 trees 
+  # in PILA size bins at initial measurement. solution is to just drop the 
+  # offending subplots from the recruitment dataset, where the all 0s 
+  # were screwing up the IPM model estimates for seedling density.
+  filter(!is.element(subp_id,
+                       group_by(., subp_id) %>%
+                       summarise(tpa_unadj.init = sum(tpa_unadj.init)) %>%
+                       ungroup() %>%
+                       filter(tpa_unadj.init==0) %>%
+                       pull(subp_id))) %>%
   
   # order by size and subplot
   arrange(subp_id, dbh_in.init) %>%
-  
+  mutate(plot_id.f = as.integer(factor(plot_id)),
+         ecosub.f = as.integer(factor(ecosubcd))) %>%
   rename(untagged_count = count)
 
-
-head(recr_data.pila)
 
 
 # a row for each unique combination of subplot:species:size class, for 1 
@@ -198,14 +216,14 @@ pila_data =
     u_bounds = size_metadata$bin_upper,
     l_bounds = size_metadata$bin_lower,
     midpoints = size_metadata$bin_midpoint,
-    a = size_metadata$plot_area_ac[1:10],
+    a = size_metadata$plot_area_ac[1:2],
     cprime = matrix(ncol = length(unique(recr_data.pila$subp_id)),
                     nrow = nrow(size_metadata),
                     data = recr_data.pila$untagged_count,
                     byrow = FALSE),
     n = matrix(nrow = length(unique(recr_data.pila$subp_id)),
                ncol = nrow(size_metadata),
-               data = recr_data.pila$tpa_unadj.re,
+               data = recr_data.pila$tpa_unadj.init,
                byrow = TRUE))
 
 

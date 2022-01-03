@@ -58,7 +58,11 @@ pila_fit.samples =
                                     sigmaEco_g = 1,
                                     sigmaEpsilon_g = 1,
                                     upsilon = 1,
-                                    nu = 1),
+                                    nu = 1,
+                                    beta_f = 
+                                      c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                    sigmaPlot_f = 1,
+                                    sigmaEco_f = 1),
                                list(beta_s = 
                                       c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
                                     sigmaPlot_s = 1,
@@ -69,7 +73,11 @@ pila_fit.samples =
                                     sigmaEco_g = 1,
                                     sigmaEpsilon_g = 1,
                                     upsilon = 1,
-                                    nu = 1),
+                                    nu = 1,
+                                    beta_f = 
+                                      c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                    sigmaPlot_f = 1,
+                                    sigmaEco_f = 1),
                                list(beta_s = 
                                       c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
                                     sigmaPlot_s = 1,
@@ -80,7 +88,11 @@ pila_fit.samples =
                                     sigmaEco_g = 1,
                                     sigmaEpsilon_g = 1,
                                     upsilon = 1,
-                                    nu = 1),
+                                    nu = 1,
+                                    beta_f = 
+                                      c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                    sigmaPlot_f = 1,
+                                    sigmaEco_f = 1),
                                list(beta_s = 
                                       c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
                                     sigmaPlot_s = 1,
@@ -91,28 +103,39 @@ pila_fit.samples =
                                     sigmaEco_g = 1,
                                     sigmaEpsilon_g = 1,
                                     upsilon = 1,
-                                    nu = 1)),
-                        parallel_chains = 2)
+                                    nu = 1,
+                                    beta_f = 
+                                      c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                    sigmaPlot_f = 1,
+                                    sigmaEco_f = 1)),
+                        parallel_chains = 4,
+                        output_dir = here::here('02-data',
+                                                '03-results'))
 
 
 #### model diagnostics #########################################################
 
 
 pila_fit.samples$summary(c('beta_s', 'sigmaPlot_s', 'sigmaEco_s', 'beta_g', 
-                           'sigmaPlot_g', 'sigmaEco_g', 'sigmaEpsilon_g')) %>%
+                           'sigmaPlot_g', 'sigmaEco_g', 'sigmaEpsilon_g',
+                           'beta_f', 'sigmaPlot_f', 'sigmaEco_f',
+                           'upsilon', 'nu', 'kappa_r')) %>%
   print(n = Inf)
 
 mcmc_trace(pila_fit.samples$draws(variables = 
-                                    c('beta_s', 'sigmaPlot_s', 'sigmaEco_s',
-                                      'beta_g', 'sigmaPlot_g', 'sigmaEco_g', 
-                                      'sigmaEpsilon_g')))
+                                    c('beta_s', 'sigmaPlot_s', 'sigmaEco_s', 'beta_g', 
+                           'sigmaPlot_g', 'sigmaEco_g', 'sigmaEpsilon_g',
+                           'beta_f', 'sigmaPlot_f', 'sigmaEco_f',
+                           'upsilon', 'nu', 'kappa_r')))
 mcmc_dens_overlay(pila_fit.samples$draws(variables = 
-                                    c('beta_s', 'sigmaPlot_s', 'sigmaEco_s',
-                                      'beta_g', 'sigmaPlot_g', 'sigmaEco_g', 'sigmaEpsilon_g')))
+                                    c('beta_s', 'sigmaPlot_s', 'sigmaEco_s', 'beta_g', 
+                           'sigmaPlot_g', 'sigmaEco_g', 'sigmaEpsilon_g',
+                           'beta_f', 'sigmaPlot_f', 'sigmaEco_f',
+                           'upsilon', 'nu', 'kappa_r')))
 
 pila_fit.samples$cmdstan_diagnose()
 
 #### save model results ########################################################
 
-pila_fit.samples$save_object(here::here('02-data', '03-results', 'pila_fit_mcmc.rds'))
+pila_fit.samples$save_object(here::here('02-data', '03-results', 'pila_fit_mcmc_fullran.rds'))
 

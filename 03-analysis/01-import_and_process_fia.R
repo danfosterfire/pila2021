@@ -903,8 +903,8 @@ sizedist_data =
   expand(nesting(plt_cn, prev_plt_cn, subp_id),
          species = c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE', 'OTHER'),
          dbh_class = 
-             cut(seq(from = 0.5, to = 99.5, by = 1),
-                 breaks = seq(from = 0, to = 100, by = 1),
+             cut(seq(from = 2.5, to = 97.5, by = 5),
+                 breaks = seq(from = 0, to = 100, by = 5),
                  labels = FALSE,
                  right = FALSE)) %>%
   
@@ -937,7 +937,7 @@ sizedist_data =
               filter(tree_status == 'live')  %>%
               mutate(dbh_class = cut(dbh_in,
                                     breaks = 
-                                      seq(from = 0, to = 100, by = 1),
+                                      seq(from = 0, to = 100, by = 5),
                                     labels = FALSE,
                                     right = FALSE)) %>%
               select(plt_cn, subp_id, species, dbh_class, tpa_unadj) %>%
@@ -953,7 +953,7 @@ sizedist_data =
               filter(tree_status == 'live') %>%
               mutate(dbh_class = cut(dbh_in,
                                      breaks = 
-                                       seq(from = 0, to = 100, by = 1),
+                                       seq(from = 0, to = 100, by = 5),
                                      labels = FALSE,
                                      right = FALSE)) %>%
               select(plt_cn, subp_id, species, dbh_class, tpa_unadj) %>%
@@ -987,6 +987,29 @@ sizedist_data =
   select(plt_cn, prev_plt_cn, subp_id, species, dbh_class,
          tpa_unadj.init, tpa_unadj.re)
 
+
+test = 
+  sizedist_data %>%
+  filter(species == 'PILA' &
+           is.element(subp_id,
+                      mort_data %>%
+                        filter(species=='PILA') %>%
+                        pull(subp_id))&
+           is.element(subp_id,
+                      growth_data %>%
+                        filter(species=='PILA') %>%
+                        pull(subp_id))) %>%
+  group_by(plt_cn, prev_plt_cn, subp_id) %>%
+  summarise(tpa_unadj.init = sum(tpa_unadj.init),
+            tpa_unadj.re = sum(tpa_unadj.re)) %>%
+  ungroup() %>%
+  filter(tpa_unadj.init==0)
+
+treelist %>% filter(plt_cn =='24988722010900' & species=='PILA')  %>% print(width = Inf)
+treelist %>% filter(subp_id=='6-2-105-93474-3' & species=='PILA')  %>% print(width = Inf)
+subplots %>% filter(subp_id=='6-2-105-93474-3')
+
+treelist %>% filter(tre_cn == '24988786010900') %>% print(width = Inf)
 #### make untagged plants data frame ###########################################
 
 # want a 10 X S matrix, where S is the number of distinct subplots, and the 
@@ -1026,7 +1049,7 @@ untagged_data =
               filter(is.na(prev_tre_cn) & tree_status=='live') %>%
               mutate(dbh_class = cut(dbh_in,
                                     breaks = 
-                                      seq(from = 0, to = 100, by = 1),
+                                      seq(from = 0, to = 100, by = 5),
                                     labels = FALSE,
                                     right = FALSE),
                      count_big = 1) %>%
@@ -1055,13 +1078,13 @@ untagged_data =
 # of each bin
 size_metadata = 
   data.frame(bin_midpoint = 
-               seq(from = 0.5, to = 99.5, by = 1)) %>%
+               seq(from = 0.5, to = 97.5, by = 5)) %>%
   mutate(bin_id = cut(bin_midpoint,
-                      breaks = seq(from = 0, to = 10, by = 1),
+                      breaks = seq(from = 0, to = 100, by = 5),
                       labels = FALSE,
                       right = FALSE),
-         bin_lower = seq(from = 0, to = 99, by = 1),
-         bin_upper = seq(from = 1, to = 100, by = 1),
+         bin_lower = seq(from = 0, to = 95, by = 5),
+         bin_upper = seq(from = 5, to = 100, by = 5),
          
          # <5" dbh are measured on a 6.8' radius (.00333ac) microcplot
          # >= 5" dbh measured on a 24' radius (0.0415ac) subplot
@@ -1069,9 +1092,9 @@ size_metadata =
          # size classes included as responses in the recruitment submodel; 
          # min macroplot dbh is 24"
          plot_area_ac = 
-           c(0.00333, 0.00333, 0.00333, 0.00333, 0.00333,
-             0.0415, 0.0415, 0.0415, 0.0415, 0.0415,
-             rep(NA, times = 90)))
+           c(0.00333, 
+             0.0415, 
+             rep(NA, times = 18)))
 
 size_metadata
 
