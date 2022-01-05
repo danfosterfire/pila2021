@@ -59,8 +59,6 @@ parameters {
   real<lower=0> sigmaEpsilon_g; // std deviation of residuals for growth model
   
   // recruitment
-  real<lower=0> nu; // mean of recruitment size kernel
-  real<lower=0> upsilon; // standard deviation of recruitment size kernel
   real<lower=0> kappa_r; // neg binomial dispersion parameter for recruitment
   vector[14] beta_f; // fixeff coefficients including intercept for fecundity model
 }
@@ -94,7 +92,6 @@ model {
   logf = X_r * beta_f;
   
   
-  //print("r(2): ", r);
   // IPM model for recruitment; loop over all the subplots
   for (subplot in 1:S_r){
     
@@ -142,8 +139,6 @@ model {
   beta_g ~ normal(0, 5);
   sigmaEpsilon_g ~ normal(0, 5);
   kappa_r ~ cauchy(0,5);
-  nu ~ normal(0,5);
-  upsilon~cauchy(0,1);
   beta_f ~ normal(0,5);
   
  
@@ -154,6 +149,32 @@ model {
     }
   for (subplot in 1:S_r){
     for (sizeclass in 1:2){
+            //print("nprime: ", nprime[subplot,sizeclass]);
+      //print("kappa_r: ", kappa_r);
+      //if (is_nan(nprime[subplot,sizeclass]))
+      //  {print("Found nan nprime;");
+        // print(" A: ", A[subplot,,]);
+      //   print(" n: ", n[subplot,]);
+        //print("Found nan nprime; sizeclass: ", sizeclass, 
+        //      "   subplot: ", subplot, 
+      //  print("    recKern: ", recKern[subplot,1:2,sizeclass],
+      //  "     growKern: ", growKern[subplot,1:2, sizeclass]);
+      //  print("r: ", r);
+      //  print("f: ", f);
+        //print("logf: ", logf);
+      //  print(beta_f);
+      //  }
+      //  print("found nan nprime; r: ", r, "      f[sizeclass,subplot]: ", f[sizeclass,subplot]);
+      //  print("nu: ", nu, "   upsilon: ", upsilon, "   midpoints: ",midpoints[1:2], "   r: ", r);} 
+        //print("    recKern: ", recKern[subplot,1:2,sizeclass]);
+        //{print(nprime[subplot,sizeclass]);
+        //print("A: ", A);
+        //print("n: ", n);}
+      //else if (nprime[subplot,sizeclass]==0)
+      //  {print(nprime[subplot,sizeclass]);
+      //  print("A: ", A);
+      //  print("n: ", n);}
+    //else 
         cprime[sizeclass,subplot] ~ 
           neg_binomial_2(nprime[subplot,sizeclass]*a[sizeclass], kappa_r);
     }
