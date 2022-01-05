@@ -167,6 +167,47 @@ untagged_data.pila =
                      'untagged_data.rds')) %>%
   filter(species=='PILA'&is.element(subp_id, recr_data.pila$subp_id))
 
+
+
+# estimating the mean and variance parameters for the recruitment size kernel
+# is not working well; with the normalization to sum to 1 the mean and variance 
+# become unidentifiable, which I think is also causing the divergent transitions
+# in the sampler. Because these aren't really the parameters of interest anyways, 
+# I'm going to avoid trying to estimate them in the model and just supply the 
+# recruitment size kernel as data. 
+r = 
+  # start with all the untagged data
+  untagged_data.pila %>%
+  
+  # keep only the first two size classes (assume everything >10" dbh isn't 
+  # really a new recruit, just a missed tree)
+  filter(dbh_class <= 2) %>%
+  
+  # right join to the total number of new recruits on each subplot, keeping 
+  # only subplots with at least 1 new recruit
+  right_join(
+      # get the total number of untagged trees in the first two size classes (new recxruits) 
+    # on each subplot
+    untagged_data.pila %>%
+      filter(dbh_class <= 2) %>%
+      group_by(subp_id) %>% 
+      summarise(total_count = sum(count)) %>%
+      ungroup() %>%
+      # keep only subplots with at least 1 new recruit
+      filter(total_count > 0)
+  ) %>%
+  
+  # get the proportion of total new recruits in each of the first two size classes
+  mutate(p_total = count / total_count) %>%
+  
+  # get the average distribution across all subplots
+  group_by(dbh_class) %>%
+  summarise(p_total = mean(p_total)) %>%
+  ungroup() %>%
+  
+  pull(p_total)
+
+
 #### prepare model data ########################################################
 pila_data = 
   list(
@@ -224,7 +265,8 @@ pila_data =
     n = matrix(nrow = length(unique(recr_data.pila$subp_id)),
                ncol = nrow(size_metadata),
                data = recr_data.pila$tpa_unadj.init,
-               byrow = TRUE))
+               byrow = TRUE),
+    r = r)
 
 
 #### write results #############################################################

@@ -9,7 +9,7 @@ library(tidyverse)
 pila_data = readRDS(here::here('02-data', '02-for_analysis', 'pila_data.rds'))
 
 # load mcmc results
-pila_fit = readRDS(here::here('02-data', '03-results', 'pila_fit_mcmc.rds'))
+pila_fit = readRDS(here::here('02-data', '03-results', 'pila_fit_mcmc_fullran.rds'))
 
 samples = as_draws_df(pila_fit$draws())
 

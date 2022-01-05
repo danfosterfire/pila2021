@@ -1030,7 +1030,7 @@ untagged_data =
   # expand it to get 1 row per size bin and species 
   expand(nesting(plt_cn, prev_plt_cn, subp_id),
          species = c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE', 'OTHER'),
-         dbh_class = 1:100) %>%
+         dbh_class = 1:20) %>%
 
   # add in the counts for the smallest size class from the seedlings 
   # data for the remeasurement
