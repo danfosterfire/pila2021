@@ -56,6 +56,7 @@ data {
   int cprime[M_r,S_r]; // counts of untagged trees in each size class on each subplot
   vector<lower=0>[M_r] n[S_r]; // vector of area-standardaized rates of occurence for 
   // each of size class on each of S_r subplots at time t = 0
+  vector<lower=0>[2] r; 
 }
 
 
@@ -76,8 +77,6 @@ parameters {
   real<lower=0> sigmaEpsilon_g; // std deviation of residuals for growth model
   
   // recruitment
-  real<lower=0> nu; // mean of recruitment size kernel
-  real<lower=0.1> upsilon; // standard deviation of recruitment size kernel
   real<lower=0> kappa_r; // neg binomial dispersion parameter for recruitment
   vector[14] beta_f; // fixeff coefficients including intercept for fecundity model
   real<lower=0> sigmaPlot_f;
@@ -126,11 +125,6 @@ model {
   // size classes
   matrix[M_r,S_r] f; // fecundity rates by size class and subplots
   vector[N_r] logf;
-  vector[2] r;
-  vector[2] rprime; // vector of recruitment rates into size classes
-  // SETTING NU AND UPSILON
-  //real nu = ;
-  //real upsilon = ;
   
   // fixed effects
   XB_s = X_s * beta_s;
@@ -157,19 +151,7 @@ model {
     logf[i] = XBf_r[i] + plotEffect_f[plotid_fr[i]] + ecoEffect_f[ecosub_fr[i]];
   }
   
-  // probability of recruits growing into size class h (equation 15)
-  //r[:] = 
-  //  myNormal_pdf(midpoints[1:2], nu, upsilon) / sum(myNormal_pdf(midpoints[1:2], nu, upsilon));
-   // print statements
-  //print("nu: ", nu, ",     upsilon: ", upsilon);
-  //print("Midpoints: ", midpoints);
-  for (i in 1:2){
-    rprime[i] = exp(normal_lpdf(midpoints[i]|nu, upsilon));
-  }
-  //print("r(1): ", rprime);
-  for (i in 1:2){
-    r[i] = rprime[i] / sum(rprime);
-  }
+
   //print("r(2): ", r);
   // IPM model for recruitment; loop over all the subplots
   for (subplot in 1:S_r){
@@ -222,8 +204,6 @@ model {
   sigmaEco_g ~ normal(0, 5);
   sigmaEpsilon_g ~ normal(0, 5);
   kappa_r ~ cauchy(0,5);
-  nu ~ normal(0,5);
-  upsilon~cauchy(0,1);
   beta_f ~ normal(0,5);
   sigmaPlot_f ~ normal(0,5);
   sigmaEco_f ~ normal(0,5);
