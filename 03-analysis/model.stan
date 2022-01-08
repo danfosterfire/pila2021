@@ -120,7 +120,7 @@ model {
   // size classes at time 0 lead to row size classes at time 1
   matrix[2,M_r] recKern[S_r]; // recruitment kernel 
   matrix[2,M_r] growKern[S_r]; // growth*survival transitions 
-  matrix[M_r,M_r] g[S_r]; // growth kernel of transitions from size class to size class on each plot
+  matrix[M_r,1] g[S_r]; // growth kernel of transitions from size class to size class on each plot
   matrix[M_r,S_r] s; // survival rates on each subplot for each of the 2 smallest 
   // size classes
   matrix[M_r,S_r] f; // fecundity rates by size class and subplots
@@ -156,15 +156,23 @@ model {
   // IPM model for recruitment; loop over all the subplots
   for (subplot in 1:S_r){
     
-    // loop over all combinations of size classes
-    for (sizeclass_1 in 1:M_r){
-      for (sizeclass_2 in 1:M_r){
+    // in the shriver code, this loops over all combinations of size classes,
+    // which isn't necessary because we're only using growth from the smallest 
+    // size class into the smallest two size classes;  set "sizeclass_from" to 
+    // be 1 everywhere and sizeclass_to to be 1:2
+    for (sizeclass_to in 1:2){
         // equation 12
-        g[subplot, sizeclass_2, sizeclass_1] = 
-         (normal_cdf(u_bounds[sizeclass_2]| mu_gr[sizeclass_1+(20*(subplot-1))], sigmaEpsilon_g) - 
-          normal_cdf(l_bounds[sizeclass_2]| mu_gr[sizeclass_1+(20*(subplot-1))], sigmaEpsilon_g)) / 
-          (1-normal_cdf(0| mu_gr[sizeclass_1+(20*(subplot-1))], sigmaEpsilon_g));
-      }
+        g[subplot, sizeclass_to, 1] = 
+         (normal_cdf(u_bounds[sizeclass_to]| mu_gr[1+(20*(subplot-1))], sigmaEpsilon_g) - 
+          normal_cdf(l_bounds[sizeclass_to]| mu_gr[1+(20*(subplot-1))], sigmaEpsilon_g)) / 
+          (1-normal_cdf(0| mu_gr[1+(20*(subplot-1))], sigmaEpsilon_g));
+      
+      // expected survival in each size class 
+      s[sizeclass_to,subplot] = inv_logit(logitp_sr[sizeclass_to+(M_r*(subplot-1))]);
+      
+      // growth kernel is the product of growth into each size class and 
+      // survival in that size class
+      growKern[subplot,sizeclass_to,1] = g[subplot, sizeclass_to,1]*s[sizeclass_to,subplot];
     }
     
     // loop over all the size classes
@@ -173,14 +181,6 @@ model {
       // expected fecundity in each size class
       f[sizeclass,subplot] = exp(logf[sizeclass+(M_r*(subplot-1))]);
     
-      // expected survival in each size class
-      s[sizeclass,subplot] = 
-        inv_logit(logitp_sr[sizeclass+(M_r*(subplot-1))]); 
-      
-      // growth kernel is the product of growth into each size class and 
-      // survival in that size class (eq 11.1)
-      growKern[subplot,1:2,sizeclass] = g[subplot,1:2,sizeclass] * s[sizeclass,subplot];
-      
       // recruitment kernel 
       recKern[subplot,1:2,sizeclass] = r * f[sizeclass,subplot];
     }
