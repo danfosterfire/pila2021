@@ -106,7 +106,7 @@ mu_g =
   as.numeric(as.matrix(sim_explanatory$X_g) %*% true_params$beta_g) +
   plotEffects_g[sim_explanatory$plotid_g] +
   ecoEffects_g[sim_explanatory$ecosub_g]
-size1_g = truncnorm::rtruncnorm(n = sim_explanatory$N_g, mean = mu_g, sd = true_params$sigmaEpsilon_g)
+size1_g = truncnorm::rtruncnorm(n = sim_explanatory$N_g, a = 0, mean = mu_g, sd = true_params$sigmaEpsilon_g)
 
 logf = 
   as.numeric(as.matrix(sim_explanatory$X_r) %*% true_params$beta_f) +
@@ -136,11 +136,11 @@ g = array(dim = c(sim_explanatory$M_r,
           data = 
             sapply(X = 1:sim_explanatory$S_r,
                    FUN = function(d){
-                     sapply(X = 1:sim_explanatory$M_r,
+                     sapply(X = 1,
                             FUN = function(j){
                               sapply(X = 1:sim_explanatory$M_r,
                                      FUN = function(h){
-                                        paste0('to',h,';from',j,';on',d) #testing
+                                        #paste0('to',h,';from',j,';on',d) #testing
                                        (pnorm(q = sim_explanatory$u_bounds[h],
                                              mean = mu_gr[j+(sim_explanatory$M_r * (d-1))],
                                              sd = true_params$sigmaEpsilon_g) - 
@@ -152,17 +152,17 @@ g = array(dim = c(sim_explanatory$M_r,
                             })
                    }))
 
-A = array(dim = c(2,
+A = array(dim = c(sim_explanatory$M_r,
                    sim_explanatory$M_r,
                    sim_explanatory$S_r),
-          dimnames = list(toclass = 1:2,
+          dimnames = list(toclass = sim_explanatory$midpoints,
                           fromclass = sim_explanatory$midpoints,
                           subplot = 1:sim_explanatory$S_r),
           data = sapply(X = 1:sim_explanatory$S_r,
                         FUN = function(d){
                           sapply(X = 1:sim_explanatory$M_r,
                                  FUN = function(j){
-                                   sapply(X = 1:2,
+                                   sapply(X = 1:sim_explanatory$M_r,
                                           FUN = function(h){
                                             
                                             g[h,1,d]*s[1+(sim_explanatory$M_r*(d-1))] +
@@ -171,8 +171,10 @@ A = array(dim = c(2,
                                  })
                         }))
 
+# fill in NAs with 0s
+A[is.na(A)] = 0
 
-nprime = matrix(nrow = 2, 
+nprime = matrix(nrow = sim_explanatory$M_r, 
                 ncol = sim_explanatory$S_r,
                 byrow = FALSE,
                 data = sapply(X = 1:sim_explanatory$S_r,
@@ -181,7 +183,7 @@ nprime = matrix(nrow = 2,
                               }))
 
 cprime = 
-  matrix(nrow = 2, 
+  matrix(nrow = sim_explanatory$M_r, 
          ncol = sim_explanatory$S_r,
          byrow = FALSE,
          data = sapply(X = 1:sim_explanatory$S_r,
@@ -193,5 +195,118 @@ cprime =
 
 #### try to recover parameters #################################################
 
+sim_data = 
+  sim_explanatory
+
+sim_data$surv = surv
+sim_data$size1_g = size1_g
+sim_data$cprime = cprime
+
+saveRDS(sim_data,
+        here::here('02-data',
+                   '02-for_analysis',
+                   'sim_data.rds'))
+
+sim_fit.model = cmdstan_model(here::here('03-analysis', 'model.stan'))
+
+sim_fit.samples = 
+  sim_fit.model$sample(data = sim_data,
+                        init = 
+                          
+                          # the default initialization scheme (random draws in the 
+                          # range -2:2) is not working well with the truncated 
+                          # normal distribution for the growth model; samplers 
+                          # are often rejecting more 
+                          # than 100 sets of initial parameter values and then 
+                          # giving up. Setting initial value for the fixed 
+                          # effect of size0 to 1 helps by nudging the initial 
+                          # state towards plausibly-positive means for the 
+                          # size1 size. The values of 0 for other fixed effects 
+                          # and 1 for the variances are fairly arbitrary defaults.
+                        # the model takes a while to get in gear, so sampling is 
+                        # slow at the start as most parameter proposals get 
+                        # rejected for predicting a negative mean size1, but it 
+                        # eventually wanders into a good region of parameter 
+                        # space and samples well.
+                        list(list(beta_s = 
+                                    c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                  sigmaPlot_s = 1,
+                                  sigmaEco_s = 1,
+                                  beta_g = 
+                                    c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                  sigmaPlot_g = 1,
+                                  sigmaEco_g = 1,
+                                  sigmaEpsilon_g = 1,
+                                  beta_f = 
+                                    c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                  sigmaPlot_f = 1,
+                                  sigmaEco_f = 1),
+                             list(beta_s = 
+                                    c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                  sigmaPlot_s = 1,
+                                  sigmaEco_s = 1,
+                                  beta_g = 
+                                    c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                  sigmaPlot_g = 1,
+                                  sigmaEco_g = 1,
+                                  sigmaEpsilon_g = 1,
+                                  beta_f = 
+                                    c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                  sigmaPlot_f = 1,
+                                  sigmaEco_f = 1),
+                             list(beta_s = 
+                                    c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                  sigmaPlot_s = 1,
+                                  sigmaEco_s = 1,
+                                  beta_g = 
+                                    c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                  sigmaPlot_g = 1,
+                                  sigmaEco_g = 1,
+                                  sigmaEpsilon_g = 1,
+                                  beta_f = 
+                                    c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                  sigmaPlot_f = 1,
+                                  sigmaEco_f = 1),
+                             list(beta_s = 
+                                    c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                  sigmaPlot_s = 1,
+                                  sigmaEco_s = 1,
+                                  beta_g = 
+                                    c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                  sigmaPlot_g = 1,
+                                  sigmaEco_g = 1,
+                                  sigmaEpsilon_g = 1,
+                                  beta_f = 
+                                    c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                                  sigmaPlot_f = 1,
+                                  sigmaEco_f = 1)),
+                        parallel_chains = 4,
+                        output_dir = here::here('02-data',
+                                                '03-results'),
+                        output_basename = 'sim_model')
+
+
+sim_fit.samples$save_object(here::here('02-data', '03-results', 'sim_fit.rds'))
+
+
+#### compare results to true values ############################################
+
+sim_fit.samples$summary(c('beta_s', 'sigmaPlot_s', 'sigmaEco_s', 'beta_g', 
+                           'sigmaPlot_g', 'sigmaEco_g', 'sigmaEpsilon_g',
+                           'beta_f', 'sigmaPlot_f', 'sigmaEco_f','kappa_r')) %>%
+  print(n = Inf)
+
+mcmc_trace(sim_fit.samples$draws(variables = 
+                                    c('beta_s', 'sigmaPlot_s', 'sigmaEco_s', 'beta_g', 
+                                      'sigmaPlot_g', 'sigmaEco_g', 'sigmaEpsilon_g',
+                                      'beta_f', 'sigmaPlot_f', 'sigmaEco_f','kappa_r')))
+
+
+mcmc_dens_overlay(sim_fit.samples$draws(variables = 
+                                           c('beta_s', 'sigmaPlot_s', 'sigmaEco_s', 'beta_g', 
+                                             'sigmaPlot_g', 'sigmaEco_g', 'sigmaEpsilon_g',
+                                             'beta_f', 'sigmaPlot_f', 'sigmaEco_f','kappa_r')))
+
+sim_fit.samples$cmdstan_diagnose()
 
 
