@@ -73,6 +73,9 @@ survival_predictions =
                    
                  }))
 
+
+
+
 head(survival_predictions)
 
 ggplot(data = survival_predictions,
