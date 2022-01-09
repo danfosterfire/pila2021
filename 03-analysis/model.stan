@@ -53,7 +53,7 @@ data {
   vector[2] a; // plot area for each of the size classes; here only for the 
   // smallest 2 size classes (only need these, and the macro breakpoint diameter is not consistent 
   // across all the subplots)
-  int cprime[M_r,S_r]; // counts of untagged trees in each size class on each subplot
+  int cprime[2,S_r]; // counts of untagged trees in each size class on each subplot
   vector<lower=0>[M_r] n[S_r]; // vector of area-standardaized rates of occurence for 
   // each of size class on each of S_r subplots at time t = 0
   vector<lower=0>[2] r; 
@@ -163,9 +163,9 @@ model {
     for (sizeclass_to in 1:2){
         // equation 12
         g[subplot, sizeclass_to, 1] = 
-         (normal_cdf(u_bounds[sizeclass_to]| mu_gr[1+(20*(subplot-1))], sigmaEpsilon_g) - 
-          normal_cdf(l_bounds[sizeclass_to]| mu_gr[1+(20*(subplot-1))], sigmaEpsilon_g)) / 
-          (1-normal_cdf(0| mu_gr[1+(20*(subplot-1))], sigmaEpsilon_g));
+         (normal_cdf(u_bounds[sizeclass_to]| mu_gr[1+(M_r*(subplot-1))], sigmaEpsilon_g) - 
+          normal_cdf(l_bounds[sizeclass_to]| mu_gr[1+(M_r*(subplot-1))], sigmaEpsilon_g)) / 
+          (1-normal_cdf(0| mu_gr[1+(M_r*(subplot-1))], sigmaEpsilon_g));
       
       // expected survival in each size class 
       s[sizeclass_to,subplot] = inv_logit(logitp_sr[sizeclass_to+(M_r*(subplot-1))]);

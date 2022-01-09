@@ -161,11 +161,11 @@ recr_data.pila =
 # inch size bins from 0.5-9.5"; "count" gives the number of untagged 
 # trees on the subplot in the species:size bin at the remeasurement (ie 
 # ingrowth)
+
 untagged_data.pila = 
-  readRDS(here::here('02-data',
-                     '01-preprocessed',
-                     'untagged_data.rds')) %>%
-  filter(species=='PILA'&is.element(subp_id, recr_data.pila$subp_id))
+  recr_data.pila %>%
+  filter(dbh_in.init <= 7.5) %>%
+  arrange(subp_id, dbh_in.init)
 
 
 
@@ -177,7 +177,10 @@ untagged_data.pila =
 # recruitment size kernel as data. 
 r = 
   # start with all the untagged data
-  untagged_data.pila %>%
+  readRDS(here::here('02-data',
+                     '01-preprocessed',
+                     'untagged_data.rds')) %>%
+  filter(species=='PILA'&is.element(subp_id, recr_data.pila$subp_id)) %>%
   
   # keep only the first two size classes (assume everything >10" dbh isn't 
   # really a new recruit, just a missed tree)
@@ -188,7 +191,10 @@ r =
   right_join(
       # get the total number of untagged trees in the first two size classes (new recxruits) 
     # on each subplot
-    untagged_data.pila %>%
+    readRDS(here::here('02-data',
+                       '01-preprocessed',
+                       'untagged_data.rds')) %>%
+      filter(species=='PILA'&is.element(subp_id, recr_data.pila$subp_id))  %>%
       filter(dbh_class <= 2) %>%
       group_by(subp_id) %>% 
       summarise(total_count = sum(count)) %>%
@@ -259,8 +265,8 @@ pila_data =
     midpoints = size_metadata$bin_midpoint,
     a = size_metadata$plot_area_ac[1:2],
     cprime = matrix(ncol = length(unique(recr_data.pila$subp_id)),
-                    nrow = nrow(size_metadata),
-                    data = recr_data.pila$untagged_count,
+                    nrow = 2,
+                    data = untagged_data.pila$untagged_count,
                     byrow = FALSE),
     n = matrix(nrow = length(unique(recr_data.pila$subp_id)),
                ncol = nrow(size_metadata),

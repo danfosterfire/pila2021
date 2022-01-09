@@ -11,6 +11,8 @@
 library(here)
 library(tidyverse)
 library(cmdstanr)
+library(bayesplot)
+library(posterior)
 
 # load observed data
 pila_data = readRDS(here::here('02-data', '02-for_analysis', 'pila_data.rds'))
@@ -119,19 +121,19 @@ f = matrix(nrow = sim_explanatory$M_r, ncol = sim_explanatory$S_r,
 logits = 
   as.numeric(as.matrix(sim_explanatory$X_r) %*% true_params$beta_s) +
   plotEffects_s[sim_explanatory$plotid_sr] + 
-  plotEffects_g[sim_explanatory$ecosub_sr] 
+  ecoEffects_s[sim_explanatory$ecosub_sr] 
 s = boot::inv.logit(logits)
 
 mu_gr = 
   as.numeric(as.matrix(sim_explanatory$X_r) %*% true_params$beta_g)+
-  plotEffects_s[sim_explanatory$plotid_gr] +
-  plotEffects_g[sim_explanatory$ecosub_gr]
+  plotEffects_g[sim_explanatory$plotid_gr] +
+  ecoEffects_g[sim_explanatory$ecosub_gr]
 
-g = array(dim = c(sim_explanatory$M_r,
-                  sim_explanatory$M_r,
+g = array(dim = c(2,
+                  1,
                   sim_explanatory$S_r), 
-          dimnames = list(toclass = sim_explanatory$midpoints, 
-                          fromclass = sim_explanatory$midpoints,
+          dimnames = list(toclass = sim_explanatory$midpoints[1:2], 
+                          fromclass = 1,
                           subplot = 1:sim_explanatory$S_r),
           data = 
             sapply(X = 1:sim_explanatory$S_r,
@@ -147,22 +149,24 @@ g = array(dim = c(sim_explanatory$M_r,
                                          pnorm(q = sim_explanatory$l_bounds[h],
                                                mean = mu_gr[j+sim_explanatory$M_r*(d-1)],
                                                sd = true_params$sigmaEpsilon_g))/
-                                         (1-pnorm(q = 0, mean = mu_gr[j+(sim_explanatory$M_r*(d-1))]))
+                                         (1-pnorm(q = 0, 
+                                                  mean = mu_gr[j+(sim_explanatory$M_r*(d-1))],
+                                                  sd = true_params$sigmaEpsilon_g))
                                      })
                             })
                    }))
 
-A = array(dim = c(sim_explanatory$M_r,
+A = array(dim = c(2,
                    sim_explanatory$M_r,
                    sim_explanatory$S_r),
-          dimnames = list(toclass = sim_explanatory$midpoints,
+          dimnames = list(toclass = sim_explanatory$midpoints[1:2],
                           fromclass = sim_explanatory$midpoints,
                           subplot = 1:sim_explanatory$S_r),
           data = sapply(X = 1:sim_explanatory$S_r,
                         FUN = function(d){
                           sapply(X = 1:sim_explanatory$M_r,
                                  FUN = function(j){
-                                   sapply(X = 1:sim_explanatory$M_r,
+                                   sapply(X = 1:2,
                                           FUN = function(h){
                                             
                                             g[h,1,d]*s[1+(sim_explanatory$M_r*(d-1))] +
@@ -171,10 +175,7 @@ A = array(dim = c(sim_explanatory$M_r,
                                  })
                         }))
 
-# fill in NAs with 0s
-A[is.na(A)] = 0
-
-nprime = matrix(nrow = sim_explanatory$M_r, 
+nprime = matrix(nrow = 2, 
                 ncol = sim_explanatory$S_r,
                 byrow = FALSE,
                 data = sapply(X = 1:sim_explanatory$S_r,
@@ -183,7 +184,7 @@ nprime = matrix(nrow = sim_explanatory$M_r,
                               }))
 
 cprime = 
-  matrix(nrow = sim_explanatory$M_r, 
+  matrix(nrow = 2, 
          ncol = sim_explanatory$S_r,
          byrow = FALSE,
          data = sapply(X = 1:sim_explanatory$S_r,
@@ -309,4 +310,81 @@ mcmc_dens_overlay(sim_fit.samples$draws(variables =
 
 sim_fit.samples$cmdstan_diagnose()
 
+samples = as_draws_df(sim_fit.samples$draws(variables = 
+                                               c('beta_s', 'sigmaPlot_s', 'sigmaEco_s', 'beta_g', 
+                                             'sigmaPlot_g', 'sigmaEco_g', 'sigmaEpsilon_g',
+                                             'beta_f', 'sigmaPlot_f', 'sigmaEco_f','kappa_r')))
 
+head(samples)
+
+# beta_s
+lapply(X = 1:14,
+       FUN = function(i){
+         
+         param_name = paste0('beta_s[',i,']')
+         
+         bounds95 = quantile(pull(samples[,param_name]), probs = c(0.025, 0.975))
+         
+         ggplot(data = samples,
+                aes(x = .data[[param_name]]))+
+           geom_histogram()+
+           geom_vline(xintercept = true_params$beta_s[i], color = 'red')+
+           geom_vline(xintercept = bounds95[1], color = 'blue')+
+           geom_vline(xintercept = bounds95[2], color = 'blue')+
+           theme_minimal()
+       })
+
+# beta_g
+lapply(X = 1:14,
+       FUN = function(i){
+         
+         param_name = paste0('beta_g[',i,']')
+         
+         bounds95 = quantile(pull(samples[,param_name]), probs = c(0.025, 0.975))
+         
+         ggplot(data = samples,
+                aes(x = .data[[param_name]]))+
+           geom_histogram()+
+           geom_vline(xintercept = true_params$beta_g[i], color = 'red')+
+           geom_vline(xintercept = bounds95[1], color = 'blue')+
+           geom_vline(xintercept = bounds95[2], color = 'blue')+
+           theme_minimal()
+       })
+
+# beta_f
+lapply(X = 1:14,
+       FUN = function(i){
+         
+         param_name = paste0('beta_f[',i,']')
+         
+         bounds95 = quantile(pull(samples[,param_name]), probs = c(0.025, 0.975))
+         
+         ggplot(data = samples,
+                aes(x = .data[[param_name]]))+
+           geom_histogram()+
+           geom_vline(xintercept = true_params$beta_f[i], color = 'red')+
+           geom_vline(xintercept = bounds95[1], color = 'blue')+
+           geom_vline(xintercept = bounds95[2], color = 'blue')+
+           theme_minimal()
+       })
+
+lapply(X = c('sigmaPlot_s', 'sigmaPlot_g', 'sigmaPlot_f',
+             'sigmaEco_s', 'sigmaEco_g', 'sigmaEco_f',
+             'sigmaEpsilon_g', 'kappa_r'),
+       FUN = function(p){
+         bounds95 = quantile(pull(samples[,p]), probs = c(0.025, 0.975))
+         ggplot(data = samples,
+                aes(x = .data[[p]]))+
+           geom_histogram()+
+           geom_vline(xintercept = true_params[[p]], color = 'red')+
+           geom_vline(xintercept = bounds95[1], color = 'blue')+
+           geom_vline(xintercept = bounds95[2], color = 'blue')+
+           theme_minimal()
+       })
+
+
+# hmm, not good results: sd for the plot random effect over-estimated for all three submodels
+# beta esitmates are iffy for: s14, s11, s8, s7, s4, s2, g12, g3, g2,  f5, 
+# beta estimates are bad for: s10, g11, g9, g8, g7, g5, f14, f11, f10, f9, f8, f6, f4, f3, f1
+
+# beta estimates wonky because the raneff estimates are bad?
