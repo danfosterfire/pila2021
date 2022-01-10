@@ -57,6 +57,7 @@ data {
   vector<lower=0>[M_r] n[S_r]; // vector of area-standardaized rates of occurence for 
   // each of size class on each of S_r subplots at time t = 0
   vector<lower=0>[2] r; 
+  
 }
 
 

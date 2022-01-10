@@ -20,27 +20,28 @@ pila_data = readRDS(here::here('02-data', '02-for_analysis', 'pila_data.rds'))
 # load mcmc results
 pila_fit = readRDS(here::here('02-data', '03-results', 'pila_fit_mcmc_fullran.rds'))
 
-samples = as_draws_df(pila_fit$draws())
+samples.real = as_draws_df(pila_fit$draws())
 
-samples %>% summarise_all(median)
+samples.real %>% summarise_all(median)
 #### simulate data  ############################################################
 
 # DEFINE PARAMETERS
 true_params = 
   list(
-    beta_s = samples %>% select(contains('beta_s')) %>% summarise_all(median) %>% as.numeric(),
-    sigmaPlot_s = samples %>% select(contains('sigmaPlot_s')) %>% summarise_all(median) %>% as.numeric(),
-    sigmaEco_s = samples %>% select(contains('sigmaEco_s')) %>% summarise_all(median) %>% as.numeric(),
+    beta_s = samples.real %>% select(contains('beta_s')) %>% summarise_all(median) %>% as.numeric(),
+    sigmaPlot_s = samples.real %>% select(contains('sigmaPlot_s')) %>% summarise_all(median) %>% as.numeric(),
+    sigmaEco_s = samples.real %>% select(contains('sigmaEco_s')) %>% summarise_all(median) %>% as.numeric(),
     
-    beta_g = samples %>% select(contains('beta_g')) %>% summarise_all(median) %>% as.numeric(),
-    sigmaPlot_g = samples %>% select(contains('sigmaPlot_g')) %>% summarise_all(median) %>% as.numeric(),
-    sigmaEco_g = samples %>% select(contains('sigmaEco_g')) %>% summarise_all(median) %>% as.numeric(),
-    sigmaEpsilon_g = samples %>% select(contains('sigmaEpsilon_g')) %>% summarise_all(median) %>% as.numeric(),
+    beta_g = samples.real %>% select(contains('beta_g')) %>% summarise_all(median) %>% as.numeric(),
+    sigmaPlot_g = samples.real %>% select(contains('sigmaPlot_g')) %>% summarise_all(median) %>% as.numeric(),
+    sigmaEco_g = samples.real %>% select(contains('sigmaEco_g')) %>% summarise_all(median) %>% as.numeric(),
+    sigmaEpsilon_g = samples.real %>% select(contains('sigmaEpsilon_g')) %>% summarise_all(median) %>% as.numeric(),
     
-    beta_f = samples %>% select(contains('beta_f')) %>% summarise_all(median) %>% as.numeric(),
-    sigmaPlot_f = samples %>% select(contains('sigmaPlot_f')) %>% summarise_all(median) %>% as.numeric(),
-    sigmaEco_f = samples %>% select(contains('sigmaEco_f')) %>% summarise_all(median) %>% as.numeric(),
-    kappa_r = samples %>% select(contains('kappa_r')) %>% summarise_all(median) %>% as.numeric()
+    beta_f = samples.real %>% select(contains('beta_f')) %>% summarise_all(median) %>% as.numeric(),
+    sigmaPlot_f = samples.real %>% select(contains('sigmaPlot_f')) %>% summarise_all(median) %>% as.numeric(),
+    sigmaEco_f = samples.real %>% select(contains('sigmaEco_f')) %>% summarise_all(median) %>% as.numeric(),
+    kappa_r = samples.real %>% select(contains('kappa_r')) %>% summarise_all(median) %>% as.numeric()
+    #kappa_r = 1
   )
 
 
@@ -290,6 +291,7 @@ sim_fit.samples =
 sim_fit.samples$save_object(here::here('02-data', '03-results', 'sim_fit.rds'))
 
 
+
 #### compare results to true values ############################################
 
 sim_fit.samples$summary(c('beta_s', 'sigmaPlot_s', 'sigmaEco_s', 'beta_g', 
@@ -313,7 +315,25 @@ sim_fit.samples$cmdstan_diagnose()
 samples = as_draws_df(sim_fit.samples$draws(variables = 
                                                c('beta_s', 'sigmaPlot_s', 'sigmaEco_s', 'beta_g', 
                                              'sigmaPlot_g', 'sigmaEco_g', 'sigmaEpsilon_g',
-                                             'beta_f', 'sigmaPlot_f', 'sigmaEco_f','kappa_r')))
+                                             'beta_f', 'sigmaPlot_f', 'sigmaEco_f', 'kappa_r')))
+
+samples_all = as_draws_df(sim_fit.samples$draws())
+
+samples_all %>%
+  select(contains('ecoEffect_f')) %>%
+  summarise_all(median) %>%
+  pivot_longer(cols = everything()) %>%
+  pull(value)
+
+ecoEffects_f
+
+samples_all %>%
+  select(contains('ecoEffect_g')) %>%
+  summarise_all(median) %>%
+  pivot_longer(cols = everything()) %>%
+  pull(value)
+
+ecoEffects_g
 
 head(samples)
 
@@ -383,8 +403,6 @@ lapply(X = c('sigmaPlot_s', 'sigmaPlot_g', 'sigmaPlot_f',
        })
 
 
-# hmm, not good results: sd for the plot random effect over-estimated for all three submodels
-# beta esitmates are iffy for: s14, s11, s8, s7, s4, s2, g12, g3, g2,  f5, 
-# beta estimates are bad for: s10, g11, g9, g8, g7, g5, f14, f11, f10, f9, f8, f6, f4, f3, f1
+
 
 # beta estimates wonky because the raneff estimates are bad?
