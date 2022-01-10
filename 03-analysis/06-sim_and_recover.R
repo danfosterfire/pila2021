@@ -25,6 +25,8 @@ samples.real = as_draws_df(pila_fit$draws())
 samples.real %>% summarise_all(median)
 #### simulate data  ############################################################
 
+set.seed(110819)
+
 # DEFINE PARAMETERS
 true_params = 
   list(
@@ -91,44 +93,44 @@ sim_explanatory =
 
 # SIMULATE RANDOM EFFECTS AND RESPONSES
 
-plotEffects_s = rnorm(n = sim_explanatory$P_s, mean = 0, sd = true_params$sigmaPlot_s)
-ecoEffects_s = rnorm(n = sim_explanatory$E_s, mean = 0, sd = true_params$sigmaEco_s)
-plotEffects_g = rnorm(n = sim_explanatory$P_g, mean = 0, sd = true_params$sigmaPlot_g)
-ecoEffects_g = rnorm(n = sim_explanatory$E_g, mean = 0, sd = true_params$sigmaEco_g)
-plotEffects_f = rnorm(n = sim_explanatory$P_f, mean = 0, sd = true_params$sigmaPlot_f)
-ecoEffects_f = rnorm(n = sim_explanatory$E_f, mean = 0, sd = true_params$sigmaEco_f)
+#plotEffects_s = rnorm(n = sim_explanatory$P_s, mean = 0, sd = true_params$sigmaPlot_s)
+#ecoEffects_s = rnorm(n = sim_explanatory$E_s, mean = 0, sd = true_params$sigmaEco_s)
+#plotEffects_g = rnorm(n = sim_explanatory$P_g, mean = 0, sd = true_params$sigmaPlot_g)
+#ecoEffects_g = rnorm(n = sim_explanatory$E_g, mean = 0, sd = true_params$sigmaEco_g)
+#plotEffects_f = rnorm(n = sim_explanatory$P_f, mean = 0, sd = true_params$sigmaPlot_f)
+#ecoEffects_f = rnorm(n = sim_explanatory$E_f, mean = 0, sd = true_params$sigmaEco_f)
 
 logitp_s =  
-  as.numeric(as.matrix(sim_explanatory$X_s) %*% true_params$beta_s) +
-  plotEffects_s[sim_explanatory$plotid_s] +
-  ecoEffects_s[sim_explanatory$ecosub_s]
+  as.numeric(as.matrix(sim_explanatory$X_s) %*% true_params$beta_s)# +
+  #plotEffects_s[sim_explanatory$plotid_s] +
+  #ecoEffects_s[sim_explanatory$ecosub_s]
 p_s = boot::inv.logit(logitp_s)
 surv = rbinom(n = sim_explanatory$N_s, size = 1, prob = p_s)
 
 mu_g = 
-  as.numeric(as.matrix(sim_explanatory$X_g) %*% true_params$beta_g) +
-  plotEffects_g[sim_explanatory$plotid_g] +
-  ecoEffects_g[sim_explanatory$ecosub_g]
+  as.numeric(as.matrix(sim_explanatory$X_g) %*% true_params$beta_g)# +
+  #plotEffects_g[sim_explanatory$plotid_g] +
+  #ecoEffects_g[sim_explanatory$ecosub_g]
 size1_g = truncnorm::rtruncnorm(n = sim_explanatory$N_g, a = 0, mean = mu_g, sd = true_params$sigmaEpsilon_g)
 
 logf = 
-  as.numeric(as.matrix(sim_explanatory$X_r) %*% true_params$beta_f) +
-  plotEffects_f[sim_explanatory$plotid_fr] +
-  ecoEffects_f[sim_explanatory$ecosub_fr]
+  as.numeric(as.matrix(sim_explanatory$X_r) %*% true_params$beta_f)# +
+  #plotEffects_f[sim_explanatory$plotid_fr] +
+  #ecoEffects_f[sim_explanatory$ecosub_fr]
 
 f = matrix(nrow = sim_explanatory$M_r, ncol = sim_explanatory$S_r,
            data = exp(logf), byrow = FALSE)
 
 logits = 
-  as.numeric(as.matrix(sim_explanatory$X_r) %*% true_params$beta_s) +
-  plotEffects_s[sim_explanatory$plotid_sr] + 
-  ecoEffects_s[sim_explanatory$ecosub_sr] 
+  as.numeric(as.matrix(sim_explanatory$X_r) %*% true_params$beta_s)# +
+  #plotEffects_s[sim_explanatory$plotid_sr] + 
+  #ecoEffects_s[sim_explanatory$ecosub_sr] 
 s = boot::inv.logit(logits)
 
 mu_gr = 
-  as.numeric(as.matrix(sim_explanatory$X_r) %*% true_params$beta_g)+
-  plotEffects_g[sim_explanatory$plotid_gr] +
-  ecoEffects_g[sim_explanatory$ecosub_gr]
+  as.numeric(as.matrix(sim_explanatory$X_r) %*% true_params$beta_g) #+
+  #plotEffects_g[sim_explanatory$plotid_gr] +
+  #ecoEffects_g[sim_explanatory$ecosub_gr]
 
 g = array(dim = c(2,
                   1,
@@ -209,7 +211,7 @@ saveRDS(sim_data,
                    '02-for_analysis',
                    'sim_data.rds'))
 
-sim_fit.model = cmdstan_model(here::here('03-analysis', 'model.stan'))
+sim_fit.model = cmdstan_model(here::here('03-analysis', 'model_noRanEff.stan'))
 
 sim_fit.samples = 
   sim_fit.model$sample(data = sim_data,
@@ -313,9 +315,10 @@ mcmc_dens_overlay(sim_fit.samples$draws(variables =
 sim_fit.samples$cmdstan_diagnose()
 
 samples = as_draws_df(sim_fit.samples$draws(variables = 
-                                               c('beta_s', 'sigmaPlot_s', 'sigmaEco_s', 'beta_g', 
-                                             'sigmaPlot_g', 'sigmaEco_g', 'sigmaEpsilon_g',
-                                             'beta_f', 'sigmaPlot_f', 'sigmaEco_f', 'kappa_r')))
+                                            #   c('beta_s', 'sigmaPlot_s', 'sigmaEco_s', 'beta_g', 
+                                            # 'sigmaPlot_g', 'sigmaEco_g', 'sigmaEpsilon_g',
+                                            # 'beta_f', 'sigmaPlot_f', 'sigmaEco_f', 'kappa_r')))
+                                              c('beta_s', 'beta_g','sigmaEpsilon_g')))
 
 samples_all = as_draws_df(sim_fit.samples$draws())
 
@@ -388,9 +391,11 @@ lapply(X = 1:14,
            theme_minimal()
        })
 
-lapply(X = c('sigmaPlot_s', 'sigmaPlot_g', 'sigmaPlot_f',
-             'sigmaEco_s', 'sigmaEco_g', 'sigmaEco_f',
-             'sigmaEpsilon_g', 'kappa_r'),
+
+
+lapply(X = #c('sigmaPlot_s', 'sigmaPlot_g', 'sigmaPlot_f',
+            # 'sigmaEco_s', 'sigmaEco_g', 'sigmaEco_f',
+            c( 'sigmaEpsilon_g', 'kappa_r'),
        FUN = function(p){
          bounds95 = quantile(pull(samples[,p]), probs = c(0.025, 0.975))
          ggplot(data = samples,
