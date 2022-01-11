@@ -37,10 +37,10 @@ sim_est_rank =
     # include this narrow prior in the parameter estimation code because it 
     # would be a hassle to split out the fixeff for size from the rest of the 
     # fixed effects)
-    true_beta_s = rnorm(n = 14, mean = 0, sd = 5)
-    true_beta_g = rnorm(n = 14, mean = 0, sd = 5)
+    true_beta_s = rnorm(n = 14, mean = 0, sd = 1)
+    true_beta_g = rnorm(n = 14, mean = 0, sd = 1)
     true_beta_g[2] = rnorm(n = 1, mean = 1, sd = 0.1)
-    true_sigmaEpsilon_g = rcauchy(n = 1, location = 0, scale = 5)
+    true_sigmaEpsilon_g = rcauchy(n = 1, location = 0, scale = 1)
     
     # simulate some fake random effects
     
@@ -57,6 +57,35 @@ sim_est_rank =
     
     sim_data$surv = sim_surv
     sim_data$size1_g = sim_size1
+    
+    # get posterior parameter distributions
+    sim_fit = 
+      stan_model$sample(
+        data = sim_data,
+        init = 
+          list(
+            list(beta_s = rep(0, times = 14),
+                 beta_g = c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                 sigmaEpsilon_g = 1),
+            list(beta_s = rep(0, times = 14),
+                 beta_g = c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                 sigmaEpsilon_g = 1),
+            list(beta_s = rep(0, times = 14),
+                 beta_g = c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                 sigmaEpsilon_g = 1),
+            list(beta_s = rep(0, times = 14),
+                 beta_g = c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                 sigmaEpsilon_g = 1)),
+        parallel_chains = 4,
+        output_dir = here::here('02-data', '03-results', 'sim_fits'),
+        output_basename = paste0('simfit_', id))
+    
+    sim_fit$save_object(here::here('02-data', '03-results', 'sim_fits',
+                                   paste0('simfit_',id,'.rds')))
+    
+    # compare posterior samples against true parameter values
+    posterior_samples = as_draws_df(sim_fit$draws())
+    
   }
 
 #### check uniformity of each parameter ########################################
