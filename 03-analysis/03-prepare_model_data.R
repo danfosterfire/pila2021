@@ -217,6 +217,8 @@ r =
 #### prepare model data ########################################################
 pila_data = 
   list(
+    # number of fixef parameters
+    K = 14,
     # survival data
     N_s = nrow(mort_data.pila),
        P_s = length(unique(mort_data.pila$plot_id)),
@@ -225,12 +227,12 @@ pila_data =
        plotid_s = mort_data.pila$plot_id.i,
        ecosub_s = mort_data.pila$ecosub.i,
        X_s = 
-         mort_data.pila[,c('intercept', 'dbh_in.init', 'fire', 'insects', 
-                           'disease', 'ba_scaled', 'cwd_dep90_scaled', 
-                           'cwd_mean_scaled', 'dbh_fire', 'dbh_insects',
-                           'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')],
+         as.matrix(mort_data.pila[,c('intercept', 'dbh_in.init', 'fire', 'insects',
+                                     'disease','ba_scaled', 'cwd_dep90_scaled', 
+                                     'cwd_mean_scaled', 'dbh_fire','dbh_insects', 
+                                     'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
     
-    # growth data
+    # growth data 
        N_g = nrow(growth_data.pila),
        P_g = length(unique(growth_data.pila$plot_id)),
        E_g = length(unique(growth_data.pila$ecosubcd)),
@@ -238,10 +240,10 @@ pila_data =
        plotid_g = growth_data.pila$plot_id.i,
        ecosub_g = growth_data.pila$ecosub.i,
        X_g = 
-         growth_data.pila[,c('intercept', 'dbh_in.init', 'fire', 'insects', 
-                             'disease', 'ba_scaled', 'cwd_dep90_scaled', 
-                             'cwd_mean_scaled', 'dbh_fire', 'dbh_insects',
-                             'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')],
+         as.matrix(growth_data.pila[,c('intercept', 'dbh_in.init', 'fire', 'insects',
+                                     'disease','ba_scaled', 'cwd_dep90_scaled', 
+                                     'cwd_mean_scaled', 'dbh_fire','dbh_insects', 
+                                     'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
     
     # recruitment data
     N_r = nrow(recr_data.pila),
@@ -249,10 +251,10 @@ pila_data =
     P_f = length(unique(recr_data.pila$plot_id)),
     E_f = length(unique(recr_data.pila$ecosubcd)),
     X_r = 
-      recr_data.pila[,c('intercept', 'dbh_in.init', 'fire', 'insects', 
-                             'disease', 'ba_scaled', 'cwd_dep90_scaled', 
-                             'cwd_mean_scaled', 'dbh_fire', 'dbh_insects',
-                             'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')],
+      as.matrix(recr_data.pila[,c('intercept', 'dbh_in.init', 'fire', 'insects',
+                                     'disease','ba_scaled', 'cwd_dep90_scaled', 
+                                     'cwd_mean_scaled', 'dbh_fire','dbh_insects', 
+                                     'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
     plotid_sr = recr_data.pila$plot_id.s,
     ecosub_sr = recr_data.pila$ecosub.s,
     plotid_gr = recr_data.pila$plot_id.g,

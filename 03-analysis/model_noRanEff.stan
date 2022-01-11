@@ -1,6 +1,7 @@
 
 
 data {
+  int<lower=1> K;
   // surivval data
   int<lower=0> N_s; // number of individual trees tracked for survival
   //int<lower=0> P_s; // number of unique plots
@@ -8,7 +9,7 @@ data {
   int surv[N_s]; // 1 if individual i survived from t = 0 to t = 1, 0 otherwise
   //int plotid_s[N_s]; // plot ID indices
   //int ecosub_s[N_s]; // ecoregion subsection indices
-  matrix[N_s,14] X_s; // design matrix for fixed effects, not including size
+  matrix[N_s,K] X_s; // design matrix for fixed effects, not including size
   
   // growth data
   int<lower=0> N_g; // number of individual trees tracked for growth
@@ -17,7 +18,7 @@ data {
   real size1_g[N_g]; // sizes at time t+1
   //int plotid_g[N_g]; // plot id indices
   //int ecosub_g[N_g]; // ecoregion subsection indices
-  matrix[N_g,14] X_g; // design matrix for fixed effects, including intercept
+  matrix[N_g,K] X_g; // design matrix for fixed effects, including intercept
   
   // recruitment data
   //int<lower=0> N_r; // M_r (20) times the number of unique plots for the 
@@ -27,7 +28,7 @@ data {
   //int<lower=0> S_r; // number of unique subplots for the recruitment submodel
   //int<lower=0> E_f; // number of unique ecoregions for the recruitment submodel 
   // (ecoregions which occur in both the growth and survival datasets)
-  //matrix[N_r, 14] X_r; // fixeff explanatory variables for each sizeclass:subplot 
+  //matrix[N_r, K] X_r; // fixeff explanatory variables for each sizeclass:subplot 
   // combination, used to predict growth and survival for the recruitment 
   // submodel sizeclasses; instead of observed sizes here we have the 
   // midpoints for each size class; MUST BE ORDERED subplot (slow) sizeclass (fast)
@@ -54,14 +55,14 @@ data {
 
 parameters {
   // survival
-  vector[14] beta_s; // fixeff coefficients, including intercept, for surv model
+  vector[K] beta_s; // fixeff coefficients, including intercept, for surv model
   //real<lower=0> sigmaPlot_s; // standard deviation of plot random effect
   //real<lower=0> sigmaEco_s; // sddev of ecoregion subsection effect
   //vector[P_s] zPlot_s; // standard normal deviates for plot random effect
   //vector[E_s] zEco_s; // sdnormal deviates for ecoregion random effect
   
   // growth 
-  vector[14] beta_g; // fixeff coeffs, including intercept, for growth model
+  vector[K] beta_g; // fixeff coeffs, including intercept, for growth model
   //real<lower=0> sigmaPlot_g; // std deviation of plot random effect
   //vector[P_g] zPlot_g; // std normal deviates for plot random effect
   //real<lower=0> sigmaEco_g; // std dev of ecoregion random effect
@@ -70,7 +71,7 @@ parameters {
   
   // recruitment
   //real<lower=0> kappa_r; // neg binomial dispersion parameter for recruitment
-  //vector[14] beta_f; // fixeff coefficients including intercept for fecundity model
+  //vector[12] beta_f; // fixeff coefficients including intercept for fecundity model
   //real<lower=0> sigmaPlot_f;
   //vector[P_f] zPlot_f;
   //real<lower=0> sigmaEco_f;
