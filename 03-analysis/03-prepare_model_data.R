@@ -30,13 +30,18 @@ growth_data.pila =
                      intercept,
                      fire, insects, disease, 
                      ba_scaled, cwd_dep90_scaled, cwd_mean_scaled)) %>%
+  
+  # get DBH in meters, which will be on a nicer (close to 0-1, similar to other 
+  # covariates) scale
+  mutate(dbh_m.init = dbh_in.init*0.0254,
+         dbh_m.re = dbh_in.re * 0.0254) %>%
   # construct data for size:stressor interactions
-  mutate(dbh_fire = dbh_in.init*fire,
-         dbh_insects = dbh_in.init*insects,
-         dbh_disease = dbh_in.init*disease,
-         dbh_ba = dbh_in.init*ba_scaled,
-         dbh_cwd90 = dbh_in.init*cwd_dep90_scaled,
-         dbh_cwdmean = dbh_in.init*cwd_mean_scaled,
+  mutate(dbh_fire = dbh_m.init*fire,
+         dbh_insects = dbh_m.init*insects,
+         dbh_disease = dbh_m.init*disease,
+         dbh_ba = dbh_m.init*ba_scaled,
+         dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
+         dbh_cwdmean = dbh_m.init*cwd_mean_scaled,
          plot_id.i = as.integer(factor(plot_id)),
          ecosub.i = as.integer(factor(ecosubcd)))
 
@@ -54,13 +59,16 @@ mort_data.pila =
                      intercept,
                      fire, insects, disease, 
                      ba_scaled, cwd_dep90_scaled, cwd_mean_scaled)) %>%
+  
+  # convert to meters scale
+  mutate(dbh_m.init = dbh_in.init * 0.0254) %>%
   # construct data for size:stressor interactions
-  mutate(dbh_fire = dbh_in.init*fire,
-         dbh_insects = dbh_in.init*insects,
-         dbh_disease = dbh_in.init*disease,
-         dbh_ba = dbh_in.init*ba_scaled,
-         dbh_cwd90 = dbh_in.init*cwd_dep90_scaled,
-         dbh_cwdmean = dbh_in.init*cwd_mean_scaled,
+  mutate(dbh_fire = dbh_m.init*fire,
+         dbh_insects = dbh_m.init*insects,
+         dbh_disease = dbh_m.init*disease,
+         dbh_ba = dbh_m.init*ba_scaled,
+         dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
+         dbh_cwdmean = dbh_m.init*cwd_mean_scaled,
          plot_id.i = as.integer(factor(plot_id)),
          ecosub.i = as.integer(factor(ecosubcd)))
 
@@ -106,12 +114,13 @@ recr_data.pila =
                          breaks = seq(from = 0, to= 100, by = 5),
                          labels = FALSE,
                          right = FALSE),
-         dbh_fire = dbh_in.init*fire,
-         dbh_insects = dbh_in.init*insects,
-         dbh_disease = dbh_in.init*disease,
-         dbh_ba = dbh_in.init*ba_scaled,
-         dbh_cwd90 = dbh_in.init*cwd_dep90_scaled,
-         dbh_cwdmean = dbh_in.init*cwd_mean_scaled) %>% 
+         dbh_m.init = dbh_in.init*0.0254,
+         dbh_fire = dbh_m.init*fire,
+         dbh_insects = dbh_m.init*insects,
+         dbh_disease = dbh_m.init*disease,
+         dbh_ba = dbh_m.init*ba_scaled,
+         dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
+         dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>% 
   left_join(mort_data.pila %>%
               group_by(subp_id, plot_id.i, ecosub.i) %>%
               summarise() %>%
@@ -123,7 +132,7 @@ recr_data.pila =
               ungroup() %>%
               select(subp_id, plot_id.g = plot_id.i, ecosub.g = ecosub.i)) %>%
   
-  # add in the observed counts START HERE, JOIN NOT WORKING HAVE A BUNCH OF NA COUNTS WHERE IS HOULDNT
+  # add in the observed counts 
   left_join(readRDS(here::here('02-data',
                                '01-preprocessed',
                                'untagged_data.rds')) %>%
@@ -227,7 +236,7 @@ pila_data =
        plotid_s = mort_data.pila$plot_id.i,
        ecosub_s = mort_data.pila$ecosub.i,
        X_s = 
-         as.matrix(mort_data.pila[,c('intercept', 'dbh_in.init', 'fire', 'insects',
+         as.matrix(mort_data.pila[,c('intercept', 'dbh_m.init', 'fire', 'insects',
                                      'disease','ba_scaled', 'cwd_dep90_scaled', 
                                      'cwd_mean_scaled', 'dbh_fire','dbh_insects', 
                                      'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
@@ -236,11 +245,11 @@ pila_data =
        N_g = nrow(growth_data.pila),
        P_g = length(unique(growth_data.pila$plot_id)),
        E_g = length(unique(growth_data.pila$ecosubcd)),
-       size1_g = growth_data.pila$dbh_in.re,
+       size1_g = growth_data.pila$dbh_m.re,
        plotid_g = growth_data.pila$plot_id.i,
        ecosub_g = growth_data.pila$ecosub.i,
        X_g = 
-         as.matrix(growth_data.pila[,c('intercept', 'dbh_in.init', 'fire', 'insects',
+         as.matrix(growth_data.pila[,c('intercept', 'dbh_m.init', 'fire', 'insects',
                                      'disease','ba_scaled', 'cwd_dep90_scaled', 
                                      'cwd_mean_scaled', 'dbh_fire','dbh_insects', 
                                      'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
@@ -251,7 +260,7 @@ pila_data =
     P_f = length(unique(recr_data.pila$plot_id)),
     E_f = length(unique(recr_data.pila$ecosubcd)),
     X_r = 
-      as.matrix(recr_data.pila[,c('intercept', 'dbh_in.init', 'fire', 'insects',
+      as.matrix(recr_data.pila[,c('intercept', 'dbh_m.init', 'fire', 'insects',
                                      'disease','ba_scaled', 'cwd_dep90_scaled', 
                                      'cwd_mean_scaled', 'dbh_fire','dbh_insects', 
                                      'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
@@ -262,9 +271,9 @@ pila_data =
     plotid_fr = recr_data.pila$plot_id.f,
     ecosub_fr = recr_data.pila$ecosub.f,
     M_r = nrow(size_metadata),
-    u_bounds = size_metadata$bin_upper,
-    l_bounds = size_metadata$bin_lower,
-    midpoints = size_metadata$bin_midpoint,
+    u_bounds = size_metadata$bin_upper*0.0254,
+    l_bounds = size_metadata$bin_lower*0.0254,
+    midpoints = size_metadata$bin_midpoint*0.0254,
     a = size_metadata$plot_area_ac[1:2],
     cprime = matrix(ncol = length(unique(recr_data.pila$subp_id)),
                     nrow = 2,
