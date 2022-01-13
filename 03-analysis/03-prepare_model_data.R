@@ -223,11 +223,23 @@ r =
   pull(p_total)
 
 
-#### prepare model data ########################################################
+#### split into training and validation data ###################################
+
+#### prepare training and validation data ######################################
+
+validation_subplots = 
+  recr_data.pila %>% 
+  group_by(subp_id) %>%
+  summarise() %>%
+  ungroup() %>%
+  sample_frac(size = 0.1, replace = FALSE) %>%
+  pull(subp_id)
+
+
 pila_data = 
   list(
     # number of fixef parameters
-    K = 14,
+    K = 2,
     # survival data
     N_s = nrow(mort_data.pila),
        P_s = length(unique(mort_data.pila$plot_id)),
@@ -236,10 +248,7 @@ pila_data =
        plotid_s = mort_data.pila$plot_id.i,
        ecosub_s = mort_data.pila$ecosub.i,
        X_s = 
-         as.matrix(mort_data.pila[,c('intercept', 'dbh_m.init', 'fire', 'insects',
-                                     'disease','ba_scaled', 'cwd_dep90_scaled', 
-                                     'cwd_mean_scaled', 'dbh_fire','dbh_insects', 
-                                     'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
+         as.matrix(mort_data.pila[,c('intercept', 'dbh_m.init')]),
     
     # growth data 
        N_g = nrow(growth_data.pila),
@@ -249,10 +258,7 @@ pila_data =
        plotid_g = growth_data.pila$plot_id.i,
        ecosub_g = growth_data.pila$ecosub.i,
        X_g = 
-         as.matrix(growth_data.pila[,c('intercept', 'dbh_m.init', 'fire', 'insects',
-                                     'disease','ba_scaled', 'cwd_dep90_scaled', 
-                                     'cwd_mean_scaled', 'dbh_fire','dbh_insects', 
-                                     'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
+         as.matrix(growth_data.pila[,c('intercept', 'dbh_m.init')]),
     
     # recruitment data
     N_r = nrow(recr_data.pila),

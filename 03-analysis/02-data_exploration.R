@@ -22,7 +22,7 @@ sizedist_data =
 subplot_data = 
   readRDS(here::here('02-data',
                      '01-preprocessed',
-                     'subplot_data.rds'))
+                     'subplot_data.rds')) 
 
 #### growth data ###############################################################
 
