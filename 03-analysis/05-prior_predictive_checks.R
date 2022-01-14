@@ -51,6 +51,7 @@ beta_g = matrix(nrow = pila_data$K, ncol = 1000, byrow = FALSE,
 beta_g[1,] = rnorm(n = 1000, mean = 0.15, sd = 0.1)
 beta_g[2,] = rnorm(n = 1000, mean = 1, sd = 0.25)
 
+sigmaEco_g = truncnorm::rtruncnorm(n = 1000, mean = 0, sd = 0.25, a = 0)
 sigmaEpsilon_g = truncnorm::rtruncnorm(n = 1000, mean = 0, sd = 0.25, a = 0)
 
 beta_s = 
@@ -60,6 +61,7 @@ beta_s =
                          rnorm(n = pila_data$K, mean = 0, sd = 1)
                        }))
 
+sigmaEco_s = truncnorm::rtruncnorm(n = 1000, mean = 0, sd = 0.25, a = 0)
 
 # simulate responses
 growth_sims = 
@@ -68,8 +70,10 @@ growth_sims =
          FUN = function(i){
            XB =
              as.numeric(as.matrix(pila_data$X_g) %*% beta_g[,i])
+           ecoEffects = rnorm(n = pila_data$E, mean = 0, sd = sigmaEco_g[i])
+           
            y = truncnorm::rtruncnorm(n = nrow(pila_data$X_g),
-                                     mean = XB,
+                                     mean = XB+ecoEffects[pila_data$ecosub_g],
                                      sd = sigmaEpsilon_g[i],
                                      a = 0)
            results = 
@@ -87,6 +91,8 @@ growth_sims =
            results$beta10_g = beta_g[10,i]
            results$beta11_g = beta_g[11,i]
            results$beta12_g = beta_g[12,i]
+           
+           results$sigmaEco_g = sigmaEco_g[i]
            
            results$sigmaEpsilon_g = sigmaEpsilon_g[i]
            results$size1_g = y
@@ -123,6 +129,8 @@ lapply(X = 1:pila_data$K,
            labs(x = paste0('beta', k))
        })
 
+
+
 growth_sims %>%
   mutate(sigmaEpsilon_bin = 
            cut(sigmaEpsilon_g, 
@@ -150,6 +158,7 @@ beta_s = matrix(nrow = pila_data$K, ncol = 1000, byrow = FALSE,
                                 rnorm(n = pila_data$K, mean = 0, sd = 1)
                               }))
 
+sigmaEco_s = truncnorm::rtruncnorm(n = 1000, mean = 0, sd = 1, a = 0)
 
 # simulate responses
 growth_sims = 
@@ -157,9 +166,10 @@ growth_sims =
     lapply(X = 1:1000,
          FUN = function(i){
            XB = as.numeric(as.matrix(pila_data$X_s) %*% beta_s[,i])
+           ecoEffects = rnorm(n = pila_data$E, mean = 0, sd = sigmaEco_s[i])
            y = rbinom(n = nrow(pila_data$X_s),
                       size = 1,
-                      prob = boot::inv.logit(XB))
+                      prob = boot::inv.logit(XB+ecoEffects[pila_data$ecosub_s]))
            results = 
              pila_data$X_s %>%
              as_tibble()

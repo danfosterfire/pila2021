@@ -33,23 +33,26 @@ fitted_model =
 #### model diagnostics #########################################################
 
 
-pila_fit.samples_noRanEff$summary(c('beta_s', 'beta_g', 'sigmaEpsilon_g',
-                                    'beta_f', 'kappa_r')) %>%
+fitted_model$summary(c('beta_s', 'sigmaEco_s', 'beta_g', 'sigmaEco_g', 
+                       'sigmaEpsilon_g')) %>% 
   print(n = Inf)
 
-lapply(X = c('beta_s', 'beta_g', 'sigmaEpsilon_g',
-             'beta_f', 'kappa_r'),
-       FUN = function(v){
-         mcmc_trace(pila_fit.samples_noRanEff$draws(variables = v))})
+# I think it's ok for there to be some correlation in the parameter esitmates 
+# between the intercept and the size effect? the parameters are only weakly 
+# identified but I don't have a good a priori reason to want to set beta_size 
+# to 1
+mcmc_pairs(fitted_model$draws(),
+           pars = c('beta_g[1]', 'beta_g[2]','sigmaEpsilon_g', 'sigmaEco_g'))
 
-lapply(X = c('beta_s', 'beta_g', 'sigmaEpsilon_g',
-             'beta_f', 'kappa_r'),
-       FUN = function(v){
-         mcmc_dens_overlay(pila_fit.samples_noRanEff$draws(variables = v))})
+mcmc_pairs(fitted_model$draws(),
+           pars = c('beta_s[1]', 'beta_s[2]','beta_s[3]','beta_s[4]',
+                    'beta_s[5]', 'beta_s[6]', 'beta_s[7]','sigmaEco_s'))
 
 
-mcmc_pairs(pila_fit.samples_noRanEff$draws(),
-           pars = c('beta_f[1]', 'kappa_r', 'sigmaEpsilon_g'),
-           off_diag_fun = 'hex', 
-           np = nuts_params(pila_fit.samples_noRanEff),
-           condition = pairs_condition(nuts = 'accept_stat__'))
+mcmc_dens_overlay(fitted_model$draws(variables = 
+                                       c('beta_s', 'sigmaEco_s', 'beta_g', 
+                                         'sigmaEco_g', 'sigmaEpsilon_g')))
+
+fitted_model$cmdstan_diagnose()
+
+fitted_model$save_object(here::here('02-data', '03-results', 'real_fits', 'pila.rds'))
