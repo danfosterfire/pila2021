@@ -629,7 +629,7 @@ seedlings =
          subp_id,
          species = SPECIES,
          tpa_unadj = TPA_UNADJ,
-         count = TREECOUNT) %>%
+         count = TREECOUNT_CALC) %>%
   mutate(species = 
            ifelse(is.element(species,
                              c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 
@@ -640,6 +640,8 @@ seedlings =
   summarise(tpa_unadj = sum(tpa_unadj, na.rm = TRUE),
             count = sum(count, na.rm = TRUE)) %>%
   ungroup()
+
+
 
 #### filter subplots ###########################################################
 
@@ -1094,9 +1096,25 @@ size_metadata =
          plot_area_ac = 
            c(0.00333, 
              0.0415, 
-             rep(NA, times = 18)))
+             rep(NA, times = 18))) %>%
+  
+  # get the median size of all live trees within each size class
+  left_join(
+    treelist %>%
+    filter(tree_status=='live') %>%
+    select(dbh_in) %>%
+    bind_rows(seedlings %>%
+              uncount(count) %>%
+              mutate(dbh_in = 0) %>%
+              select(dbh_in)) %>%
+    mutate(bin_id = cut(dbh_in,
+                      breaks = seq(from = 0, to = 100, by = 5),
+                      labels = FALSE,
+                      right = FALSE)) %>%
+    group_by(bin_id) %>%
+    summarise(dbh_in.mean = mean(dbh_in, na.rm = TRUE)) %>%
+    ungroup())
 
-size_metadata
 
 #### write results #############################################################
 

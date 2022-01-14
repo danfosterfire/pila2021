@@ -39,7 +39,7 @@ data {
   matrix[N_r, 14] X_r; // fixeff explanatory variables for each sizeclass:subplot 
   // combination, used to predict growth and survival for the recruitment 
   // submodel sizeclasses; instead of observed sizes here we have the 
-  // midpoints for each size class; MUST BE ORDERED subplot (slow) sizeclass (fast)
+  // class_mean_dbhs for each size class; MUST BE ORDERED subplot (slow) sizeclass (fast)
   int plotid_sr[N_r]; // plot id indices for survival random effects in IPM
   int ecosub_sr[N_r]; // ecosub indices for survival random effects in IPM
   int plotid_gr[N_r]; // plot id indices for growth random effects in IPM
@@ -49,7 +49,6 @@ data {
   int<lower=0> M_r; // number of modeled size classes for the recruitment submodel
   vector[M_r] u_bounds; // upper bounds of size bins
   vector[M_r] l_bounds; //lower bounds of size bins
-  vector[M_r] midpoints; // midpoints of size bins
   vector[2] a; // plot area for each of the size classes; here only for the 
   // smallest 2 size classes (only need these, and the macro breakpoint diameter is not consistent 
   // across all the subplots)
@@ -109,8 +108,8 @@ model {
   vector[N_s] logitp_s;
   vector[N_s] XB_s;
   vector[N_g] XB_g;
-  vector[N_r] XBs_r; // linear predictor for smallest sizeclass midpoints on each subplot
-  vector[N_r] XBg_r; // linear predictor for smallest sizeclass midpoints on each subplot
+  vector[N_r] XBs_r; // linear predictor for smallest sizeclass class_mean_dbhs on each subplot
+  vector[N_r] XBg_r; // linear predictor for smallest sizeclass class_mean_dbhs on each subplot
   vector[N_r] XBf_r;
   vector[N_r] mu_gr;
   vector[N_r] logitp_sr;
@@ -236,7 +235,7 @@ model {
         //      "    recKern: ", recKern[subplot,1:2,sizeclass], 
         //      "     growKern: ", growKern[subplot,1:2, sizeclass]);}
       //  print("found nan nprime; r: ", r, "      f[sizeclass,subplot]: ", f[sizeclass,subplot]);
-      //  print("nu: ", nu, "   upsilon: ", upsilon, "   midpoints: ",midpoints[1:2], "   r: ", r);} 
+      //  print("nu: ", nu, "   upsilon: ", upsilon, "   class_mean_dbhs: ",class_mean_dbhs[1:2], "   r: ", r);} 
         //print("    recKern: ", recKern[subplot,1:2,sizeclass]);
         //{print(nprime[subplot,sizeclass]);
         //print("A: ", A);

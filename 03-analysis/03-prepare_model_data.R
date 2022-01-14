@@ -109,7 +109,7 @@ recr_data.pila =
                  insects, disease, cutting, invdate.init, inv_manual.init, 
                  ba_ft2ac, cwd_departure90, cwd_mean, ba_scaled, cwd_dep90_scaled,
                  cwd_mean_scaled, intercept),
-         dbh_in.init = seq(from = 2.5, to = 97.5, by = 5)) %>%
+         dbh_in.init = size_metadata$dbh_in.mean) %>%
   mutate(dbh_class = cut(dbh_in.init,
                          breaks = seq(from = 0, to= 100, by = 5),
                          labels = FALSE,
@@ -173,7 +173,7 @@ recr_data.pila =
 
 untagged_data.pila = 
   recr_data.pila %>%
-  filter(dbh_in.init <= 7.5) %>%
+  filter(dbh_class <= 2) %>%
   arrange(subp_id, dbh_in.init)
 
 
@@ -283,7 +283,6 @@ pila_data =
     M_r = nrow(size_metadata),
     u_bounds = size_metadata$bin_upper*0.0254,
     l_bounds = size_metadata$bin_lower*0.0254,
-    midpoints = size_metadata$bin_midpoint*0.0254,
     a = size_metadata$plot_area_ac[1:2],
     cprime = matrix(ncol = length(unique(recr_data.pila$subp_id)),
                     nrow = 2,
