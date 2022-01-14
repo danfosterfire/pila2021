@@ -7,6 +7,8 @@
 
 ## Divy dataset into training and validation piles
 
+Done
+
 ## Switch from midpoint to class median tree sizes for IPM (done)
 
 I think this is more biologically realistic for small size classes - 

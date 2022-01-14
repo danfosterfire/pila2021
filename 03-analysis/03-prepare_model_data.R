@@ -3,6 +3,7 @@
 library(here)
 library(tidyverse)
 
+set.seed(110819)
 
 # a row for every subplot, columns for the subplot-level covariates like 
 # disturbance data, basal area, and drought
@@ -14,6 +15,8 @@ subplot_data =
          cwd_dep90_scaled = as.numeric(scale(cwd_departure90)),
          cwd_mean_scaled = as.numeric(scale(cwd_mean)),
          intercept = 1)
+
+
 
 
 # a row for every individual tagged tree which was alive at initial and 
@@ -41,9 +44,7 @@ growth_data.pila =
          dbh_disease = dbh_m.init*disease,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
-         dbh_cwdmean = dbh_m.init*cwd_mean_scaled,
-         plot_id.i = as.integer(factor(plot_id)),
-         ecosub.i = as.integer(factor(ecosubcd)))
+         dbh_cwdmean = dbh_m.init*cwd_mean_scaled)
 
 
 # a row for every individual tagged tree which was alive at the initial 
@@ -68,9 +69,7 @@ mort_data.pila =
          dbh_disease = dbh_m.init*disease,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
-         dbh_cwdmean = dbh_m.init*cwd_mean_scaled,
-         plot_id.i = as.integer(factor(plot_id)),
-         ecosub.i = as.integer(factor(ecosubcd)))
+         dbh_cwdmean = dbh_m.init*cwd_mean_scaled)
 
 # a row for each unique combination of subplot:species:size class, for 
 # 1 inch size bins from 0.5-99.5"; "tpa_unadj.init" and "tpa_unadj.re" give 
@@ -120,18 +119,7 @@ recr_data.pila =
          dbh_disease = dbh_m.init*disease,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
-         dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>% 
-  left_join(mort_data.pila %>%
-              group_by(subp_id, plot_id.i, ecosub.i) %>%
-              summarise() %>%
-              ungroup() %>%
-              select(subp_id, plot_id.s = plot_id.i, ecosub.s = ecosub.i)) %>%
-  left_join(growth_data.pila %>%
-              group_by(subp_id, plot_id.i, ecosub.i) %>%
-              summarise() %>%
-              ungroup() %>%
-              select(subp_id, plot_id.g = plot_id.i, ecosub.g = ecosub.i)) %>%
-  
+         dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   # add in the observed counts 
   left_join(readRDS(here::here('02-data',
                                '01-preprocessed',
@@ -160,21 +148,11 @@ recr_data.pila =
   
   # order by size and subplot
   arrange(subp_id, dbh_in.init) %>%
-  mutate(plot_id.f = as.integer(factor(plot_id)),
-         ecosub.f = as.integer(factor(ecosubcd))) %>%
   rename(untagged_count = count)
 
 
 
-# a row for each unique combination of subplot:species:size class, for 1 
-# inch size bins from 0.5-9.5"; "count" gives the number of untagged 
-# trees on the subplot in the species:size bin at the remeasurement (ie 
-# ingrowth)
 
-untagged_data.pila = 
-  recr_data.pila %>%
-  filter(dbh_class <= 2) %>%
-  arrange(subp_id, dbh_in.init)
 
 
 
@@ -222,81 +200,218 @@ r =
   
   pull(p_total)
 
+#### asssign plot and ecoregion indices ########################################
+
+# going to use a single unified index across all the datasets, which cleans 
+# up the code substantially and *i think* should process ok?
+union_plots = 
+  growth_data.pila %>%
+  select(plot_id) %>%
+  bind_rows(mort_data.pila %>%
+              select(plot_id)) %>%
+  bind_rows(recr_data.pila %>%
+              select(plot_id)) %>%
+  group_by(plot_id) %>%
+  summarise() %>%
+  ungroup() %>%
+  arrange(plot_id) %>%
+  mutate(plot_id.i = as.integer(factor(plot_id)))
+
+union_ecosubs = 
+  growth_data.pila %>%
+  select(ecosubcd) %>%
+  bind_rows(mort_data.pila %>%
+              select(ecosubcd)) %>%
+  bind_rows(recr_data.pila %>%
+              select(ecosubcd))%>%
+  group_by(ecosubcd) %>%
+  summarise() %>%
+  ungroup() %>%
+  arrange(ecosubcd)%>%
+  mutate(ecosub.i = as.integer(factor(ecosubcd)))
+
+growth_data.pila = 
+  growth_data.pila %>%
+  left_join(union_plots) %>%
+  left_join(union_ecosubs)
+
+mort_data.pila = 
+  mort_data.pila %>%
+  left_join(union_plots) %>%
+  left_join(union_ecosubs) 
+
+recr_data.pila = 
+  recr_data.pila %>%
+  left_join(union_plots) %>%
+  left_join(union_ecosubs)
+
+
+
+
 
 #### split into training and validation data ###################################
 
-#### prepare training and validation data ######################################
-
-validation_subplots = 
-  recr_data.pila %>% 
-  group_by(subp_id) %>%
+validation_plots = 
+  recr_data.pila %>%
+  group_by(plot_id) %>%
   summarise() %>%
   ungroup() %>%
   sample_frac(size = 0.1, replace = FALSE) %>%
-  pull(subp_id)
+  pull(plot_id)
 
 
-pila_data = 
+growth_data.pila_training = 
+  growth_data.pila %>%
+  filter(!is.element(plot_id, validation_plots))
+
+growth_data.pila_validation = 
+  growth_data.pila %>%
+  filter(is.element(plot_id, validation_plots))
+
+mort_data.pila_training = 
+  mort_data.pila %>%
+  filter(!is.element(plot_id, validation_plots))
+
+mort_data.pila_validation = 
+  mort_data.pila %>%
+  filter(is.element(plot_id, validation_plots))
+
+recr_data.pila_training = 
+  recr_data.pila %>%
+  filter(!is.element(plot_id, validation_plots))
+
+recr_data.pila_validation = 
+  recr_data.pila %>%
+  filter(is.element(plot_id, validation_plots))
+
+# a row for each unique combination of subplot:species:size class, for 1 
+# inch size bins from 0.5-9.5"; "count" gives the number of untagged 
+# trees on the subplot in the species:size bin at the remeasurement (ie 
+# ingrowth)
+
+untagged_data.pila_training = 
+  recr_data.pila_training %>%
+  filter(dbh_class <= 2) %>%
+  arrange(subp_id, dbh_in.init)
+
+untagged_data.pila_validation = 
+  recr_data.pila_validation %>%
+  filter(dbh_class <= 2) %>%
+  arrange(subp_id, dbh_in.init)
+
+#### prepare training and validation data ######################################
+
+
+
+pila_training = 
   list(
     # number of fixef parameters
     K = 7,
+    # number of plots and ecoregions
+    P = nrow(union_plots),
+    E = nrow(union_ecosubs),
+    
     # survival data
-    N_s = nrow(mort_data.pila),
-       P_s = length(unique(mort_data.pila$plot_id)),
-       E_s = length(unique(mort_data.pila$ecosubcd)),
-       surv = as.integer(mort_data.pila$survived),
-       plotid_s = mort_data.pila$plot_id.i,
-       ecosub_s = mort_data.pila$ecosub.i,
+    N_s = nrow(mort_data.pila_training),
+       surv = as.integer(mort_data.pila_training$survived),
+       plotid_s = mort_data.pila_training$plot_id.i,
+       ecosub_s = mort_data.pila_training$ecosub.i,
        X_s = 
-         as.matrix(mort_data.pila[,c('intercept', 'dbh_m.init', 'fire', 
+         as.matrix(mort_data.pila_training[,c('intercept', 'dbh_m.init', 'fire', 
                                      'disease','ba_scaled', 'cwd_dep90_scaled', 
                                      'cwd_mean_scaled')]),
     
     # growth data 
-       N_g = nrow(growth_data.pila),
-       P_g = length(unique(growth_data.pila$plot_id)),
-       E_g = length(unique(growth_data.pila$ecosubcd)),
-       size1_g = growth_data.pila$dbh_m.re,
-       plotid_g = growth_data.pila$plot_id.i,
-       ecosub_g = growth_data.pila$ecosub.i,
+       N_g = nrow(growth_data.pila_training),
+       size1_g = growth_data.pila_training$dbh_m.re,
+       plotid_g = growth_data.pila_training$plot_id.i,
+       ecosub_g = growth_data.pila_training$ecosub.i,
        X_g = 
-         as.matrix(growth_data.pila[,c('intercept', 'dbh_m.init', 'fire', 
+         as.matrix(growth_data.pila_training[,c('intercept', 'dbh_m.init', 'fire', 
                                         'disease','ba_scaled', 'cwd_dep90_scaled', 
                                         'cwd_mean_scaled')]),
     
     # recruitment data
-    N_r = nrow(recr_data.pila),
-    S_r = length(unique(recr_data.pila$subp_id)),
-    P_f = length(unique(recr_data.pila$plot_id)),
-    E_f = length(unique(recr_data.pila$ecosubcd)),
+    N_r = nrow(recr_data.pila_training),
+    S_r = length(unique(recr_data.pila_training$subp_id)),
     X_r = 
-      as.matrix(recr_data.pila[,c('intercept', 'dbh_m.init', 'fire', 'insects',
+      as.matrix(recr_data.pila_training[,c('intercept', 'dbh_m.init', 'fire', 'insects',
                                      'disease','ba_scaled', 'cwd_dep90_scaled', 
                                      'cwd_mean_scaled', 'dbh_fire','dbh_insects', 
                                      'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
-    plotid_sr = recr_data.pila$plot_id.s,
-    ecosub_sr = recr_data.pila$ecosub.s,
-    plotid_gr = recr_data.pila$plot_id.g,
-    ecosub_gr = recr_data.pila$ecosub.g,
-    plotid_fr = recr_data.pila$plot_id.f,
-    ecosub_fr = recr_data.pila$ecosub.f,
+    plotid_r = recr_data.pila_training$plot_id.i,
+    ecosub_r = recr_data.pila_training$ecosub.i,
     M_r = nrow(size_metadata),
     u_bounds = size_metadata$bin_upper*0.0254,
     l_bounds = size_metadata$bin_lower*0.0254,
     a = size_metadata$plot_area_ac[1:2],
-    cprime = matrix(ncol = length(unique(recr_data.pila$subp_id)),
+    cprime = matrix(ncol = length(unique(recr_data.pila_training$subp_id)),
                     nrow = 2,
-                    data = untagged_data.pila$untagged_count,
+                    data = untagged_data.pila_training$untagged_count,
                     byrow = FALSE),
-    n = matrix(nrow = length(unique(recr_data.pila$subp_id)),
+    n = matrix(nrow = length(unique(recr_data.pila_training$subp_id)),
                ncol = nrow(size_metadata),
-               data = recr_data.pila$tpa_unadj.init,
+               data = recr_data.pila_training$tpa_unadj.init,
+               byrow = TRUE),
+    r = r)
+
+pila_validation = 
+  list(
+    # number of fixef parameters
+    K = 7,
+    # number of plots and ecoregions
+    P = nrow(union_plots),
+    E = nrow(union_ecosubs),
+    
+    # survival data
+    N_s = nrow(mort_data.pila_validation),
+       surv = as.integer(mort_data.pila_validation$survived),
+       plotid_s = mort_data.pila_validation$plot_id.i,
+       ecosub_s = mort_data.pila_validation$ecosub.i,
+       X_s = 
+         as.matrix(mort_data.pila_validation[,c('intercept', 'dbh_m.init', 'fire', 
+                                     'disease','ba_scaled', 'cwd_dep90_scaled', 
+                                     'cwd_mean_scaled')]),
+    
+    # growth data 
+       N_g = nrow(growth_data.pila_validation),
+       size1_g = growth_data.pila_validation$dbh_m.re,
+       plotid_g = growth_data.pila_validation$plot_id.i,
+       ecosub_g = growth_data.pila_validation$ecosub.i,
+       X_g = 
+         as.matrix(growth_data.pila_validation[,c('intercept', 'dbh_m.init', 'fire', 
+                                        'disease','ba_scaled', 'cwd_dep90_scaled', 
+                                        'cwd_mean_scaled')]),
+    
+    # recruitment data
+    N_r = nrow(recr_data.pila_validation),
+    S_r = length(unique(recr_data.pila_validation$subp_id)),
+    X_r = 
+      as.matrix(recr_data.pila_validation[,c('intercept', 'dbh_m.init', 'fire', 'insects',
+                                     'disease','ba_scaled', 'cwd_dep90_scaled', 
+                                     'cwd_mean_scaled', 'dbh_fire','dbh_insects', 
+                                     'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
+    plotid_r = recr_data.pila_validation$plot_id.i,
+    ecosub_r = recr_data.pila_validation$ecosub.i,
+    M_r = nrow(size_metadata),
+    u_bounds = size_metadata$bin_upper*0.0254,
+    l_bounds = size_metadata$bin_lower*0.0254,
+    a = size_metadata$plot_area_ac[1:2],
+    cprime = matrix(ncol = length(unique(recr_data.pila_validation$subp_id)),
+                    nrow = 2,
+                    data = untagged_data.pila_validation$untagged_count,
+                    byrow = FALSE),
+    n = matrix(nrow = length(unique(recr_data.pila_validation$subp_id)),
+               ncol = nrow(size_metadata),
+               data = recr_data.pila_validation$tpa_unadj.init,
                byrow = TRUE),
     r = r)
 
 
 #### write results #############################################################
 
-saveRDS(pila_data, 
-        here::here('02-data', '02-for_analysis', 'pila_data.rds'))
+saveRDS(pila_training, 
+        here::here('02-data', '02-for_analysis', 'pila_training.rds'))
 
+saveRDS(pila_validation,
+        here::here('02-data', '02-for_analysis', 'pila_validation.rds'))
