@@ -306,7 +306,7 @@ untagged_data.pila_validation =
 pila_training = 
   list(
     # number of fixef parameters
-    K = 7,
+    K = 12,
     # number of plots and ecoregions
     P = nrow(union_plots),
     E = nrow(union_ecosubs),
@@ -318,8 +318,9 @@ pila_training =
        ecosub_s = mort_data.pila_training$ecosub.i,
        X_s = 
          as.matrix(mort_data.pila_training[,c('intercept', 'dbh_m.init', 'fire', 
-                                     'disease','ba_scaled', 'cwd_dep90_scaled', 
-                                     'cwd_mean_scaled')]),
+                                              'disease','ba_scaled', 'cwd_dep90_scaled', 
+                                              'cwd_mean_scaled', 'dbh_fire', 'dbh_disease',
+                                              'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
     
     # growth data 
        N_g = nrow(growth_data.pila_training),
@@ -328,16 +329,17 @@ pila_training =
        ecosub_g = growth_data.pila_training$ecosub.i,
        X_g = 
          as.matrix(growth_data.pila_training[,c('intercept', 'dbh_m.init', 'fire', 
-                                        'disease','ba_scaled', 'cwd_dep90_scaled', 
-                                        'cwd_mean_scaled')]),
+                                                'disease','ba_scaled', 'cwd_dep90_scaled', 
+                                                'cwd_mean_scaled', 'dbh_fire', 'dbh_disease',
+                                                'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
     
     # recruitment data
     N_r = nrow(recr_data.pila_training),
     S_r = length(unique(recr_data.pila_training$subp_id)),
     X_r = 
-      as.matrix(recr_data.pila_training[,c('intercept', 'dbh_m.init', 'fire', 'insects',
+      as.matrix(recr_data.pila_training[,c('intercept', 'dbh_m.init', 'fire', 
                                      'disease','ba_scaled', 'cwd_dep90_scaled', 
-                                     'cwd_mean_scaled', 'dbh_fire','dbh_insects', 
+                                     'cwd_mean_scaled', 'dbh_fire', 
                                      'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
     plotid_r = recr_data.pila_training$plot_id.i,
     ecosub_r = recr_data.pila_training$ecosub.i,
@@ -358,7 +360,7 @@ pila_training =
 pila_validation = 
   list(
     # number of fixef parameters
-    K = 7,
+    K = 12,
     # number of plots and ecoregions
     P = nrow(union_plots),
     E = nrow(union_ecosubs),
@@ -371,7 +373,8 @@ pila_validation =
        X_s = 
          as.matrix(mort_data.pila_validation[,c('intercept', 'dbh_m.init', 'fire', 
                                      'disease','ba_scaled', 'cwd_dep90_scaled', 
-                                     'cwd_mean_scaled')]),
+                                     'cwd_mean_scaled', 'dbh_fire', 'dbh_disease',
+                                     'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
     
     # growth data 
        N_g = nrow(growth_data.pila_validation),
@@ -380,16 +383,17 @@ pila_validation =
        ecosub_g = growth_data.pila_validation$ecosub.i,
        X_g = 
          as.matrix(growth_data.pila_validation[,c('intercept', 'dbh_m.init', 'fire', 
-                                        'disease','ba_scaled', 'cwd_dep90_scaled', 
-                                        'cwd_mean_scaled')]),
+                                                  'disease','ba_scaled', 'cwd_dep90_scaled', 
+                                                  'cwd_mean_scaled', 'dbh_fire', 'dbh_disease',
+                                                  'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
     
     # recruitment data
     N_r = nrow(recr_data.pila_validation),
     S_r = length(unique(recr_data.pila_validation$subp_id)),
     X_r = 
-      as.matrix(recr_data.pila_validation[,c('intercept', 'dbh_m.init', 'fire', 'insects',
+      as.matrix(recr_data.pila_validation[,c('intercept', 'dbh_m.init', 'fire', 
                                      'disease','ba_scaled', 'cwd_dep90_scaled', 
-                                     'cwd_mean_scaled', 'dbh_fire','dbh_insects', 
+                                     'cwd_mean_scaled', 'dbh_fire', 
                                      'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
     plotid_r = recr_data.pila_validation$plot_id.i,
     ecosub_r = recr_data.pila_validation$ecosub.i,

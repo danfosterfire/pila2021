@@ -1,3 +1,9 @@
+# an earlier version of this code included insects and their interaction with DBH
+# as potential explanatory variables. These were dropped because this script 
+# revealed too few observations of "insects" to reliably include them in the 
+# model. Conceptually, the paper will treat insects and drought as 
+# confounded, which they are to a large extent in reality.
+
 #### setup #####################################################################
 
 library(here)
@@ -27,7 +33,7 @@ lapply(X = c('dbh_m.init','ba_scaled',
                 aes(x = .data[[v]]))+
            geom_histogram()
        })
-lapply(X = c('fire', 'insects', 'disease'),
+lapply(X = c('fire', 'disease'),
        FUN = function(v){
   ggplot(data = growth_data,
          aes(x = .data[[v]]))+
@@ -130,7 +136,7 @@ lapply(X = c('dbh_m.init','ba_scaled',
                 aes(x = .data[[v]]))+
            geom_histogram()
        })
-lapply(X = c('fire', 'insects', 'disease'),
+lapply(X = c('fire', 'disease'),
        FUN = function(v){
   ggplot(data = surv_data,
          aes(x = .data[[v]]))+
@@ -213,3 +219,9 @@ lapply(X = c('fire', 'disease'),
            theme(legend.position = 'bottom')
        })
 
+#### recr data ################################################################
+
+# not bothering here, becuase for recruitment there's a row for each size 
+# class rather than each individual, so plotting it is less useful. 
+# The recr subplots are the intersection of the subplots included in 
+# the growth and survival datasets so I expect them to be similar.

@@ -34,7 +34,7 @@
 library(here)
 library(tidyverse)
 
-pila_data = readRDS(here::here('02-data', '02-for_analysis', 'pila_data.rds'))
+pila_data = readRDS(here::here('02-data', '02-for_analysis', 'pila_training.rds'))
 
 
 #### function defs #############################################################
@@ -82,6 +82,11 @@ growth_sims =
            results$beta5_g = beta_g[5,i]
            results$beta6_g = beta_g[6,i]
            results$beta7_g = beta_g[7,i]
+           results$beta8_g = beta_g[8,i]
+           results$beta9_g = beta_g[9,i]
+           results$beta10_g = beta_g[10,i]
+           results$beta11_g = beta_g[11,i]
+           results$beta12_g = beta_g[12,i]
            
            results$sigmaEpsilon_g = sigmaEpsilon_g[i]
            results$size1_g = y
@@ -104,7 +109,7 @@ ggplot(data = growth_sims,
 
 ## y distributions vs parameter values
 
-lapply(X = 1:7,
+lapply(X = 1:pila_data$K,
        FUN = function(k){
          d = as.data.frame(growth_sims)
          d[,paste0('beta_bin')] = 
@@ -165,6 +170,11 @@ growth_sims =
            results$beta5_s = beta_s[5,i]
            results$beta6_s = beta_s[6,i]
            results$beta7_s = beta_s[7,i]
+           results$beta8_s = beta_s[8,i]
+           results$beta9_s = beta_s[9,i]
+           results$beta10_s = beta_s[10,i]
+           results$beta11_s = beta_s[11,i]
+           results$beta12_s = beta_s[12,i]
            results$surv = y
            results$sim = i
            return(results)
@@ -176,7 +186,7 @@ growth_sims %>%
   geom_bar()
 
 
-lapply(X = 1:7,
+lapply(X = 1:pila_data$K,
        FUN = function(k){
          d = as.data.frame(growth_sims)
          d[,paste0('beta_bin')] = 
