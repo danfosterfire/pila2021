@@ -239,7 +239,7 @@ validation_subplots =
 pila_data = 
   list(
     # number of fixef parameters
-    K = 2,
+    K = 7,
     # survival data
     N_s = nrow(mort_data.pila),
        P_s = length(unique(mort_data.pila$plot_id)),
@@ -248,7 +248,9 @@ pila_data =
        plotid_s = mort_data.pila$plot_id.i,
        ecosub_s = mort_data.pila$ecosub.i,
        X_s = 
-         as.matrix(mort_data.pila[,c('intercept', 'dbh_m.init')]),
+         as.matrix(mort_data.pila[,c('intercept', 'dbh_m.init', 'fire', 
+                                     'disease','ba_scaled', 'cwd_dep90_scaled', 
+                                     'cwd_mean_scaled')]),
     
     # growth data 
        N_g = nrow(growth_data.pila),
@@ -258,7 +260,9 @@ pila_data =
        plotid_g = growth_data.pila$plot_id.i,
        ecosub_g = growth_data.pila$ecosub.i,
        X_g = 
-         as.matrix(growth_data.pila[,c('intercept', 'dbh_m.init')]),
+         as.matrix(growth_data.pila[,c('intercept', 'dbh_m.init', 'fire', 
+                                        'disease','ba_scaled', 'cwd_dep90_scaled', 
+                                        'cwd_mean_scaled')]),
     
     # recruitment data
     N_r = nrow(recr_data.pila),

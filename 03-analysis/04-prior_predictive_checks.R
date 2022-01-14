@@ -42,20 +42,32 @@ pila_data = readRDS(here::here('02-data', '02-for_analysis', 'pila_data.rds'))
 #### priors for growth model ###################################################
 
 # pull parameters from prior
+beta_g = matrix(nrow = pila_data$K, ncol = 1000, byrow = FALSE,
+                data = sapply(X = 1:1000,
+                              FUN = function(i){
+                                rnorm(n = pila_data$K, mean = 0, sd = 0.1)
+                              }))
+# special priors for intercept and initial size
+beta_g[1,] = rnorm(n = 1000, mean = 0.15, sd = 0.1)
+beta_g[2,] = rnorm(n = 1000, mean = 1, sd = 0.25)
 
-beta0_g = rnorm(n = 1000, mean = 0, sd = 0.25)
-betaSize_g = rnorm(n = 1000, mean = 1, sd = 0.25)
+sigmaEpsilon_g = truncnorm::rtruncnorm(n = 1000, mean = 0, sd = 0.25, a = 0)
 
-sigmaEpsilon_g = truncnorm::rtruncnorm(n = 1000, mean = 0, sd = 0.1, a = 0)
+beta_s = 
+  matrix(nrow = pila_data$K, ncol = 1000, byrow = FALSE,
+         data = sapply(X = 1:1000,
+                       FUN = function(i){
+                         rnorm(n = pila_data$K, mean = 0, sd = 1)
+                       }))
+
 
 # simulate responses
 growth_sims = 
   do.call('bind_rows',
     lapply(X = 1:1000,
          FUN = function(i){
-           XB = 
-             pila_data$X_g[,'intercept']*beta0_g[i] + 
-             pila_data$X_g[,'dbh_m.init']*betaSize_g[i]
+           XB =
+             as.numeric(as.matrix(pila_data$X_g) %*% beta_g[,i])
            y = truncnorm::rtruncnorm(n = nrow(pila_data$X_g),
                                      mean = XB,
                                      sd = sigmaEpsilon_g[i],
@@ -63,8 +75,14 @@ growth_sims =
            results = 
              pila_data$X_g %>%
              as_tibble()
-           results$beta0_g = beta0_g[i]
-           results$betaSize_g = betaSize_g[i]
+           results$beta1_g = beta_g[1,i]
+           results$beta2_g = beta_g[2,i]
+           results$beta3_g = beta_g[3,i]
+           results$beta4_g = beta_g[4,i]
+           results$beta5_g = beta_g[5,i]
+           results$beta6_g = beta_g[6,i]
+           results$beta7_g = beta_g[7,i]
+           
            results$sigmaEpsilon_g = sigmaEpsilon_g[i]
            results$size1_g = y
            results$sim = i
@@ -85,36 +103,20 @@ ggplot(data = growth_sims,
   geom_vline(xintercept = quantile(growth_sims$size1_g, probs = 0.99), color = 'red')
 
 ## y distributions vs parameter values
-ggplot(data = 
-         growth_sims %>%
-         mutate(beta0_bin = 
-                  cut(beta0_g, breaks = quantile(beta0_g, probs = seq(0, 1, 0.1), include.lowest = TRUE)),
-                betaSize_bin = 
-                  cut(betaSize_g, breaks = quantile(betaSize_g, probs = seq(0, 1, 0.1), include.lowest = TRUE))) %>%
-         group_by(beta0_bin, betaSize_bin) %>%
-         summarise(size1_g = quantile(size1_g, prob = 0.99)),
-       aes(fill = size1_g,
-           x = beta0_bin, y = betaSize_bin))+
-  geom_tile()+
-  scale_fill_viridis_c()
 
-growth_sims %>%
-  mutate(beta0_bin = 
-           cut(beta0_g, 
-               breaks = 
-                 seq(from = min(beta0_g)-0.1, to = max(beta0_g)+0.1, length.out = 10))) %>%
-  ggplot(aes(x = beta0_bin, y = size1_g))+
-  geom_boxplot()+
-  theme(axis.text.x = element_text(angle = -90))
-
-growth_sims %>%
-  mutate(betaSize_bin = 
-           cut(betaSize_g, 
-               breaks = 
-                 seq(from = min(betaSize_g)-0.1, to = max(betaSize_g)+0.1, length.out = 10))) %>%
-  ggplot(aes(x = betaSize_bin, y = size1_g))+
-  geom_boxplot()+
-  theme(axis.text.x = element_text(angle = -90))
+lapply(X = 1:7,
+       FUN = function(k){
+         d = as.data.frame(growth_sims)
+         d[,paste0('beta_bin')] = 
+           cut(d[,paste0('beta',k,'_g')],
+               breaks = seq(from = min(as.numeric(d[,paste0('beta',k,'_g')]))-0.01,
+                            to = max(as.numeric(d[,paste0('beta', k, '_g')]))+0.01,
+                            length.out = 10))
+         ggplot(data = d,
+                aes(y = size1_g, x = beta_bin))+
+           geom_boxplot()+
+           labs(x = paste0('beta', k))
+       })
 
 growth_sims %>%
   mutate(sigmaEpsilon_bin = 
@@ -136,25 +138,33 @@ growth_sims %>%
 #### priors for survival model #################################################
 
 # pull parameters from prior
-beta0_s = rnorm(n = 1000, mean = 0, sd = 1)
-betaSize_s = rnorm(n = 1000, mean = 0, sd = 1)
+# pull parameters from prior
+beta_s = matrix(nrow = pila_data$K, ncol = 1000, byrow = FALSE,
+                data = sapply(X = 1:1000,
+                              FUN = function(i){
+                                rnorm(n = pila_data$K, mean = 0, sd = 1)
+                              }))
+
 
 # simulate responses
 growth_sims = 
   do.call('bind_rows',
     lapply(X = 1:1000,
          FUN = function(i){
-           XB = 
-             pila_data$X_s[,'intercept']*beta0_s[i] + 
-             pila_data$X_s[,'dbh_m.init']*betaSize_s[i]
+           XB = as.numeric(as.matrix(pila_data$X_s) %*% beta_s[,i])
            y = rbinom(n = nrow(pila_data$X_s),
                       size = 1,
                       prob = boot::inv.logit(XB))
            results = 
              pila_data$X_s %>%
              as_tibble()
-           results$beta0_s = beta0_s[i]
-           results$betaSize_s = betaSize_s[i]
+           results$beta1_s = beta_s[1,i]
+           results$beta2_s = beta_s[2,i]
+           results$beta3_s = beta_s[3,i]
+           results$beta4_s = beta_s[4,i]
+           results$beta5_s = beta_s[5,i]
+           results$beta6_s = beta_s[6,i]
+           results$beta7_s = beta_s[7,i]
            results$surv = y
            results$sim = i
            return(results)
@@ -165,42 +175,40 @@ growth_sims %>%
   ggplot(aes(x = as.factor(surv)))+
   geom_bar()
 
-growth_sims %>%
-  mutate(beta0_bin = 
-           cut(beta0_s, 
-               breaks = seq(from = min(beta0_s)-0.01, 
-                            to = max(beta0_s)+0.01,
-                            length.out = 10))) %>%
-  ggplot(aes(x = beta0_bin, fill = as.factor(surv)))+
-  geom_bar(position = position_fill())
+
+lapply(X = 1:7,
+       FUN = function(k){
+         d = as.data.frame(growth_sims)
+         d[,paste0('beta_bin')] = 
+           cut(d[,paste0('beta',k,'_s')],
+               breaks = seq(from = min(as.numeric(d[,paste0('beta',k,'_s')]))-0.01,
+                            to = max(as.numeric(d[,paste0('beta', k, '_s')]))+0.01,
+                            length.out = 10))
+         ggplot(data = d,
+                aes(fill = as.factor(surv), x = beta_bin))+
+           geom_bar(position = position_fill())+
+           labs(x = paste0('beta', k))
+       })
 
 
+# only works for two parameters
 growth_sims %>%
-  mutate(betaSize_bin = 
-           cut(betaSize_s, 
-               breaks = seq(from = min(betaSize_s)-0.01, 
-                            to = max(betaSize_s)+0.01,
-                            length.out = 10))) %>%
-  ggplot(aes(x = betaSize_bin, fill = as.factor(surv)))+
-  geom_bar(position = position_fill())
-
-growth_sims %>%
-  mutate(size0_bin = 
+  mutate(dbh_bin = 
            cut(dbh_m.init,
                breaks = seq(from = min(dbh_m.init)-0.01, to = max(dbh_m.init)+0.01, length.out =10)),
-         betaSize_bin = 
-           cut(betaSize_s, 
-               breaks = seq(from = min(betaSize_s)-0.01, 
-                            to = max(betaSize_s)+0.01,
+         beta2_bin = 
+           cut(beta2_s, 
+               breaks = seq(from = min(beta2_s)-0.01, 
+                            to = max(beta2_s)+0.01,
                             length.out = 10)),
-         beta0_bin = 
-           cut(beta0_s, 
-               breaks = seq(from = min(beta0_s)-0.01, 
-                            to = max(beta0_s)+0.01,
+         beta1_bin = 
+           cut(beta1_s, 
+               breaks = seq(from = min(beta1_s)-0.01, 
+                            to = max(beta1_s)+0.01,
                             length.out = 10))) %>%
-  ggplot(aes(x = size0_bin, fill = as.factor(surv)))+
+  ggplot(aes(x = dbh_bin, fill = as.factor(surv)))+
   geom_bar(position = position_fill())+
   theme(axis.text.x = element_text(angle = -90))+
-  facet_grid(beta0_bin~betaSize_bin)
+  facet_grid(beta1_bin~beta2_bin)
 
 #### priors for fecundity model ################################################

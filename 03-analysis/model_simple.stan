@@ -33,7 +33,11 @@ model {
   // priors
   beta_s ~ normal(0,1);
   beta_g[1] ~ normal(0.15, 0.1); // special prior for the intercept, which should be mostly positive vals near 0
-  beta_g[2] ~ normal(1, 0.25); // special prior for the effect of initial size, which should be near 1
+  beta_g[2] ~ normal(1, 0.25);// special prior for the effect of initial size, which should be near 1
+  for (i in 3:K){
+    beta_g[i] ~ normal(0, 0.1);
+  }
+  
   sigmaEpsilon_g ~ normal(0,0.25);
   
   // random effect realizations
