@@ -8,7 +8,7 @@ library(ggplot2)
 # load data
 pila_data = readRDS(here::here('02-data',
                                '02-for_analysis',
-                               'pila_data.rds'))
+                               'pila_training.rds'))
 
 #### growth data ###############################################################
 

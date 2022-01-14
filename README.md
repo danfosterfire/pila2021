@@ -1,6 +1,8 @@
 
 # Todos
 
+## Reorganize to better track workflow plan
+
 ## Implement posterior retrodictive checks
 
 ## Implement posterior predictive checks
