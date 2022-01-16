@@ -18,6 +18,7 @@ samples = as_draws_df(fitted_model$draws())
 
 samples.beta_s = samples %>% select(contains('beta_s'))
 samples.ecoEffect_s = samples %>% select(contains('ecoEffect_s')) %>% as.data.frame()
+samples.plotEffect_s = samples %>% select(contains('plotEffect_s')) %>% as.data.frame()
 mort_predictions = 
   do.call('bind_rows',
           lapply(X = 1:nrow(samples),
@@ -25,7 +26,8 @@ mort_predictions =
                    beta_s = as.numeric(samples.beta_s[i,])
                    logitp = 
                      as.numeric(pila_validation$X_s %*% beta_s)+
-                     as.numeric(samples.ecoEffect_s[i,])[pila_validation$ecosub_s]
+                     as.numeric(samples.ecoEffect_s[i,])[pila_validation$ecosub_s]+
+                     as.numeric(samples.plotEffect_s[i,])[pila_validation$plotid_s]
                    p = boot::inv.logit(logitp)
                    surv_sim = rbinom(n = pila_validation$N_s, 
                                  size = 1, 
@@ -43,40 +45,33 @@ mort_predictions =
                    return(result)
                  }))  %>%
   group_by(tree_id, surv_true) %>%
-  summarise(p.mid = mean(p),
-            surv_sim = mean(surv_sim)) %>%
+  summarise(p.50 = quantile(p, 0.5),
+            surv_sim = mean(surv_sim),
+            p.025 = quantile(p, 0.025),
+            p.975 = quantile(p, 0.975)) %>%
   ungroup() %>%
-  mutate(r = dense_rank(p.mid),
-         r_bin = cut(r, breaks = seq(0, nrow(.)+1, length.out = 10)))
+  mutate(r = dense_rank(p.50),
+         r_bin = cut(r, breaks = seq(0, nrow(.)+1, length.out = 20)))
 
+head(mort_retrodictions)
 ggplot(
-  data = mort_predictions,
+  data = mort_retrodictions,
   aes(x = r, y = surv_true))+
   geom_jitter(height = 0.1, width = 0, size = 0, color = 'red')+
   theme_minimal()+
-  geom_point(data = mort_predictions %>%
-               group_by(r_bin) %>%
-               summarise(r = mean(r),
-                         surv_sim = sum(surv_sim)/n()) %>%
-               ungroup(),
-             aes(x = r, y = surv_sim))+
-  geom_ribbon(data = mort_predictions %>%
+  geom_point(data = mort_retrodictions,
+             aes(x = r, y = p.50), size = 0)+
+  geom_ribbon(data = mort_retrodictions %>%
                 group_by(r_bin) %>%
                 summarise(r = mean(r),
-                          q50 = qbinom(p = 0.5,
-                                       size = n(),
-                                       prob = mean(p.mid))/n(),
-                          q05 = qbinom(p = 0.025,
-                                       size = n(),
-                                       prob = mean(p.mid))/n(),
-                          q95 = qbinom(p = 0.95,
-                                       size = n(),
-                                       prob = mean(p.mid))/n()) %>%
+                          p.50 = mean(p.50),
+                          p.025 = mean(p.025),
+                          p.975 = mean(p.975)) %>%
                 ungroup(),
-              aes(x = r, ymin = q05, ymax = q95, y = q50),
+              aes(x = r, ymin = p.025, ymax = p.975, y = p.50),
               alpha = 0.2)+
   geom_point(data = 
-               mort_predictions %>% 
+               mort_retrodictions %>% 
                group_by(r_bin) %>%
                summarise(surv_true = sum(surv_true)/n(),
                          r = mean(r)) %>%
@@ -90,6 +85,7 @@ ggplot(
 
 samples.beta_g = samples %>% select(contains('beta_g'))
 samples.ecoEffect_g = samples %>% select(contains('ecoEffect_g')) %>% as.data.frame()
+samples.plotEffect_g = samples %>% select(contains('plotEffect_g')) %>% as.data.frame()
 growth_predictions = 
   do.call('bind_rows',
           lapply(X = 1:nrow(samples),
@@ -97,7 +93,8 @@ growth_predictions =
                    beta_g = as.numeric(samples.beta_g[i,])
                    mu = 
                      as.numeric(pila_validation$X_g %*% beta_g)+
-                     as.numeric(samples.ecoEffect_g[i,])[pila_validation$ecosub_g]
+                     as.numeric(samples.ecoEffect_g[i,])[pila_validation$ecosub_g]+
+                     as.numeric(samples.plotEffect_g[i,])[pila_validation$plotid_g]
                    size1_sim = truncnorm::rtruncnorm(n = pila_validation$N_g,
                                                      a = 0,
                                                      mean = mu,

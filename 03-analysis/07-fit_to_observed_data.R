@@ -33,8 +33,8 @@ fitted_model =
 #### model diagnostics #########################################################
 
 
-fitted_model$summary(c('beta_s', 'sigmaEco_s', 'beta_g', 'sigmaEco_g', 
-                       'sigmaEpsilon_g')) %>% 
+fitted_model$summary(c('beta_s',  'sigmaEco_s', 
+                       'beta_g', 'sigmaEco_g', 'sigmaEpsilon_g')) %>% 
   print(n = Inf)
 
 # I think it's ok for there to be some correlation in the parameter esitmates 
@@ -42,16 +42,16 @@ fitted_model$summary(c('beta_s', 'sigmaEco_s', 'beta_g', 'sigmaEco_g',
 # identified but I don't have a good a priori reason to want to set beta_size 
 # to 1
 mcmc_pairs(fitted_model$draws(),
-           pars = c('beta_g[1]', 'beta_g[2]','sigmaEpsilon_g', 'sigmaEco_g'))
+           pars = c('beta_g[1]', 'beta_g[2]','sigmaEpsilon_g', 'sigmaEco_g', 'sigmaPlot_g'))
 
 mcmc_pairs(fitted_model$draws(),
-           pars = c('beta_s[1]', 'beta_s[2]','beta_s[3]','beta_s[4]',
-                    'beta_s[5]', 'beta_s[6]', 'beta_s[7]','sigmaEco_s'))
+           pars = c('beta_s[1]', 'beta_s[2]', 'sigmaEco_s', 'sigmaPlot_s'))
 
 
 mcmc_dens_overlay(fitted_model$draws(variables = 
-                                       c('beta_s', 'sigmaEco_s', 'beta_g', 
-                                         'sigmaEco_g', 'sigmaEpsilon_g')))
+                                       c('beta_s', 'sigmaEco_s','sigmaPlot_s', 
+                                         'beta_g', 'sigmaEco_g', 'sigmaPlot_g',
+                                         'sigmaEpsilon_g')))
 
 fitted_model$cmdstan_diagnose()
 

@@ -18,6 +18,7 @@ samples = as_draws_df(fitted_model$draws())
 
 samples.beta_s = samples %>% select(contains('beta_s'))
 samples.ecoEffect_s = samples %>% select(contains('ecoEffect_s')) %>% as.data.frame()
+samples.plotEffect_s = samples %>% select(contains('plotEffect_s')) %>% as.data.frame()
 
 mort_retrodictions = 
   do.call('bind_rows',
@@ -26,7 +27,8 @@ mort_retrodictions =
                    beta_s = as.numeric(samples.beta_s[i,])
                    logitp = 
                      as.numeric(pila_training$X_s %*% beta_s)+
-                     as.numeric(samples.ecoEffect_s[i,])[pila_training$ecosub_s]
+                     as.numeric(samples.ecoEffect_s[i,])[pila_training$ecosub_s]+
+                     as.numeric(samples.plotEffect_s[i,])[pila_training$plotid_s]
                    p = boot::inv.logit(logitp)
                    surv_sim = rbinom(n = pila_training$N_s, 
                                  size = 1, 
@@ -44,10 +46,12 @@ mort_retrodictions =
                    return(result)
                  })) %>%
   group_by(tree_id, surv_true) %>%
-  summarise(p.mid = mean(p),
-            surv_sim = mean(surv_sim)) %>%
+  summarise(p.50 = quantile(p, 0.5),
+            surv_sim = mean(surv_sim),
+            p.025 = quantile(p, 0.025),
+            p.975 = quantile(p, 0.975)) %>%
   ungroup() %>%
-  mutate(r = dense_rank(p.mid),
+  mutate(r = dense_rank(p.50),
          r_bin = cut(r, breaks = seq(0, nrow(.)+1, length.out = 20)))
 
 head(mort_retrodictions)
@@ -56,22 +60,20 @@ ggplot(
   aes(x = r, y = surv_true))+
   geom_jitter(height = 0.1, width = 0, size = 0, color = 'red')+
   theme_minimal()+
-  geom_point(data = mort_retrodictions,
-             aes(x = r, y = surv_sim), size = 0)+
+  geom_point(data = mort_retrodictions %>%
+               group_by(r_bin) %>%
+               summarise(r = mean(r),
+                         p.50 = mean(p.50)) %>%
+               ungroup(),
+             aes(x = r, y = p.50))+
   geom_ribbon(data = mort_retrodictions %>%
                 group_by(r_bin) %>%
                 summarise(r = mean(r),
-                          q50 = qbinom(p = 0.5,
-                                       size = n(),
-                                       prob = mean(p.mid))/n(),
-                          q05 = qbinom(p = 0.025,
-                                       size = n(),
-                                       prob = mean(p.mid))/n(),
-                          q95 = qbinom(p = 0.95,
-                                       size = n(),
-                                       prob = mean(p.mid))/n()) %>%
+                          p.50 = mean(p.50),
+                          p.025 = mean(p.025),
+                          p.975 = mean(p.975)) %>%
                 ungroup(),
-              aes(x = r, ymin = q05, ymax = q95, y = q50),
+              aes(x = r, ymin = p.025, ymax = p.975, y = p.50),
               alpha = 0.2)+
   geom_point(data = 
                mort_retrodictions %>% 
@@ -90,6 +92,7 @@ ggplot(
 
 samples.beta_g = samples %>% select(contains('beta_g'))
 samples.ecoEffect_g = samples %>% select(contains('ecoEffect_g')) %>% as.data.frame()
+samples.plotEffect_g = samples %>% select(contains('plotEffect_g')) %>% as.data.frame()
 growth_retrodictions = 
   do.call('bind_rows',
           lapply(X = 1:nrow(samples),
@@ -97,7 +100,8 @@ growth_retrodictions =
                    beta_g = as.numeric(samples.beta_g[i,])
                    mu = 
                      as.numeric(pila_training$X_g %*% beta_g)+
-                     as.numeric(samples.ecoEffect_g[i,])[pila_training$ecosub_g]
+                     as.numeric(samples.ecoEffect_g[i,])[pila_training$ecosub_g]+
+                     as.numeric(samples.plotEffect_g[i,])[pila_training$plotid_g]
                    size1_sim = truncnorm::rtruncnorm(n = pila_training$N_g,
                                                      a = 0,
                                                      mean = mu,
@@ -145,3 +149,4 @@ ggplot(data =
   geom_ribbon(aes(x = size1_sim.50, ymin = size1_sim.025, ymax = size1_sim.975, y = size1_sim.50),
               alpha = 0.2)+
   geom_abline(intercept = 0, slope = 1, color = 'blue')
+
