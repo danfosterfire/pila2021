@@ -18,7 +18,7 @@ pila_training =
 #### build model and run sampler ###############################################
 
 stan_model = 
-  cmdstan_model(here::here('03-analysis', 'model_simple.stan'))
+  cmdstan_model(here::here('03-analysis', 'model.stan'))
 
 
 fitted_model = 
@@ -33,8 +33,9 @@ fitted_model =
 #### model diagnostics #########################################################
 
 
-fitted_model$summary(c('beta_s',  'sigmaEco_s', 
-                       'beta_g', 'sigmaEco_g', 'sigmaEpsilon_g')) %>% 
+fitted_model$summary(c('beta_s',  'sigmaEco_s', 'sigmaPlot_s',
+                       'beta_g', 'sigmaEco_g', 'sigmaPlot_g', 'sigmaEpsilon_g',
+                       'beta_f', 'sigmaEco_f', 'sigmaPlot_f', 'kappa_r')) %>% 
   print(n = Inf)
 
 # I think it's ok for there to be some correlation in the parameter esitmates 
@@ -47,11 +48,20 @@ mcmc_pairs(fitted_model$draws(),
 mcmc_pairs(fitted_model$draws(),
            pars = c('beta_s[1]', 'beta_s[2]', 'sigmaEco_s', 'sigmaPlot_s'))
 
+mcmc_pairs(fitted_model$draws(),
+           pars = c('beta_f[1]', 'beta_f[2]', 'sigmaEco_f', 'sigmaPlot_f', 'kappa_r'))
+
+mcmc_pairs(fitted_model$draws(),
+           pars = c('beta_s[1]', 'beta_g[1]', 'beta_f[1]'))
 
 mcmc_dens_overlay(fitted_model$draws(variables = 
-                                       c('beta_s', 'sigmaEco_s','sigmaPlot_s', 
-                                         'beta_g', 'sigmaEco_g', 'sigmaPlot_g',
-                                         'sigmaEpsilon_g')))
+                                       c('beta_s', 'sigmaEco_s','sigmaPlot_s')))
+
+mcmc_dens_overlay(fitted_model$draws(variables = 
+                                       c('beta_g', 'sigmaEco_g','sigmaPlot_s', 'sigmaEpsilon_g')))
+
+mcmc_dens_overlay(fitted_model$draws(variables = 
+                                       c('beta_f', 'sigmaEco_f','sigmaPlot_f', 'kappa_r')))
 
 fitted_model$cmdstan_diagnose()
 

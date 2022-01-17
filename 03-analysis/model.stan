@@ -8,7 +8,7 @@ data {
   int surv[N_s]; // 1 if individual i survived from t = 0 to t = 1, 0 otherwise
   int plotid_s[N_s]; // plot ID indices
   int ecosub_s[N_s]; // ecoregion subsection indices
-  matrix[N_s,K] X_s; // design matrix for fixed effects, not including size
+  matrix[N_s,K] X_s; // design matrix for fixed effects
   
   // growth data
   int<lower=0> N_g; // number of individual trees tracked for growth
@@ -18,7 +18,7 @@ data {
   matrix[N_g,K] X_g; // design matrix for fixed effects, including intercept
   
   // recruitment data
-  int<lower=0> N_r; // M_r (20) times the number of unique plots for the 
+  int<lower=0> N_r; // M_r (20) times the number of unique subplots for the 
   // recruitment submodel
   int<lower=0> S_r; // number of unique subplots for the recruitment submodel
   matrix[N_r, K] X_r; // fixeff explanatory variables for each sizeclass:subplot 
@@ -36,7 +36,7 @@ data {
   int cprime[2,S_r]; // counts of untagged trees in each size class on each subplot
   vector<lower=0>[M_r] n[S_r]; // vector of area-standardaized rates of occurence for 
   // each of size class on each of S_r subplots at time t = 0
-  vector<lower=0>[2] r; 
+  vector<lower=0>[2] r; // recruitment size kernel
   
 }
 
@@ -69,43 +69,47 @@ parameters {
 transformed parameters {
   vector[P] plotEffect_s;
   vector[P] plotEffect_g;
+  vector[P] plotEffect_f;
   vector[E] ecoEffect_s;
   vector[E] ecoEffect_g;
-  vector[P] plotEffect_f;
   vector[E] ecoEffect_f;
   
   plotEffect_s = sigmaPlot_s * zPlot_s;
   plotEffect_g = sigmaPlot_g * zPlot_g;
+  plotEffect_f = sigmaPlot_f * zPlot_f;
   ecoEffect_s = sigmaEco_s * zEco_s;
   ecoEffect_g = sigmaEco_g * zEco_g;
-  plotEffect_f = sigmaPlot_f * zPlot_f;
   ecoEffect_f = sigmaEco_f * zEco_f;
 }
 
 model {
   
-  // local variables
-  vector[N_g] mu_g; 
+  // variable declarations
+  // // survival
   vector[N_s] logitp_s;
   vector[N_s] XB_s;
+  
+  // // growth 
+  vector[N_g] mu_g;
   vector[N_g] XB_g;
-  vector[N_r] XBs_r; // linear predictor for smallest sizeclass class_mean_dbhs on each subplot
-  vector[N_r] XBg_r; // linear predictor for smallest sizeclass class_mean_dbhs on each subplot
+  
+  // // recruitment
+  vector[N_r] XBs_r; // linear predictor for sizeclass class_mean_dbhs on each subplot
+  vector[N_r] XBg_r; // linear predictor for sizeclass class_mean_dbhs on each subplot
   vector[N_r] XBf_r;
   vector[N_r] mu_gr;
   vector[N_r] logitp_sr;
-  
   vector[2] nprime[S_r]; // area-standardized occurence rates at time t+1 on 
-  // each subplot in each size class
+  // each subplot in each size class (only the smallest 2 classes)
   matrix[2,M_r] A[S_r]; // final IPM transition kernel describing how column 
-  // size classes at time 0 lead to row size classes at time 1
-  matrix[2,M_r] recKern[S_r]; // recruitment kernel 
-  matrix[2,M_r] growKern[S_r]; // growth*survival transitions 
+  // size classes at time 0 lead to row size classes at time 1 (only smallest 2 classes)
+  matrix[2,M_r] recKern[S_r]; // recruitment kernel (into the smallest 2 classes)
+  matrix[2,M_r] growKern[S_r]; // growth*survival transitions (into the smallest 2 classes)
   matrix[M_r,1] g[S_r]; // growth kernel of transitions from size class to size class on each plot
-  matrix[M_r,S_r] s; // survival rates on each subplot for each of the 2 smallest 
-  // size classes
+                        // (only from the smallest class into the others)
+  matrix[M_r,S_r] s; // survival rates on each subplot for each sizeclass 
   matrix[M_r,S_r] f; // fecundity rates by size class and subplots
-  vector[N_r] logf;
+  vector[N_r] logf; 
   
   // fixed effects
   XB_s = X_s * beta_s;
@@ -137,6 +141,10 @@ model {
   // IPM model for recruitment; loop over all the subplots
   for (subplot in 1:S_r){
     
+          
+    // expected survival in the smallest size class
+    s[1,subplot] = inv_logit(logitp_sr[1+(M_r*(subplot-1))]);
+    
     // in the shriver code, this loops over all combinations of size classes,
     // which isn't necessary because we're only using growth from the smallest 
     // size class into the smallest two size classes;  set "sizeclass_from" to 
@@ -147,13 +155,13 @@ model {
          (normal_cdf(u_bounds[sizeclass_to]| mu_gr[1+(M_r*(subplot-1))], sigmaEpsilon_g) - 
           normal_cdf(l_bounds[sizeclass_to]| mu_gr[1+(M_r*(subplot-1))], sigmaEpsilon_g)) / 
           (1-normal_cdf(0| mu_gr[1+(M_r*(subplot-1))], sigmaEpsilon_g));
-      
-      // expected survival in each size class 
-      s[sizeclass_to,subplot] = inv_logit(logitp_sr[sizeclass_to+(M_r*(subplot-1))]);
-      
-      // growth kernel is the product of growth into each size class and 
-      // survival in that size class
-      growKern[subplot,sizeclass_to,1] = g[subplot, sizeclass_to,1]*s[sizeclass_to,subplot];
+
+      // growth kernel is the product of growth into each size class from 
+      // the smallest size class, and 
+      // survival in the smallest size class // note: shriver's code has 
+      // s[sizeclass_to, subplot], which is also unnesessary, because only 
+      // growskern[, , sizeclass_from=1] actually gets used
+      growKern[subplot,sizeclass_to,1] = g[subplot, sizeclass_to,1]*s[1,subplot];
     }
     
     // loop over all the size classes
@@ -162,39 +170,40 @@ model {
       // expected fecundity in each size class
       f[sizeclass,subplot] = exp(logf[sizeclass+(M_r*(subplot-1))]);
     
-      // recruitment kernel 
+      // recruitment kernel (new recruits per existing adult divvied into the 
+      // recruitment size kernel)
       recKern[subplot,1:2,sizeclass] = r * f[sizeclass,subplot];
     }
     
     // transition kernel is the sum of growth of existing small individuals 
-    // plus new recruits for the smallest size class (<1" dbh) (eq 11)
+    // plus new recruits from the smallest size class (<1" dbh) (eq 11)
     A[subplot,,1] = recKern[subplot,1:2,1]+growKern[subplot,1:2,1];
-    A[subplot,,2:20] = recKern[subplot,1:2,2:M_r]; // or just recruitment for bigger classes
+    A[subplot,,2:20] = recKern[subplot,1:2,2:M_r]; // or just recruitment from bigger classes
     
     nprime[subplot,] = A[subplot,,]*n[subplot,]; // eqation 10 in shriver et al; density at t=1 is 
-    // the transition kernel multiplied by the density at time t = 0
+    // the transition kernel matrix multiplied by the density at time t = 0
   }
   
   
   // priors
   beta_s ~ normal(0, 5);
   beta_g ~ normal(0, 5);
+  beta_f ~ normal(0, 5);
   sigmaPlot_s ~ normal(0, 5);
   sigmaPlot_g ~ normal(0, 5);
+  sigmaPlot_f ~ normal(0, 5);
   sigmaEco_s ~ normal(0, 5);
   sigmaEco_g ~ normal(0, 5);
+  sigmaEco_f ~ normal(0, 5);
   sigmaEpsilon_g ~ normal(0, 5);
   kappa_r ~ cauchy(0,5);
-  beta_f ~ normal(0,5);
-  sigmaPlot_f ~ normal(0,5);
-  sigmaEco_f ~ normal(0,5);
   
   // random effect realizations
   zPlot_s ~ std_normal();
   zPlot_g ~ std_normal();
+  zPlot_f ~ std_normal();
   zEco_s ~ std_normal();
   zEco_g ~ std_normal();
-  zPlot_f ~ std_normal();
   zEco_f ~ std_normal();
   
  
@@ -204,28 +213,7 @@ model {
     size1_g[i] ~ normal(mu_g[i], sigmaEpsilon_g) T[0,]; // size at time t+1 (growth)
     }
   for (subplot in 1:S_r){
-    //print("************Starting subplot: ", subplot);
     for (sizeclass in 1:2){
-      //print("nprime: ", nprime[subplot,sizeclass]);
-      //print("kappa_r: ", kappa_r);
-     // if (nprime[subplot,sizeclass]==0)
-    //    {print("Found 0 nprime; A: ", A[subplot,,]);
-    //     print(" n: ", n[subplot,]);}
-        //print("Found nan nprime; sizeclass: ", sizeclass, 
-        //      "   subplot: ", subplot, 
-        //      "    recKern: ", recKern[subplot,1:2,sizeclass], 
-        //      "     growKern: ", growKern[subplot,1:2, sizeclass]);}
-      //  print("found nan nprime; r: ", r, "      f[sizeclass,subplot]: ", f[sizeclass,subplot]);
-      //  print("nu: ", nu, "   upsilon: ", upsilon, "   class_mean_dbhs: ",class_mean_dbhs[1:2], "   r: ", r);} 
-        //print("    recKern: ", recKern[subplot,1:2,sizeclass]);
-        //{print(nprime[subplot,sizeclass]);
-        //print("A: ", A);
-        //print("n: ", n);}
-      //else if (nprime[subplot,sizeclass]==0)
-      //  {print(nprime[subplot,sizeclass]);
-      //  print("A: ", A);
-      //  print("n: ", n);}
-    
         cprime[sizeclass,subplot] ~ 
           neg_binomial_2(nprime[subplot,sizeclass]*a[sizeclass], kappa_r);
     }

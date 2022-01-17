@@ -51,17 +51,9 @@ beta_g = matrix(nrow = pila_data$K, ncol = 1000, byrow = FALSE,
 beta_g[1,] = rnorm(n = 1000, mean = 0.15, sd = 0.1)
 beta_g[2,] = rnorm(n = 1000, mean = 1, sd = 0.25)
 
+sigmaPlot_g = truncnorm::rtruncnorm(n = 1000, mean = 0, sd = 0.25, a = 0)
 sigmaEco_g = truncnorm::rtruncnorm(n = 1000, mean = 0, sd = 0.25, a = 0)
 sigmaEpsilon_g = truncnorm::rtruncnorm(n = 1000, mean = 0, sd = 0.25, a = 0)
-
-beta_s = 
-  matrix(nrow = pila_data$K, ncol = 1000, byrow = FALSE,
-         data = sapply(X = 1:1000,
-                       FUN = function(i){
-                         rnorm(n = pila_data$K, mean = 0, sd = 1)
-                       }))
-
-sigmaEco_s = truncnorm::rtruncnorm(n = 1000, mean = 0, sd = 0.25, a = 0)
 
 # simulate responses
 growth_sims = 
@@ -71,9 +63,13 @@ growth_sims =
            XB =
              as.numeric(as.matrix(pila_data$X_g) %*% beta_g[,i])
            ecoEffects = rnorm(n = pila_data$E, mean = 0, sd = sigmaEco_g[i])
+           plotEffects = rnorm(n = pila_data$P, mean = 0, sd = sigmaPlot_g[i])
            
            y = truncnorm::rtruncnorm(n = nrow(pila_data$X_g),
-                                     mean = XB+ecoEffects[pila_data$ecosub_g],
+                                     mean = 
+                                       XB+
+                                       ecoEffects[pila_data$ecosub_g]+
+                                       plotEffects[pila_data$plotid_g],
                                      sd = sigmaEpsilon_g[i],
                                      a = 0)
            results = 
@@ -93,7 +89,7 @@ growth_sims =
            results$beta12_g = beta_g[12,i]
            
            results$sigmaEco_g = sigmaEco_g[i]
-           
+           results$sigmaPlot_g = sigmaPlot_g[i]
            results$sigmaEpsilon_g = sigmaEpsilon_g[i]
            results$size1_g = y
            results$sim = i
@@ -159,6 +155,7 @@ beta_s = matrix(nrow = pila_data$K, ncol = 1000, byrow = FALSE,
                               }))
 
 sigmaEco_s = truncnorm::rtruncnorm(n = 1000, mean = 0, sd = 1, a = 0)
+sigmaPlot_s = truncnorm::rtruncnorm(n = 1000, mean = 0, sd = 1, a = 0)
 
 # simulate responses
 growth_sims = 
@@ -167,9 +164,13 @@ growth_sims =
          FUN = function(i){
            XB = as.numeric(as.matrix(pila_data$X_s) %*% beta_s[,i])
            ecoEffects = rnorm(n = pila_data$E, mean = 0, sd = sigmaEco_s[i])
+           plotEffects = rnorm(n = pila_data$P, mean = 0, sd = sigmaPlot_s[i])
            y = rbinom(n = nrow(pila_data$X_s),
                       size = 1,
-                      prob = boot::inv.logit(XB+ecoEffects[pila_data$ecosub_s]))
+                      prob = 
+                        boot::inv.logit(XB+
+                                          ecoEffects[pila_data$ecosub_s]+
+                                          plotEffects(pila_data$plotid_s)))
            results = 
              pila_data$X_s %>%
              as_tibble()
@@ -185,6 +186,8 @@ growth_sims =
            results$beta10_s = beta_s[10,i]
            results$beta11_s = beta_s[11,i]
            results$beta12_s = beta_s[12,i]
+           results$sigmaEco_s = sigmaEco_s[i]
+           results$sigmaPlot_s = sigmaPlot_s[i]
            results$surv = y
            results$sim = i
            return(results)
@@ -232,3 +235,6 @@ growth_sims %>%
   facet_grid(beta1_bin~beta2_bin)
 
 #### priors for fecundity model ################################################
+
+# pull parameters from prior
+
