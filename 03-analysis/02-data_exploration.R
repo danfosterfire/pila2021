@@ -135,7 +135,7 @@ lapply(X =
 
 
 lapply(X = 
-         c('fire', 'insects', 'disease', 'cutting'),
+         c('fire', 'insects', 'disease', 'cutting', 'wpbr'),
        FUN = function(v){
          ggplot(data = subplot_data,
                 aes(x = .data[[v]]))+
@@ -144,7 +144,7 @@ lapply(X =
 
 # plot variables across space
 lapply(X = 
-         c('fire', 'insects', 'disease', 'ba_ft2ac', 'cwd_departure90', 'cwd_mean'),
+         c('fire', 'insects', 'disease','wpbr', 'ba_ft2ac', 'cwd_departure90', 'cwd_mean'),
        FUN = function(v){
          ggplot(data = subplot_data,
                 aes(x = lon, y = lat, color = .data[[v]]))+
@@ -155,7 +155,7 @@ lapply(X =
 
 # plot variables across time
 lapply(X = 
-         c('fire', 'insects', 'disease'),
+         c('fire', 'insects', 'disease', 'wpbr'),
        FUN = function(v){
          ggplot(data = subplot_data,
                 aes(x = factor(lubridate::year(invdate.re)),

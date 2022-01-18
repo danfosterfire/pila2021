@@ -544,8 +544,6 @@ subplots =
   )
   
 
-head(subplots)
-
 #### prepare treelist data #####################################################
 
 treelist = 
@@ -582,7 +580,14 @@ treelist =
                  sep = '-'),
          tree_id = 
            paste(STATECD, UNITCD, COUNTYCD, PLOT, SUBP, TREE,
-                 sep = '-')) %>%
+                 sep = '-'),
+         wpbr = 
+           (!is.na(DMG_AGENT1_CD_PNWRS) & DMG_AGENT1_CD_PNWRS==36)|
+           (!is.na(DMG_AGENT2_CD_PNWRS) & DMG_AGENT2_CD_PNWRS==36)|
+           (!is.na(DMG_AGENT3_CD_PNWRS) & DMG_AGENT3_CD_PNWRS==36)|
+           (!is.na(DAMAGE_AGENT_CD1) & DAMAGE_AGENT_CD1 == 26001)|
+           (!is.na(DAMAGE_AGENT_CD2) & DAMAGE_AGENT_CD2 == 26001)|
+           (!is.na(DAMAGE_AGENT_CD3) & DAMAGE_AGENT_CD3 == 26001)) %>%
   
   select(tre_cn = TRE_CN,
          plt_cn = PLT_CN,
@@ -593,7 +598,8 @@ treelist =
          dbh_in = DIA,
          tpa_unadj = TPA_UNADJ,
          cclass = CCLCD.TYPE,
-         reconcile = RECONCILECD.TYPE) %>%
+         reconcile = RECONCILECD.TYPE,
+         wpbr) %>%
   
   mutate(species = ifelse(is.element(species,
                                      c('ABCO', 'CADE27', 'PILA', 'PIPO',
@@ -745,7 +751,19 @@ subplot_data =
             by = c('prev_plt_cn' = 'plt_cn',
                    'subp_id' = 'subp_id')) %>%
   mutate(ba_ft2ac = 
-           ifelse(is.na(ba_ft2ac), 0, ba_ft2ac)) 
+           ifelse(is.na(ba_ft2ac), 0, ba_ft2ac)) %>%
+  
+  # get the presence or absence of WPBR for the initial measurement
+  left_join(treelist %>%
+              group_by(plt_cn, subp_id) %>%
+              summarise(wpbr = any(wpbr)) %>%
+              ungroup(),
+            by = c('prev_plt_cn' = 'plt_cn',
+                   'subp_id' = 'subp_id')) %>%
+  mutate(wpbr = 
+           ifelse(is.na(wpbr), FALSE, wpbr))
+
+summary(subplot_data$wpbr)
 
 
 #### pull in CWD data ##########################################################
