@@ -1101,3 +1101,167 @@ expand.grid('intercept' = 1,
 
 ```
 
+# Random Effects
+
+```{r}
+# get ecoregion polygons for mapping random effects
+# (ecological subsection polygons downloaded from 
+# https://data.fs.usda.gov/geodata/edw/datasets.php?dsetCategory=geoscientificinformation
+# on Jan 9, 2022)
+library(sf)
+
+ecosub.sf = 
+  st_read(here::here('02-data',
+                     '00-source',
+                     'usfs',
+                     'S_USA.EcomapSubsections',
+                     'S_USA.EcomapSubsections.shp')) %>%
+  st_make_valid() %>%
+  st_crop(st_read(here::here('02-data',
+                             '01-preprocessed',
+                             'pila_range_map.shp')) %>%
+            st_bbox()) %>%
+  select(MAP_UNIT_S, MAP_UNIT_N) %>%
+  st_intersection(st_read(here::here('02-data',
+                                     '01-preprocessed',
+                                     'pila_range_map.shp'))) %>%
+  select(-area_km2) %>%
+  left_join(
+    readRDS(here::here('02-data',
+                       '02-for_analysis',
+                       'union_ecosubs.rds')),
+    by = c('MAP_UNIT_S' = 'ecosubcd')
+  )
+
+
+# get plot locations for mapping random effects
+plots.sf = 
+  readRDS(here::here('02-data',
+                     '02-for_analysis',
+                     'union_plots.rds')) %>%
+  
+  left_join(
+    readRDS(here::here('02-data',
+                       '01-preprocessed',
+                       'subplot_data.rds')) %>%
+      group_by(plot_id, lat, lon) %>%
+      summarise() %>%
+      ungroup()
+  ) %>%
+  st_as_sf(coords = c('lon', 'lat'),
+           crs = 4269)
+
+
+
+```
+
+## Survival
+
+```{r}
+ecoEffect_s.med = 
+  samples %>%
+  select(contains('ecoEffect_s')) %>%
+  summarise_all(median) %>%
+  as.numeric()
+
+ecosub.sf$ecoEffect_s.med = 
+  ecoEffect_s.med[ecosub.sf$ecosub.i]
+
+ggplot(data = ecosub.sf,
+       aes(fill = ecoEffect_s.med))+
+  geom_sf(color = NA)+
+  theme_minimal()+
+  scale_fill_viridis_c()
+
+plotEffect_s.med = 
+  samples %>%
+  select(contains('plotEffect_s')) %>%
+  summarise_all(median) %>%
+  as.numeric()
+
+plots.sf$plotEffect_s.med = 
+  plotEffect_s.med[plots.sf$plot_id.i]
+
+ggplot(data = plots.sf,
+       aes(color = plotEffect_s.med))+
+  geom_sf(size = 1, alpha = 0.5)+
+  theme_minimal()+
+  scale_color_viridis_c()
+
+```
+
+
+## Growth
+
+
+```{r}
+ecoEffect_g.med = 
+  samples %>%
+  select(contains('ecoEffect_g')) %>%
+  summarise_all(median) %>%
+  as.numeric()
+
+ecosub.sf$ecoEffect_g.med = 
+  ecoEffect_g.med[ecosub.sf$ecosub.i]
+
+ggplot(data = ecosub.sf,
+       aes(fill = ecoEffect_g.med))+
+  geom_sf(color = NA)+
+  theme_minimal()+
+  scale_fill_viridis_c()
+
+plotEffect_g.med = 
+  samples %>%
+  select(contains('plotEffect_g')) %>%
+  summarise_all(median) %>%
+  as.numeric()
+
+plots.sf$plotEffect_g.med = 
+  plotEffect_g.med[plots.sf$plot_id.i]
+
+ggplot(data = plots.sf,
+       aes(color = plotEffect_g.med))+
+  geom_sf(size = 1, alpha = 0.5)+
+  theme_minimal()+
+  scale_color_viridis_c()
+
+```
+
+Ecoregion-level effects don't look independent here; there's a clear pattern 
+of higher growth in the SE part of the range and lower growth in the NW.
+
+## Fecundity
+
+
+```{r}
+ecoEffect_f.med = 
+  samples %>%
+  select(contains('ecoEffect_f')) %>%
+  summarise_all(median) %>%
+  as.numeric()
+
+ecosub.sf$ecoEffect_f.med = 
+  ecoEffect_f.med[ecosub.sf$ecosub.i]
+
+ggplot(data = ecosub.sf,
+       aes(fill = ecoEffect_f.med))+
+  geom_sf(color = NA)+
+  theme_minimal()+
+  scale_fill_viridis_c()
+
+plotEffect_f.med = 
+  samples %>%
+  select(contains('plotEffect_f')) %>%
+  summarise_all(median) %>%
+  as.numeric()
+
+plots.sf$plotEffect_f.med = 
+  plotEffect_f.med[plots.sf$plot_id.i]
+
+ggplot(data = plots.sf,
+       aes(color = plotEffect_f.med))+
+  geom_sf(size = 1, alpha = 0.5)+
+  theme_minimal()+
+  scale_color_viridis_c()
+
+```

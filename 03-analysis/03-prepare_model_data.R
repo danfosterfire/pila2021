@@ -419,3 +419,9 @@ saveRDS(pila_training,
 
 saveRDS(pila_validation,
         here::here('02-data', '02-for_analysis', 'pila_validation.rds'))
+
+# these are useful for linking back up with external data later:
+saveRDS(union_plots,
+        here::here('02-data', '02-for_analysis', 'union_plots.rds'))
+saveRDS(union_ecosubs,
+        here::here('02-data', '02-for_analysis', 'union_ecosubs.rds'))
