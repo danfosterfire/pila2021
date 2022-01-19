@@ -3,6 +3,9 @@ library(here)
 library(tidyverse)
 library(posterior)
 library(bayesplot)
+library(foreach)
+library(doParallel)
+
 
 # load mcmc results
 pila_fit = readRDS(here::here('02-data', '03-results', 'real_fits', 'pila.rds'))
@@ -31,7 +34,7 @@ subplots =
          cwd_dep90_scaled = as.numeric(scale(cwd_departure90)),
          cwd_mean_scaled = as.numeric(scale(cwd_mean)),
          intercept = 1) %>%
-  select(subp_id, lat, lon, ecosubcd, intercept, fire, disease, ba_scaled, 
+  select(plot_id, subp_id, lat, lon, ecosubcd, intercept, fire, disease, ba_scaled, 
          cwd_dep90_scaled,cwd_mean_scaled)
 
 posterior = as_draws_df(pila_fit$draws())
@@ -181,9 +184,191 @@ ggplot(data =
 #### all real subplots (fixed and simulated random effects) ####################
 
 
-#### only fecundity subplots (fixed and random effects) ########################
+#### only pila subplots (fixed and random effects) #############################
+
+names(subplots)
+
+subplots.pila = 
+  subplots %>%
+  right_join(
+    readRDS(here::here('02-data', '02-for_analysis', 'union_plots.rds'))
+  ) %>%
+  right_join(
+    readRDS(here::here('02-data', '02-for_analysis', 'union_ecosubs.rds'))
+  )
+registerDoParallel(cores = 12)
+starttime = Sys.time()
+lambdas = 
+  do.call('c', 
+          foreach(draw = 1:100) %dopar% { 
+            
+            library(here)
+            library(tidyverse)
+            
+            # get beta_s for the current draw
+            beta_s = 
+              posterior %>%
+              select(contains('beta_s')) %>%
+              slice(draw) %>%
+              as.data.frame() %>%
+              as.numeric()
+            
+            beta_g = 
+              posterior %>%
+              select(contains('beta_g')) %>%
+              slice(draw) %>%
+              as.data.frame() %>%
+              as.numeric()
+            
+            beta_f = 
+              posterior %>%
+              select(contains('beta_f')) %>%
+              slice(draw) %>%
+              as.data.frame() %>%
+              as.numeric()
+            
+            plotEffect_s = 
+              posterior %>%
+              select(contains('plotEffect_s')) %>%
+              slice(draw) %>%
+              as.data.frame() %>%
+              as.numeric()
+            
+            plotEffect_g = 
+              posterior %>%
+              select(contains('plotEffect_g')) %>%
+              slice(draw) %>%
+              as.data.frame() %>%
+              as.numeric()
+            
+            plotEffect_f = 
+              posterior %>%
+              select(contains('plotEffect_f')) %>%
+              slice(draw) %>%
+              as.data.frame() %>%
+              as.numeric()
+            
+            ecoEffect_s = 
+              posterior %>%
+              select(contains('ecoEffect_s')) %>%
+              slice(draw) %>%
+              as.data.frame() %>%
+              as.numeric()
+            
+            ecoEffect_g = 
+              posterior %>%
+              select(contains('ecoEffect_g')) %>%
+              slice(draw) %>%
+              as.data.frame() %>%
+              as.numeric()
+            
+            ecoEffect_f = 
+              posterior %>%
+              select(contains('ecoEffect_f')) %>%
+              slice(draw) %>%
+              as.data.frame() %>%
+              as.numeric()
+            
+            
+            sigmaEpsilon_g = 
+              posterior %>%
+              slice(draw) %>%
+              pull(sigmaEpsilon_g) %>%
+              as.numeric()
+            
+            subplot_lambdas = 
+              sapply(X = 1:nrow(subplots.pila),
+                   FUN = function(subplot){
+                     
+                     # construct explanatory variable matrix for survival 
+                     # for teh current subplot
+                     X = 
+                       subplots.pila %>%
+                       slice(subplot) %>%
+                       expand(nesting(intercept, fire, disease, ba_scaled,
+                                      cwd_dep90_scaled,cwd_mean_scaled),
+                              dbh = size_metadata$dbh_m.mean) %>%
+                       mutate(dbh_fire = dbh*fire,
+                              dbh_disease = dbh*disease,
+                              dbh_ba = dbh*ba_scaled,
+                              dbh_cwd_dep90 = dbh*cwd_dep90_scaled,
+                              dbh_cwd_mean = dbh*cwd_mean_scaled) %>%
+                       select(intercept, dbh, fire, disease, ba_scaled,
+                              cwd_dep90_scaled, cwd_mean_scaled, 
+                              dbh_fire, dbh_disease, dbh_ba,
+                              dbh_cwd_dep90, dbh_cwd_mean) %>%
+                       as.matrix()
+                     
+                     # calculate size_from length vector of survival 
+                     # probabilities on this subplot with this parameter draw
+                     p = 
+                       boot::inv.logit(as.numeric(X %*% beta_s) +
+                                         ecoEffect_s[subplots.pila$ecosub.i[subplot]]+
+                                         plotEffect_s[subplots.pila$plot_id.i][subplot])
+                     
+                     mu = as.numeric(X %*% beta_g)+
+                       ecoEffect_g[subplots.pila$ecosub.i[subplot]]+
+                       plotEffect_g[subplots.pila$plot_id.i[subplot]]
+                     
+                     f = 
+                       exp(as.numeric(X %*% beta_f)+
+                             ecoEffect_f[subplots.pila$ecosub.i[subplot]]+
+                             plotEffect_f[subplots.pila$plot_id.i[subplot]])
+                     
+                     A.subplot = 
+                       sapply(X = 1:nrow(size_metadata),
+                            FUN = function(class_from){
+                              
+                              g = 
+                                ((pnorm(size_metadata$bin_upper,
+                                        mu[class_from],
+                                        sigmaEpsilon_g) - 
+                                    pnorm(size_metadata$bin_lower,
+                                          mu[class_from],
+                                          sigmaEpsilon_g))/
+                                   (1-pnorm(0,
+                                            mu[class_from],
+                                            sigmaEpsilon_g)))
+                              
+                              sapply(X = 1:nrow(size_metadata),
+                                     FUN = function(class_to){
+                                       
+                                       transition_prob = 
+                                         # survival of each from class
+                                         (p[class_from] *
+                                            # prob of growth from to
+                                            g[class_to]) +
+                                         # number of new recruits
+                                         (f[class_from] *
+                                            size_metadata$r[class_to])
+                                       return(transition_prob)
+                                       
+                                       # for testing
+                                       #paste0('d:',draw,'|s:',subplot,
+                                       #  '|f:',class_from,'|t:',class_to)
+                                     })
+                            })
+                     lambda.subplot = max(as.numeric(eigen(A.subplot)$values))
+                     return(lambda.subplot)
+                   })
+            
+            return(subplot_lambdas)
+          })
 
 
+endtime = Sys.time()
+endtime-starttime
+stopImplicitCluster()
+
+summary(lambdas)
+ggplot(data = 
+         data.frame(lambda = lambdas),
+       aes(x = lambda))+
+  geom_density()+
+  scale_x_continuous(limits = c(0, 2))+
+  coord_cartesian(xlim = c(0.9, 1.4))+
+  theme_minimal()+
+  geom_vline(xintercept = 1, color = 'grey', lty = 2, lwd = 1)
 
 #### using hypothetical subplots (only fixed effects) ##########################
 
