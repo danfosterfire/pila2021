@@ -370,6 +370,205 @@ ggplot(data =
   theme_minimal()+
   geom_vline(xintercept = 1, color = 'grey', lty = 2, lwd = 1)
 
+#### only pila subplots, median parameter estimates, fixed and random ##########
+
+names(subplots)
+
+subplots.pila = 
+  subplots %>%
+  right_join(
+    readRDS(here::here('02-data', '02-for_analysis', 'union_plots.rds'))
+  ) %>%
+  right_join(
+    readRDS(here::here('02-data', '02-for_analysis', 'union_ecosubs.rds'))
+  )
+
+
+# get beta_s for the current draw
+beta_s.med = 
+  posterior %>%
+  select(contains('beta_s')) %>%
+  summarise_all(median) %>%
+  as.data.frame() %>%
+  as.numeric()
+
+beta_g.med = 
+  posterior %>%
+  select(contains('beta_g')) %>%
+  summarise_all(median) %>%
+  as.data.frame() %>%
+  as.numeric()
+
+beta_f.med = 
+  posterior %>%
+  select(contains('beta_f')) %>%
+  summarise_all(median) %>%
+  as.data.frame() %>%
+  as.numeric()
+
+plotEffect_s.med = 
+  posterior %>%
+  select(contains('plotEffect_s')) %>%
+  summarise_all(median) %>%
+  as.data.frame() %>%
+  as.numeric()
+
+plotEffect_g.med = 
+  posterior %>%
+  select(contains('plotEffect_g')) %>%
+  summarise_all(median) %>%
+  as.data.frame() %>%
+  as.numeric()
+
+plotEffect_f.med = 
+  posterior %>%
+  select(contains('plotEffect_f')) %>%
+  summarise_all(median) %>%
+  as.data.frame() %>%
+  as.numeric()
+
+ecoEffect_s.med = 
+  posterior %>%
+  select(contains('ecoEffect_s')) %>%
+  summarise_all(median) %>%
+  as.data.frame() %>%
+  as.numeric()
+
+ecoEffect_g.med = 
+  posterior %>%
+  select(contains('ecoEffect_g')) %>%
+  summarise_all(median) %>%
+  as.data.frame() %>%
+  as.numeric()
+
+ecoEffect_f.med = 
+  posterior %>%
+  select(contains('ecoEffect_f')) %>%
+  summarise_all(median) %>%
+  as.data.frame() %>%
+  as.numeric()
+
+
+sigmaEpsilon_g.med = 
+  posterior %>%
+  summarise_all(median) %>%
+  pull(sigmaEpsilon_g) %>%
+  as.numeric()
+            
+subplot_lambdas.med = 
+  sapply(X = 1:nrow(subplots.pila),
+       FUN = function(subplot){
+         
+         # construct explanatory variable matrix for survival 
+         # for teh current subplot
+         X = 
+           subplots.pila %>%
+           slice(subplot) %>%
+           expand(nesting(intercept, fire, disease, ba_scaled,
+                          cwd_dep90_scaled,cwd_mean_scaled),
+                  dbh = size_metadata$dbh_m.mean) %>%
+           mutate(dbh_fire = dbh*fire,
+                  dbh_disease = dbh*disease,
+                  dbh_ba = dbh*ba_scaled,
+                  dbh_cwd_dep90 = dbh*cwd_dep90_scaled,
+                  dbh_cwd_mean = dbh*cwd_mean_scaled) %>%
+           select(intercept, dbh, fire, disease, ba_scaled,
+                  cwd_dep90_scaled, cwd_mean_scaled, 
+                  dbh_fire, dbh_disease, dbh_ba,
+                  dbh_cwd_dep90, dbh_cwd_mean) %>%
+           as.matrix()
+         
+         # calculate size_from length vector of survival 
+         # probabilities on this subplot with this parameter draw
+         p = 
+           boot::inv.logit(as.numeric(X %*% beta_s.med) +
+                             ecoEffect_s.med[subplots.pila$ecosub.i[subplot]]+
+                             plotEffect_s.med[subplots.pila$plot_id.i][subplot])
+         
+         mu = as.numeric(X %*% beta_g.med)+
+           ecoEffect_g.med[subplots.pila$ecosub.i[subplot]]+
+           plotEffect_g.med[subplots.pila$plot_id.i[subplot]]
+         
+         f = 
+           exp(as.numeric(X %*% beta_f.med)+
+                 ecoEffect_f.med[subplots.pila$ecosub.i[subplot]]+
+                 plotEffect_f.med[subplots.pila$plot_id.i[subplot]])
+         
+         A.subplot = 
+           sapply(X = 1:nrow(size_metadata),
+                FUN = function(class_from){
+                  
+                  g = 
+                    ((pnorm(size_metadata$bin_upper,
+                            mu[class_from],
+                            sigmaEpsilon_g.med) - 
+                        pnorm(size_metadata$bin_lower,
+                              mu[class_from],
+                              sigmaEpsilon_g.med))/
+                       (1-pnorm(0,
+                                mu[class_from],
+                                sigmaEpsilon_g.med)))
+                  
+                  sapply(X = 1:nrow(size_metadata),
+                         FUN = function(class_to){
+                           
+                           transition_prob = 
+                             # survival of each from class
+                             (p[class_from] *
+                                # prob of growth from to
+                                g[class_to]) +
+                             # number of new recruits
+                             (f[class_from] *
+                                size_metadata$r[class_to])
+                           return(transition_prob)
+                           
+                           # for testing
+                           #paste0('d:',draw,'|s:',subplot,
+                           #  '|f:',class_from,'|t:',class_to)
+                         })
+                })
+         lambda.subplot = max(as.numeric(eigen(A.subplot)$values))
+         return(lambda.subplot)
+       })
+ 
+
+subplots.pila$lambda_postmed = 
+  subplot_lambdas.med
+
+ggplot(data = subplots.pila,
+       aes(x = lambda_postmed))+
+  geom_density()+
+  theme_minimal()+
+  scale_x_continuous(limits = c(0, 2.5))+
+  geom_vline(xintercept = 1, color = 'grey', lty = 2, lwd = 1)
+
+library(sf)
+library(scales)
+subplots.pila.sf = 
+  subplots.pila %>%
+  st_as_sf(coords = c('lon', 'lat'),
+           crs = 4269)
+
+ggplot(data = 
+         subplots.pila.sf,
+       aes(color = lambda_postmed))+
+  geom_sf(size = 1)+
+  scale_color_viridis_c(limits = c(0.9,1.5), oob = scales::squish)+
+  theme_minimal()
+
+
+summary(lambdas)
+ggplot(data = 
+         data.frame(lambda = lambdas),
+       aes(x = lambda))+
+  geom_density()+
+  scale_x_continuous(limits = c(0, 2))+
+  coord_cartesian(xlim = c(0.9, 1.4))+
+  theme_minimal()+
+  geom_vline(xintercept = 1, color = 'grey', lty = 2, lwd = 1)
+
+
+
 #### using hypothetical subplots (only fixed effects) ##########################
 
 head(subplots)
