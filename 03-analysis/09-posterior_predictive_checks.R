@@ -83,7 +83,6 @@ ggplot(
              aes(x = r, y = surv_true),
              color = 'blue', pch = 4)
 
-# underestimating the variability in survival
 
 #### growth ####################################################################
 

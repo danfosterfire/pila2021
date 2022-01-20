@@ -34,7 +34,7 @@ subplots =
          cwd_dep90_scaled = as.numeric(scale(cwd_departure90)),
          cwd_mean_scaled = as.numeric(scale(cwd_mean)),
          intercept = 1) %>%
-  select(plot_id, subp_id, lat, lon, ecosubcd, intercept, fire, disease, ba_scaled, 
+  select(plot_id, subp_id, lat, lon, ecosubcd, intercept, fire, wpbr, ba_scaled, 
          cwd_dep90_scaled,cwd_mean_scaled)
 
 posterior = as_draws_df(pila_fit$draws())
@@ -47,7 +47,7 @@ posterior %>%
 
 explan_data =  
   subplots %>%
-  expand(nesting(subp_id, lat, lon, ecosubcd, intercept, fire, disease,
+  expand(nesting(subp_id, lat, lon, ecosubcd, intercept, fire, wpbr,
                  ba_scaled, cwd_dep90_scaled, cwd_mean_scaled),
          nesting(size_metadata %>%
                    select(dbh_m.mean))) 
@@ -103,17 +103,17 @@ A =
                             X = 
                               subplots %>%
                               slice(subplot) %>%
-                              expand(nesting(intercept, fire, disease, ba_scaled,
+                              expand(nesting(intercept, fire, wpbr, ba_scaled,
                                              cwd_dep90_scaled,cwd_mean_scaled),
                                      dbh = size_metadata$dbh_m.mean) %>%
                               mutate(dbh_fire = dbh*fire,
-                                     dbh_disease = dbh*disease,
+                                     dbh_wpbr = dbh*wpbr,
                                      dbh_ba = dbh*ba_scaled,
                                      dbh_cwd_dep90 = dbh*cwd_dep90_scaled,
                                      dbh_cwd_mean = dbh*cwd_mean_scaled) %>%
-                              select(intercept, dbh, fire, disease, ba_scaled,
+                              select(intercept, dbh, fire, wpbr, ba_scaled,
                                      cwd_dep90_scaled, cwd_mean_scaled, 
-                                     dbh_fire, dbh_disease, dbh_ba,
+                                     dbh_fire, dbh_wpbr, dbh_ba,
                                      dbh_cwd_dep90, dbh_cwd_mean) %>%
                               as.matrix()
                             
@@ -285,17 +285,17 @@ lambdas =
                      X = 
                        subplots.pila %>%
                        slice(subplot) %>%
-                       expand(nesting(intercept, fire, disease, ba_scaled,
+                       expand(nesting(intercept, fire, wpbr, ba_scaled,
                                       cwd_dep90_scaled,cwd_mean_scaled),
                               dbh = size_metadata$dbh_m.mean) %>%
                        mutate(dbh_fire = dbh*fire,
-                              dbh_disease = dbh*disease,
+                              dbh_wpbr = dbh*wpbr,
                               dbh_ba = dbh*ba_scaled,
                               dbh_cwd_dep90 = dbh*cwd_dep90_scaled,
                               dbh_cwd_mean = dbh*cwd_mean_scaled) %>%
-                       select(intercept, dbh, fire, disease, ba_scaled,
+                       select(intercept, dbh, fire, wpbr, ba_scaled,
                               cwd_dep90_scaled, cwd_mean_scaled, 
-                              dbh_fire, dbh_disease, dbh_ba,
+                              dbh_fire, dbh_wpbr, dbh_ba,
                               dbh_cwd_dep90, dbh_cwd_mean) %>%
                        as.matrix()
                      
@@ -464,17 +464,17 @@ subplot_lambdas.med =
          X = 
            subplots.pila %>%
            slice(subplot) %>%
-           expand(nesting(intercept, fire, disease, ba_scaled,
+           expand(nesting(intercept, fire, wpbr, ba_scaled,
                           cwd_dep90_scaled,cwd_mean_scaled),
                   dbh = size_metadata$dbh_m.mean) %>%
            mutate(dbh_fire = dbh*fire,
-                  dbh_disease = dbh*disease,
+                  dbh_wpbr = dbh*wpbr,
                   dbh_ba = dbh*ba_scaled,
                   dbh_cwd_dep90 = dbh*cwd_dep90_scaled,
                   dbh_cwd_mean = dbh*cwd_mean_scaled) %>%
-           select(intercept, dbh, fire, disease, ba_scaled,
+           select(intercept, dbh, fire, wpbr, ba_scaled,
                   cwd_dep90_scaled, cwd_mean_scaled, 
-                  dbh_fire, dbh_disease, dbh_ba,
+                  dbh_fire, dbh_wpbr, dbh_ba,
                   dbh_cwd_dep90, dbh_cwd_mean) %>%
            as.matrix()
          
@@ -557,16 +557,6 @@ ggplot(data =
   theme_minimal()
 
 
-summary(lambdas)
-ggplot(data = 
-         data.frame(lambda = lambdas),
-       aes(x = lambda))+
-  geom_density()+
-  scale_x_continuous(limits = c(0, 2))+
-  coord_cartesian(xlim = c(0.9, 1.4))+
-  theme_minimal()+
-  geom_vline(xintercept = 1, color = 'grey', lty = 2, lwd = 1)
-
 
 
 #### using hypothetical subplots (only fixed effects) ##########################
@@ -576,12 +566,12 @@ head(subplots)
 hypothetical_subplots = 
   data.frame(intercept = rep(1, times = 9),
              fire = c(FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),
-             disease = c(FALSE, FALSE, T, F, F, F, F, F, F),
+             wpbr = c(FALSE, FALSE, T, F, F, F, F, F, F),
              ba_scaled = c(0, 0, 0, -1, 1, 0, 0, 0, 0),
              cwd_dep90_scaled = c(0, 0, 0, 0, 0, -1, 1, 0, 0),
              cwd_mean_scaled = c(0, 0, 0, 0, 0, 0, 0, -1, 1),
              subp_id = 1:9,
-             name = c('Undisturbed', 'Fire', 'Disease', 'Low BA', 'High BA',
+             name = c('Undisturbed', 'Fire', 'wpbr', 'Low BA', 'High BA',
                       'Low Drought', 'High Drought', 'Wet Site', 'Dry Site'))
 
 
@@ -634,17 +624,17 @@ A_hypotheticals =
                             X = 
                               hypothetical_subplots %>%
                               slice(subplot) %>%
-                              expand(nesting(intercept, fire, disease, ba_scaled,
+                              expand(nesting(intercept, fire, wpbr, ba_scaled,
                                              cwd_dep90_scaled,cwd_mean_scaled),
                                      dbh = size_metadata$dbh_m.mean) %>%
                               mutate(dbh_fire = dbh*fire,
-                                     dbh_disease = dbh*disease,
+                                     dbh_wpbr = dbh*wpbr,
                                      dbh_ba = dbh*ba_scaled,
                                      dbh_cwd_dep90 = dbh*cwd_dep90_scaled,
                                      dbh_cwd_mean = dbh*cwd_mean_scaled) %>%
-                              select(intercept, dbh, fire, disease, ba_scaled,
+                              select(intercept, dbh, fire, wpbr, ba_scaled,
                                      cwd_dep90_scaled, cwd_mean_scaled, 
-                                     dbh_fire, dbh_disease, dbh_ba,
+                                     dbh_fire, dbh_wpbr, dbh_ba,
                                      dbh_cwd_dep90, dbh_cwd_mean) %>%
                               as.matrix()
                             
@@ -693,7 +683,7 @@ A_hypotheticals =
 
 hypothetical_lambdas = 
   hypothetical_subplots %>%
-  expand(nesting(subp_id, name, intercept, fire, disease, ba_scaled, cwd_dep90_scaled, 
+  expand(nesting(subp_id, name, intercept, fire, wpbr, ba_scaled, cwd_dep90_scaled, 
                  cwd_mean_scaled),
          data.frame(draw = 1:400))
 
@@ -724,7 +714,8 @@ ggplot(data =
   theme_minimal()+
   facet_grid(subp_id~., scales = 'free_y',
              labeller = labeller(subp_id = pretty_names))+
-  coord_cartesian(xlim = c(0.9,1.5))
+  scale_x_continuous(limits = c(0.5,3))+
+  coord_cartesian(xlim = c(0.9, 1.5))
 
 #### using hypothetical subplots (fixed and random effects) ####################
 
