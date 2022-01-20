@@ -26,7 +26,8 @@ fitted_model =
     data = pila_training,
     parallel_chains = 4,
     output_dir = here::here('02-data', '03-results', 'real_fits'),
-    output_basename = 'pila')
+    output_basename = 'pila',
+    seed = 110819)
 
 
 

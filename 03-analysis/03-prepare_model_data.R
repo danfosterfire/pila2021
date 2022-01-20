@@ -31,7 +31,7 @@ growth_data.pila =
   left_join(subplot_data %>%
               select(plot_id, subp_id, ecosubcd, 
                      intercept,
-                     fire, insects, disease, 
+                     fire, insects, disease, wpbr,
                      ba_scaled, cwd_dep90_scaled, cwd_mean_scaled)) %>%
   
   # get DBH in meters, which will be on a nicer (close to 0-1, similar to other 
@@ -44,7 +44,8 @@ growth_data.pila =
          dbh_disease = dbh_m.init*disease,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
-         dbh_cwdmean = dbh_m.init*cwd_mean_scaled)
+         dbh_cwdmean = dbh_m.init*cwd_mean_scaled,
+         dbh_wpbr = dbh_m.init*wpbr)
 
 
 # a row for every individual tagged tree which was alive at the initial 
@@ -58,7 +59,7 @@ mort_data.pila =
   left_join(subplot_data %>%
               select(plot_id, subp_id, ecosubcd,
                      intercept,
-                     fire, insects, disease, 
+                     fire, insects, disease, wpbr,
                      ba_scaled, cwd_dep90_scaled, cwd_mean_scaled)) %>%
   
   # convert to meters scale
@@ -69,7 +70,8 @@ mort_data.pila =
          dbh_disease = dbh_m.init*disease,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
-         dbh_cwdmean = dbh_m.init*cwd_mean_scaled)
+         dbh_cwdmean = dbh_m.init*cwd_mean_scaled,
+         dbh_wpbr = dbh_m.init*wpbr)
 
 # a row for each unique combination of subplot:species:size class, for 
 # 1 inch size bins from 0.5-99.5"; "tpa_unadj.init" and "tpa_unadj.re" give 
@@ -107,7 +109,7 @@ recr_data.pila =
                  ecosubcd, invdate.re, inv_manual.re, macro_break, fire,
                  insects, disease, cutting, invdate.init, inv_manual.init, 
                  ba_ft2ac, cwd_departure90, cwd_mean, ba_scaled, cwd_dep90_scaled,
-                 cwd_mean_scaled, intercept),
+                 cwd_mean_scaled, intercept, wpbr),
          dbh_in.init = size_metadata$dbh_in.mean) %>%
   mutate(dbh_class = cut(dbh_in.init,
                          breaks = seq(from = 0, to= 100, by = 5),
@@ -119,7 +121,8 @@ recr_data.pila =
          dbh_disease = dbh_m.init*disease,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
-         dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
+         dbh_cwdmean = dbh_m.init*cwd_mean_scaled,
+         dbh_wpbr = dbh_m.init*wpbr) %>%
   # add in the observed counts 
   left_join(readRDS(here::here('02-data',
                                '01-preprocessed',
@@ -318,8 +321,8 @@ pila_training =
        ecosub_s = mort_data.pila_training$ecosub.i,
        X_s = 
          as.matrix(mort_data.pila_training[,c('intercept', 'dbh_m.init', 'fire', 
-                                              'disease','ba_scaled', 'cwd_dep90_scaled', 
-                                              'cwd_mean_scaled', 'dbh_fire', 'dbh_disease',
+                                              'wpbr','ba_scaled', 'cwd_dep90_scaled', 
+                                              'cwd_mean_scaled', 'dbh_fire', 'dbh_wpbr',
                                               'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
     
     # growth data 
@@ -329,8 +332,8 @@ pila_training =
        ecosub_g = growth_data.pila_training$ecosub.i,
        X_g = 
          as.matrix(growth_data.pila_training[,c('intercept', 'dbh_m.init', 'fire', 
-                                                'disease','ba_scaled', 'cwd_dep90_scaled', 
-                                                'cwd_mean_scaled', 'dbh_fire', 'dbh_disease',
+                                                'wpbr','ba_scaled', 'cwd_dep90_scaled', 
+                                                'cwd_mean_scaled', 'dbh_fire', 'dbh_wpbr',
                                                 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
     
     # recruitment data
@@ -338,9 +341,9 @@ pila_training =
     S_r = length(unique(recr_data.pila_training$subp_id)),
     X_r = 
       as.matrix(recr_data.pila_training[,c('intercept', 'dbh_m.init', 'fire', 
-                                     'disease','ba_scaled', 'cwd_dep90_scaled', 
+                                     'wpbr','ba_scaled', 'cwd_dep90_scaled', 
                                      'cwd_mean_scaled', 'dbh_fire', 
-                                     'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
+                                     'dbh_wpbr', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
     plotid_r = recr_data.pila_training$plot_id.i,
     ecosub_r = recr_data.pila_training$ecosub.i,
     M_r = nrow(size_metadata),
@@ -372,8 +375,8 @@ pila_validation =
        ecosub_s = mort_data.pila_validation$ecosub.i,
        X_s = 
          as.matrix(mort_data.pila_validation[,c('intercept', 'dbh_m.init', 'fire', 
-                                     'disease','ba_scaled', 'cwd_dep90_scaled', 
-                                     'cwd_mean_scaled', 'dbh_fire', 'dbh_disease',
+                                     'wpbr','ba_scaled', 'cwd_dep90_scaled', 
+                                     'cwd_mean_scaled', 'dbh_fire', 'dbh_wpbr',
                                      'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
     
     # growth data 
@@ -383,8 +386,8 @@ pila_validation =
        ecosub_g = growth_data.pila_validation$ecosub.i,
        X_g = 
          as.matrix(growth_data.pila_validation[,c('intercept', 'dbh_m.init', 'fire', 
-                                                  'disease','ba_scaled', 'cwd_dep90_scaled', 
-                                                  'cwd_mean_scaled', 'dbh_fire', 'dbh_disease',
+                                                  'wpbr','ba_scaled', 'cwd_dep90_scaled', 
+                                                  'cwd_mean_scaled', 'dbh_fire', 'dbh_wpbr',
                                                   'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
     
     # recruitment data
@@ -392,9 +395,9 @@ pila_validation =
     S_r = length(unique(recr_data.pila_validation$subp_id)),
     X_r = 
       as.matrix(recr_data.pila_validation[,c('intercept', 'dbh_m.init', 'fire', 
-                                     'disease','ba_scaled', 'cwd_dep90_scaled', 
+                                     'wpbr','ba_scaled', 'cwd_dep90_scaled', 
                                      'cwd_mean_scaled', 'dbh_fire', 
-                                     'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
+                                     'dbh_wpbr', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]),
     plotid_r = recr_data.pila_validation$plot_id.i,
     ecosub_r = recr_data.pila_validation$ecosub.i,
     M_r = nrow(size_metadata),

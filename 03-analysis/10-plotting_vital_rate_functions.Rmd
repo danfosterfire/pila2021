@@ -39,13 +39,13 @@ beta_s_names =
                 'beta_s[6]', 'beta_s[7]', 'beta_s[8]', 'beta_s[9]', 'beta_s[10]',
                 'beta_s[11]', 'beta_s[12]'),
       data_name = c('intercept', 'dbh_m.init', 'fire', 
-              'disease','ba_scaled', 'cwd_dep90_scaled', 
+              'wpbr','ba_scaled', 'cwd_dep90_scaled', 
               'cwd_mean_scaled', 'dbh_fire', 
-              'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean'),
+              'dbh_wpbr', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean'),
       position = str_pad(1:12, width = 2, side = 'left', pad = '0'),
       pretty_name = 
-          c('Intercept','DBH (m)','Fire','Disease','Basal Area',
-            'CWD Departure','CWD Mean','DBH x Fire','DBH x Disease',
+          c('Intercept','DBH (m)','Fire','WPBR','Basal Area',
+            'CWD Departure','CWD Mean','DBH x Fire','DBH x WPBR',
             'DBH x BA','DBH x CWD Dep.','DBH X CWD Mean'))
 
 pretty_beta_s_labels = 
@@ -101,13 +101,13 @@ beta_g_names =
                 'beta_g[6]', 'beta_g[7]', 'beta_g[8]', 'beta_g[9]', 'beta_g[10]',
                 'beta_g[11]', 'beta_g[12]'),
       data_name = c('intercept', 'dbh_m.init', 'fire', 
-              'disease','ba_scaled', 'cwd_dep90_scaled', 
+              'wpbr','ba_scaled', 'cwd_dep90_scaled', 
               'cwd_mean_scaled', 'dbh_fire', 
-              'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean'),
+              'dbh_wpbr', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean'),
       position = str_pad(1:12, width = 2, side = 'left', pad = '0'),
       pretty_name = 
-          c('Intercept','DBH (m)','Fire','Disease','Basal Area',
-            'CWD Departure','CWD Mean','DBH x Fire','DBH x Disease',
+          c('Intercept','DBH (m)','Fire','WPBR','Basal Area',
+            'CWD Departure','CWD Mean','DBH x Fire','DBH x WPBR',
             'DBH x BA','DBH x CWD Dep.','DBH X CWD Mean'))
 
 pretty_beta_g_labels = 
@@ -172,13 +172,13 @@ beta_f_names =
                 'beta_f[6]', 'beta_f[7]', 'beta_f[8]', 'beta_f[9]', 'beta_f[10]',
                 'beta_f[11]', 'beta_f[12]'),
       data_name = c('intercept', 'dbh_m.init', 'fire', 
-              'disease','ba_scaled', 'cwd_dep90_scaled', 
+              'wpbr','ba_scaled', 'cwd_dep90_scaled', 
               'cwd_mean_scaled', 'dbh_fire', 
-              'dbh_disease', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean'),
+              'dbh_wpbr', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean'),
       position = str_pad(1:12, width = 2, side = 'left', pad = '0'),
       pretty_name = 
-          c('Intercept','DBH (m)','Fire','Disease','Basal Area',
-            'CWD Departure','CWD Mean','DBH x Fire','DBH x Disease',
+          c('Intercept','DBH (m)','Fire','WPBR','Basal Area',
+            'CWD Departure','CWD Mean','DBH x Fire','DBH x WPBR',
             'DBH x BA','DBH x CWD Dep.','DBH X CWD Mean'))
 
 pretty_beta_f_labels = 
@@ -344,9 +344,9 @@ predict_survival_fixeff =
                      beta_i = as.numeric(betas_s[i,])
                      
                      X = dataset[,c('intercept', 'dbh_m.init', 'fire', 
-                                    'disease', 'ba_scaled', 
+                                    'wpbr', 'ba_scaled', 
                                     'cwd_dep90_scaled', 'cwd_mean_scaled', 
-                                    'dbh_fire', 'dbh_disease',
+                                    'dbh_fire', 'dbh_wpbr',
                                     'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]
                      
                      predictions = X
@@ -367,18 +367,18 @@ predict_survival_fixeff =
 expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
-            'disease' = 0,
+            'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
-         dbh_disease = dbh_m.init*disease,
+         dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   predict_survival_fixeff() %>%
-  group_by(intercept, dbh_m.init, fire, disease, ba_scaled, 
-           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_disease,
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(p.median = median(p),
             p.025 = quantile(p, probs = 0.025),
@@ -400,18 +400,18 @@ expand.grid('intercept' = 1,
 expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = c(0,1),
-            'disease' = 0,
+            'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
-         dbh_disease = dbh_m.init*disease,
+         dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   predict_survival_fixeff() %>%
-  group_by(intercept, dbh_m.init, fire, disease, ba_scaled, 
-           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_disease,
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(p.median = median(p),
             p.025 = quantile(p, probs = 0.025),
@@ -434,22 +434,22 @@ expand.grid('intercept' = 1,
        color = 'Fire',
        x = 'DBH (m)')
 
-# size X disease
+# size X wpbr
 expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
-            'disease' = c(0,1),
+            'wpbr' = c(0,1),
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
-         dbh_disease = dbh_m.init*disease,
+         dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   predict_survival_fixeff() %>%
-  group_by(intercept, dbh_m.init, fire, disease, ba_scaled, 
-           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_disease,
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(p.median = median(p),
             p.025 = quantile(p, probs = 0.025),
@@ -457,10 +457,10 @@ expand.grid('intercept' = 1,
             p.75 = quantile(p, probs = 0.75),
             p.975 = quantile(p, probs = 0.975)) %>%
   ggplot(data = .,
-         aes(x = dbh_m.init, color = as.factor(disease)))+
-  geom_ribbon(aes(ymin = p.025, ymax = p.975, fill = as.factor(disease)),
+         aes(x = dbh_m.init, color = as.factor(wpbr)))+
+  geom_ribbon(aes(ymin = p.025, ymax = p.975, fill = as.factor(wpbr)),
               color = NA, alpha = 0.1)+
-  geom_ribbon(aes(ymin = p.25, ymax = p.75, fill = as.factor(disease)),
+  geom_ribbon(aes(ymin = p.25, ymax = p.75, fill = as.factor(wpbr)),
               color = NA, alpha = 0.25)+
   geom_line(aes(y = p.median), lwd = 1.5)+
   #scale_y_continuous(limits = c(0, 1))+
@@ -468,26 +468,26 @@ expand.grid('intercept' = 1,
   scale_fill_viridis_d(begin = 0.05, end = 0.85)+
   theme_minimal()+
   labs(y = 'Predicted Survival',
-       fill = 'Disease',
-       color = 'Disease',
+       fill = 'wpbr',
+       color = 'wpbr',
        x = 'DBH (m)')
 
 # size X Basal area
 expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
-            'disease' = 0,
+            'wpbr' = 0,
             'ba_scaled' = c(-1,0,1),
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
-         dbh_disease = dbh_m.init*disease,
+         dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   predict_survival_fixeff() %>%
-  group_by(intercept, dbh_m.init, fire, disease, ba_scaled, 
-           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_disease,
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(p.median = median(p),
             p.025 = quantile(p, probs = 0.025),
@@ -514,18 +514,18 @@ expand.grid('intercept' = 1,
 expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
-            'disease' = 0,
+            'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = c(-1,0,1),
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
-         dbh_disease = dbh_m.init*disease,
+         dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   predict_survival_fixeff() %>%
-  group_by(intercept, dbh_m.init, fire, disease, ba_scaled, 
-           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_disease,
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(p.median = median(p),
             p.025 = quantile(p, probs = 0.025),
@@ -552,18 +552,18 @@ expand.grid('intercept' = 1,
 expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
-            'disease' = 0,
+            'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = c(-1,0,1)) %>%
   mutate(dbh_fire = dbh_m.init*fire,
-         dbh_disease = dbh_m.init*disease,
+         dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   predict_survival_fixeff() %>%
-  group_by(intercept, dbh_m.init, fire, disease, ba_scaled, 
-           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_disease,
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(p.median = median(p),
             p.025 = quantile(p, probs = 0.025),
@@ -602,9 +602,9 @@ predict_grow_fixeff =
                      beta_i = as.numeric(betas_g[i,])
                      
                      X = dataset[,c('intercept', 'dbh_m.init', 'fire', 
-                                    'disease', 'ba_scaled', 
+                                    'wpbr', 'ba_scaled', 
                                     'cwd_dep90_scaled', 'cwd_mean_scaled', 
-                                    'dbh_fire', 'dbh_disease',
+                                    'dbh_fire', 'dbh_wpbr',
                                     'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]
                      
                      predictions = X
@@ -625,18 +625,18 @@ predict_grow_fixeff =
 expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
-            'disease' = 0,
+            'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
-         dbh_disease = dbh_m.init*disease,
+         dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   predict_grow_fixeff() %>%
-  group_by(intercept, dbh_m.init, fire, disease, ba_scaled, 
-           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_disease,
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(grow.median = median(grow),
             grow.025 = quantile(grow, probs = 0.025),
@@ -657,18 +657,18 @@ expand.grid('intercept' = 1,
 expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = c(0,1),
-            'disease' = 0,
+            'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
-         dbh_disease = dbh_m.init*disease,
+         dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   predict_grow_fixeff() %>%
-  group_by(intercept, dbh_m.init, fire, disease, ba_scaled, 
-           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_disease,
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(grow.median = median(grow),
             grow.025 = quantile(grow, probs = 0.025),
@@ -690,22 +690,22 @@ expand.grid('intercept' = 1,
        color = 'Fire',
        x = 'DBH (m)')
 
-# size X disease
+# size X wpbr
 expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
-            'disease' = c(0,1),
+            'wpbr' = c(0,1),
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
-         dbh_disease = dbh_m.init*disease,
+         dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   predict_grow_fixeff() %>%
-  group_by(intercept, dbh_m.init, fire, disease, ba_scaled, 
-           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_disease,
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(grow.median = median(grow),
             grow.025 = quantile(grow, probs = 0.025),
@@ -713,10 +713,10 @@ expand.grid('intercept' = 1,
             grow.75 = quantile(grow, probs = 0.75),
             grow.975 = quantile(grow, probs = 0.975)) %>%
   ggplot(data = .,
-         aes(x = dbh_m.init, color = as.factor(disease)))+
-  geom_ribbon(aes(ymin = grow.025, ymax = grow.975, fill = as.factor(disease)),
+         aes(x = dbh_m.init, color = as.factor(wpbr)))+
+  geom_ribbon(aes(ymin = grow.025, ymax = grow.975, fill = as.factor(wpbr)),
               color = NA, alpha = 0.1)+
-  geom_ribbon(aes(ymin = grow.25, ymax = grow.75, fill = as.factor(disease)),
+  geom_ribbon(aes(ymin = grow.25, ymax = grow.75, fill = as.factor(wpbr)),
               color = NA, alpha = 0.25)+
   geom_line(aes(y = grow.median), lwd = 1.5)+
   #scale_y_continuous(limits = c(0, 1))+
@@ -724,26 +724,26 @@ expand.grid('intercept' = 1,
   scale_fill_viridis_d(begin = 0.05, end = 0.85)+
   theme_minimal()+
   labs(y = 'Predicted DBH Growth (m)',
-       fill = 'Disease',
-       color = 'Disease',
+       fill = 'wpbr',
+       color = 'wpbr',
        x = 'DBH (m)')
 
 # size X Basal area
 expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
-            'disease' = 0,
+            'wpbr' = 0,
             'ba_scaled' = c(-1,0,1),
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
-         dbh_disease = dbh_m.init*disease,
+         dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   predict_grow_fixeff() %>%
-  group_by(intercept, dbh_m.init, fire, disease, ba_scaled, 
-           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_disease,
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(grow.median = median(grow),
             grow.025 = quantile(grow, probs = 0.025),
@@ -770,18 +770,18 @@ expand.grid('intercept' = 1,
 expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
-            'disease' = 0,
+            'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = c(-1,0,1),
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
-         dbh_disease = dbh_m.init*disease,
+         dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   predict_grow_fixeff() %>%
-  group_by(intercept, dbh_m.init, fire, disease, ba_scaled, 
-           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_disease,
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(grow.median = median(grow),
             grow.025 = quantile(grow, probs = 0.025),
@@ -808,18 +808,18 @@ expand.grid('intercept' = 1,
 expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
-            'disease' = 0,
+            'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = c(-1,0,1)) %>%
   mutate(dbh_fire = dbh_m.init*fire,
-         dbh_disease = dbh_m.init*disease,
+         dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   predict_grow_fixeff() %>%
-  group_by(intercept, dbh_m.init, fire, disease, ba_scaled, 
-           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_disease,
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(grow.median = median(grow),
             grow.025 = quantile(grow, probs = 0.025),
@@ -848,7 +848,6 @@ expand.grid('intercept' = 1,
 ## Fecundity
 
 ```{r}
-
 predict_fecundity_fixeff = 
   function(dataset){
     do.call('rbind',
@@ -858,9 +857,9 @@ predict_fecundity_fixeff =
                      beta_i = as.numeric(betas_f[i,])
                      
                      X = dataset[,c('intercept', 'dbh_m.init', 'fire', 
-                                    'disease', 'ba_scaled', 
+                                    'wpbr', 'ba_scaled', 
                                     'cwd_dep90_scaled', 'cwd_mean_scaled', 
-                                    'dbh_fire', 'dbh_disease',
+                                    'dbh_fire', 'dbh_wpbr',
                                     'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]
                      
                      predictions = X
@@ -881,18 +880,18 @@ predict_fecundity_fixeff =
 expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
-            'disease' = 0,
+            'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
-         dbh_disease = dbh_m.init*disease,
+         dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   predict_fecundity_fixeff() %>%
-  group_by(intercept, dbh_m.init, fire, disease, ba_scaled, 
-           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_disease,
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(fecundity.median = median(fecundity),
             fecundity.025 = quantile(fecundity, probs = 0.025),
@@ -913,18 +912,18 @@ expand.grid('intercept' = 1,
 expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = c(0,1),
-            'disease' = 0,
+            'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
-         dbh_disease = dbh_m.init*disease,
+         dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   predict_fecundity_fixeff() %>%
-  group_by(intercept, dbh_m.init, fire, disease, ba_scaled, 
-           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_disease,
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(fecundity.median = median(fecundity),
             fecundity.025 = quantile(fecundity, probs = 0.025),
@@ -946,22 +945,22 @@ expand.grid('intercept' = 1,
        color = 'Fire',
        x = 'DBH (m)')
 
-# size X disease
+# size X wpbr
 expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
-            'disease' = c(0,1),
+            'wpbr' = c(0,1),
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
-         dbh_disease = dbh_m.init*disease,
+         dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   predict_fecundity_fixeff() %>%
-  group_by(intercept, dbh_m.init, fire, disease, ba_scaled, 
-           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_disease,
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(fecundity.median = median(fecundity),
             fecundity.025 = quantile(fecundity, probs = 0.025),
@@ -969,10 +968,10 @@ expand.grid('intercept' = 1,
             fecundity.75 = quantile(fecundity, probs = 0.75),
             fecundity.975 = quantile(fecundity, probs = 0.975)) %>%
   ggplot(data = .,
-         aes(x = dbh_m.init, color = as.factor(disease)))+
-  geom_ribbon(aes(ymin = fecundity.025, ymax = fecundity.975, fill = as.factor(disease)),
+         aes(x = dbh_m.init, color = as.factor(wpbr)))+
+  geom_ribbon(aes(ymin = fecundity.025, ymax = fecundity.975, fill = as.factor(wpbr)),
               color = NA, alpha = 0.1)+
-  geom_ribbon(aes(ymin = fecundity.25, ymax = fecundity.75, fill = as.factor(disease)),
+  geom_ribbon(aes(ymin = fecundity.25, ymax = fecundity.75, fill = as.factor(wpbr)),
               color = NA, alpha = 0.25)+
   geom_line(aes(y = fecundity.median), lwd = 1.5)+
   #scale_y_continuous(limits = c(0, 1))+
@@ -980,26 +979,26 @@ expand.grid('intercept' = 1,
   scale_fill_viridis_d(begin = 0.05, end = 0.85)+
   theme_minimal()+
   labs(y = 'Predicted DBH Growth (m)',
-       fill = 'Disease',
-       color = 'Disease',
+       fill = 'wpbr',
+       color = 'wpbr',
        x = 'DBH (m)')
 
 # size X Basal area
 expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
-            'disease' = 0,
+            'wpbr' = 0,
             'ba_scaled' = c(-1,0,1),
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
-         dbh_disease = dbh_m.init*disease,
+         dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   predict_fecundity_fixeff() %>%
-  group_by(intercept, dbh_m.init, fire, disease, ba_scaled, 
-           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_disease,
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(fecundity.median = median(fecundity),
             fecundity.025 = quantile(fecundity, probs = 0.025),
@@ -1026,18 +1025,18 @@ expand.grid('intercept' = 1,
 expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
-            'disease' = 0,
+            'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = c(-1,0,1),
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
-         dbh_disease = dbh_m.init*disease,
+         dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   predict_fecundity_fixeff() %>%
-  group_by(intercept, dbh_m.init, fire, disease, ba_scaled, 
-           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_disease,
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(fecundity.median = median(fecundity),
             fecundity.025 = quantile(fecundity, probs = 0.025),
@@ -1064,18 +1063,18 @@ expand.grid('intercept' = 1,
 expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
-            'disease' = 0,
+            'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = c(-1,0,1)) %>%
   mutate(dbh_fire = dbh_m.init*fire,
-         dbh_disease = dbh_m.init*disease,
+         dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
   predict_fecundity_fixeff() %>%
-  group_by(intercept, dbh_m.init, fire, disease, ba_scaled, 
-           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_disease,
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(fecundity.median = median(fecundity),
             fecundity.025 = quantile(fecundity, probs = 0.025),
