@@ -23,6 +23,7 @@ samples.beta_s = samples %>% select(contains('beta_s'))
 samples.ecoEffect_s = samples %>% select(contains('ecoEffect_s')) %>% as.data.frame()
 samples.plotEffect_s = samples %>% select(contains('plotEffect_s')) %>% as.data.frame()
 
+
 mort_retrodictions = 
   do.call('bind_rows',
           lapply(X = 1:nrow(samples),
@@ -50,32 +51,23 @@ mort_retrodictions =
                  })) %>%
   group_by(tree_id, surv_true) %>%
   summarise(p.50 = quantile(p, 0.5),
-            surv_sim = mean(surv_sim),
+            p.mean = mean(p),
             p.025 = quantile(p, 0.025),
             p.975 = quantile(p, 0.975)) %>%
   ungroup() %>%
-  mutate(r = dense_rank(p.50),
+  mutate(r = dense_rank(p.mean),
          r_bin = cut(r, breaks = seq(0, nrow(.)+1, length.out = 20)))
 
 head(mort_retrodictions)
-ggplot(
+surv_retrodictions_plot = 
+  ggplot(
   data = mort_retrodictions,
   aes(x = r, y = surv_true))+
   geom_jitter(height = 0.1, width = 0, size = 0, color = 'red')+
   theme_minimal()+
-  geom_point(data = mort_retrodictions %>%
-               group_by(r_bin) %>%
-               summarise(r = mean(r),
-                         p.50 = mean(p.50)) %>%
-               ungroup(),
-             aes(x = r, y = p.50))+
-  geom_ribbon(data = mort_retrodictions %>%
-                group_by(r_bin) %>%
-                summarise(r = mean(r),
-                          p.50 = mean(p.50),
-                          p.025 = mean(p.025),
-                          p.975 = mean(p.975)) %>%
-                ungroup(),
+  geom_point(data = mort_retrodictions,
+             aes(x = r, y = p.mean))+
+  geom_ribbon(data = mort_retrodictions,
               aes(x = r, ymin = p.025, ymax = p.975, y = p.50),
               alpha = 0.2)+
   geom_point(data = 
@@ -87,9 +79,13 @@ ggplot(
              aes(x = r, y = surv_true),
              color = 'blue', pch = 4)
 
-
+surv_retrodictions_plot
 # looks pretty good
-
+ggsave(surv_retrodictions_plot,
+       filename = here::here('04-communication',
+                             'figures',
+                             'manuscript',
+                             'retrodictions_s.png'))
 
 #### growth ####################################################################
 
@@ -121,7 +117,8 @@ growth_retrodictions =
                    return(result)
                  }))
 
-ggplot(data = 
+growth_retrodictions_plot = 
+  ggplot(data = 
          growth_retrodictions %>%
          group_by(tree_id,size1_true) %>%
          summarise(size1_sim.50 = quantile(size1_sim, 0.5),
@@ -139,7 +136,8 @@ ggplot(data =
 # model is slightly overpredicting size of the smallest trees, missing some variation
 # in size
 
-ggplot(data = 
+growth_retrodictions_plot2 = 
+  ggplot(data = 
          growth_retrodictions %>%
          group_by(tree_id,size1_true) %>%
          summarise(size1_sim.50 = quantile(size1_sim, 0.5),
@@ -152,6 +150,12 @@ ggplot(data =
   geom_ribbon(aes(x = size1_sim.50, ymin = size1_sim.025, ymax = size1_sim.975, y = size1_sim.50),
               alpha = 0.2)+
   geom_abline(intercept = 0, slope = 1, color = 'blue')
+
+ggsave(growth_retrodictions_plot2,
+       filename = here::here('04-communication',
+                             'figures',
+                             'manuscript',
+                             'retrodictions_g.png'))
 
 #### recruitment ###############################################################
 
@@ -348,7 +352,8 @@ recruitment.retrodictions =
 
 head(recruitment.retrodictions)
 
-recruitment.retrodictions %>%
+recr_retrodictions_plot = 
+  recruitment.retrodictions %>%
   pivot_longer(cols = c('count_sim', 'count_true'),
                names_to = 'source', values_to = 'count') %>%
   ggplot(aes(x = count, fill = source))+
@@ -358,19 +363,26 @@ recruitment.retrodictions %>%
 
 # looks good
 
-recruitment.retrodictions %>%
+recr_retrodictions_plot2 = 
+  recruitment.retrodictions %>%
   group_by(subplot,sizeclass, count_true) %>%
   summarise(density_pred.50 = quantile(density_pred,probs = 0.5),
             count_sim.975 = quantile(count_sim, probs = 0.975),
             count_sim.025 = quantile(count_sim, probs = 0.025),
             count_sim.50 = quantile(count_sim, probs = 0.5)) %>%
   ungroup() %>%
-  ggplot(aes(x = log(density_pred.50), y = count_sim.50))+
-  geom_line()+
+  ggplot(aes(x = density_pred.50, y = count_sim.50))+
+  geom_abline(intercept = 0, slope = 1, color = 'blue')+
   geom_ribbon(aes(ymin = count_sim.025, ymax = count_sim.975),
               alpha = 0.2)+
   geom_point(aes(y = count_true))+
   theme_minimal()
 
+recr_retrodictions_plot2
 
 # looks good
+ggsave(recr_retrodictions_plot2,
+       filename = here::here('04-communication',
+                             'figures',
+                             'manuscript',
+                             'retrodictions_r.png'))

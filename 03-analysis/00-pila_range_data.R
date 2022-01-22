@@ -6,7 +6,9 @@ library(sf)
 library(tidyverse)
 library(spData)
 library(units)
-
+library(USAboundaries)
+library(ggspatial)
+library(cowplot)
 
 # CA, OR borders
 aoi = 
@@ -48,6 +50,54 @@ pila_range.sf =
   dplyr::select(area_km2)
 
 plot(pila_range.sf)
+
+test = spData::world
+
+
+
+overview_map = 
+  ggplot(data = 
+         spData::world %>%
+         filter(continent=='North America'))+
+  geom_sf(fill = NA, lwd = 1)+
+  geom_rect(xmin = 390000, xmax = 1100000, ymin = 3740000, ymax = 5020000,
+            fill = NA, color = 'red', lwd = 2)+
+  coord_sf(crs = "EPSG:26910",
+           xlim = c(200000, 5000000), ylim = c(1000000, 8000000))+
+  theme_minimal()+
+  theme(axis.text.y = element_blank(), axis.text.x = element_blank(),
+        panel.grid = element_blank(),
+        plot.background = element_rect(fill = 'white'),
+        plot.margin = unit(c(0, 0, 0, 0), 'cm'))
+
+overview_map
+
+range_map = 
+  ggplot(data = pila_range.sf)+
+  geom_sf(data = 
+            us_states(),
+          fill = NA, lwd = 1)+
+  geom_sf(color = 'black', fill = '#20A387FF')+
+  theme_minimal()+
+  coord_sf(xlim = c(390000, 1100000), ylim = c(3740000, 5020000),
+           crs = "EPSG:26910")+
+  annotation_scale()
+
+range_map
+
+pila_rangemap = 
+  ggdraw()+
+  draw_plot(range_map)+
+  draw_plot(overview_map,
+            x = 0.48, y = 0.6, width = 0.3, height = 0.3)
+
+ggsave(plot = pila_rangemap,
+       filename = 
+         here::here('04-communication',
+                    'figures',
+                    'manuscript',
+                    'pila_range_map.png'))
+
 
 st_write(pila_range.sf,
          here::here('02-data',

@@ -7,11 +7,12 @@ output: html_document
 
 ```{r}
 # setup
-
 library(here)
 library(tidyverse)
 library(posterior)
 library(bayesplot)
+library(cowplot)
+library(ggspatial)
 # load observed data
 pila_data = readRDS(here::here('02-data', '02-for_analysis', 'pila_training.rds'))
 
@@ -45,13 +46,14 @@ beta_s_names =
       position = str_pad(1:12, width = 2, side = 'left', pad = '0'),
       pretty_name = 
           c('Intercept','DBH (m)','Fire','WPBR','Basal Area',
-            'CWD Departure','CWD Mean','DBH x Fire','DBH x WPBR',
-            'DBH x BA','DBH x CWD Dep.','DBH X CWD Mean'))
+            'Drought','Site Dryness','DBH x Fire','DBH x WPBR',
+            'DBH x BA','DBH x Drought','DBH x Dryness'))
 
 pretty_beta_s_labels = 
   beta_s_names$pretty_name
 names(pretty_beta_s_labels) = beta_s_names$position
-betas_s %>%
+beta_s_priorvpost = 
+  betas_s %>%
   rowid_to_column('iter') %>%
   pivot_longer(cols = c(-iter),
                names_to = 'param',
@@ -71,7 +73,17 @@ betas_s %>%
              labeller = 
                labeller(position = pretty_beta_s_labels))
 
-samples %>%
+ggsave(beta_s_priorvpost,
+       filename = here::here('04-communication',
+                             'figures',
+                             'manuscript',
+                             'beta_s_priorvpost.png'), 
+       height = 6.5, width = 4, units = 'in')
+
+plot_grid()
+
+sigmaPlot_s_priorvpost = 
+  samples %>%
   select(sigmaPlot_s) %>%
   ggplot(aes(x = sigmaPlot_s))+
   geom_density(lwd = 1)+
@@ -80,7 +92,8 @@ samples %>%
                aes(x = prior), color = 'red')+
   theme_minimal()
 
-samples %>%
+sigmaEco_s_priorvpost = 
+  samples %>%
   select(sigmaEco_s) %>%
   ggplot(aes(x = sigmaEco_s))+
   geom_density(lwd = 1)+
@@ -88,6 +101,15 @@ samples %>%
                  data.frame(prior = truncnorm::rtruncnorm(n = 1000, a = 0, mean = 0, sd = 5)),
                aes(x = prior), color = 'red')+
   theme_minimal()
+
+sigmas_s_priorvpost = 
+  plot_grid(sigmaPlot_s_priorvpost, sigmaEco_s_priorvpost)
+
+ggsave(sigmas_s_priorvpost,
+       filename = here::here('04-communication',
+                  'figures',
+                  'manuscript',
+                  'sigmas_s_priorvpost.png'), height = 6.5, width = 4, units = 'in')
 
 
 ```
@@ -107,14 +129,15 @@ beta_g_names =
       position = str_pad(1:12, width = 2, side = 'left', pad = '0'),
       pretty_name = 
           c('Intercept','DBH (m)','Fire','WPBR','Basal Area',
-            'CWD Departure','CWD Mean','DBH x Fire','DBH x WPBR',
-            'DBH x BA','DBH x CWD Dep.','DBH X CWD Mean'))
+            'Drought','Site Dryness','DBH x Fire','DBH x WPBR',
+            'DBH x BA','DBH x Drought','DBH x Dryness'))
 
 pretty_beta_g_labels = 
   beta_g_names$pretty_name
 names(pretty_beta_g_labels) = beta_g_names$position
 
-betas_g %>%
+beta_g_priorvpost = 
+  betas_g %>%
   rowid_to_column('iter') %>%
   pivot_longer(cols = c(-iter),
                names_to = 'param',
@@ -134,7 +157,14 @@ betas_g %>%
              labeller = 
                labeller(position = pretty_beta_g_labels))
 
-samples %>%
+ggsave(beta_g_priorvpost,
+       filename = here::here('04-communication',
+                             'figures',
+                             'manuscript',
+                             'beta_g_priorvpost.png'), height = 6.5, width = 4, units = 'in')
+
+sigmaPlot_g_priorvpost = 
+  samples %>%
   select(sigmaPlot_g) %>%
   ggplot(aes(x = sigmaPlot_g))+
   geom_density(lwd = 1)+
@@ -143,7 +173,10 @@ samples %>%
                aes(x = prior), color = 'red')+
   theme_minimal()
 
-samples %>%
+
+
+sigmaEco_g_priorvpost = 
+  samples %>%
   select(sigmaEco_g) %>%
   ggplot(aes(x = sigmaEco_g))+
   geom_density(lwd = 1)+
@@ -152,7 +185,8 @@ samples %>%
                aes(x = prior), color = 'red')+
   theme_minimal()
 
-samples %>%
+sigmaEpsilon_g_priorvpost = 
+  samples %>%
   select(sigmaEpsilon_g) %>%
   ggplot(aes(x = sigmaEpsilon_g))+
   geom_density(lwd = 1)+
@@ -160,6 +194,17 @@ samples %>%
                  data.frame(prior = truncnorm::rtruncnorm(n = 1000, a = 0, mean = 0, sd = 5)),
                aes(x = prior), color = 'red')+
   theme_minimal()
+
+sigmas_g_priorvpost = 
+  plot_grid(sigmaPlot_g_priorvpost,
+            sigmaEco_g_priorvpost,
+            sigmaEpsilon_g_priorvpost)
+
+ggsave(sigmas_g_priorvpost,
+       filename = here::here('04-communication',
+                             'figures',
+                             'manuscript',
+                             'sigmas_g_priorvpost.png'), height = 6.5, width = 4, units = 'in')
 
 ```
 
@@ -178,14 +223,15 @@ beta_f_names =
       position = str_pad(1:12, width = 2, side = 'left', pad = '0'),
       pretty_name = 
           c('Intercept','DBH (m)','Fire','WPBR','Basal Area',
-            'CWD Departure','CWD Mean','DBH x Fire','DBH x WPBR',
-            'DBH x BA','DBH x CWD Dep.','DBH X CWD Mean'))
+            'Drought','Site Dryness','DBH x Fire','DBH x WPBR',
+            'DBH x BA','DBH x Drought','DBH x Dryness'))
 
 pretty_beta_f_labels = 
   beta_f_names$pretty_name
 names(pretty_beta_f_labels) = beta_f_names$position
 
-betas_f %>%
+beta_f_priorvpost = 
+  betas_f %>%
   rowid_to_column('iter') %>%
   pivot_longer(cols = c(-iter),
                names_to = 'param',
@@ -205,6 +251,12 @@ betas_f %>%
              labeller = 
                labeller(position = pretty_beta_f_labels))
 
+ggsave(beta_f_priorvpost,
+       filename = here::here('04-communication',
+                             'figures',
+                             'manuscript',
+                             'beta_f_priorvpost.png'), height = 6.5, width = 4, units = 'in')
+
 half_cauchy_samples = 
   sapply(X = 1:1000,
          FUN = function(i){
@@ -215,7 +267,8 @@ half_cauchy_samples =
            return(sample)
          })
 
-samples %>%
+kappa_r_priorvpost = 
+  samples %>%
   select(kappa_r) %>%
   ggplot(aes(x = kappa_r))+
   geom_density(lwd = 1)+
@@ -225,6 +278,13 @@ samples %>%
     aes(x = prior), 
     color = 'red'
   )
+
+ggsave(kappa_r_priorvpost,
+       filename = here::here('04-communication',
+                             'figures',
+                             'manuscript',
+                             'kappa_r_priorvpost.png'), 
+       height = 6.5, width = 4, units = 'in')
 
 ```
 
@@ -250,18 +310,57 @@ mcmc_intervals(samples,
                         'sigmaPlot_s',
                         'sigmaEco_s'))
 
+help(summary)
 
+pila_fit$summary(variables = c('beta_s', 'sigmaPlot_s', 'sigmaEco_s'))
+
+pretty_params_s = 
+  samples %>%
+  select(sigmaPlot_s, sigmaEco_s, contains('beta_s')) %>%
+  pivot_longer(cols = everything(), names_to = 'param', values_to = 'value') %>%
+  left_join(beta_s_names %>%
+              bind_rows(
+                data.frame(param = c('sigmaPlot_s', 'sigmaEco_s'),
+                       position = c('13', '14'),
+                       pretty_name = c('SD Plots', 'SD Ecoregions'))
+              ))
+
+paramvalues_s = 
+  ggplot(
+  data = 
+    pretty_params_s %>%
+    group_by(param, position, pretty_name) %>%
+    summarise(value.05 = quantile(value, probs = 0.05),
+              value.25 = quantile(value, probs = 0.25),
+              value.50 = quantile(value, probs = 0.5),
+              value.75 = quantile(value, probs = 0.75),
+              value.95 = quantile(value, probs = 0.95)) %>%
+    ungroup() %>%
+    mutate(pretty_name = 
+             factor(pretty_name, 
+                    levels = c('Intercept', 'DBH (m)', 'Fire', 'WPBR', 'Basal Area',
+                               'Drought', 'Site Dryness', 'DBH x Fire', 
+                               'DBH x WPBR', 'DBH x BA', 'DBH x Drought',
+                               'DBH x Dryness', 'SD Plots', 'SD Ecoregions'))))+
+  geom_vline(xintercept = 0, lty = 2, color = 'grey', lwd = 1)+
+  geom_segment(aes(y = pretty_name, yend = pretty_name, x = value.05, xend = value.95),
+               color = 'deepskyblue1', lwd = 1)+
+  geom_segment(aes(y = pretty_name, yend = pretty_name, x = value.25, xend = value.75),
+               color = 'deepskyblue3', lwd = 2)+
+  geom_point(aes(x = value.50, y = pretty_name), size = 4)+
+  theme_minimal()+
+  labs(x = 'Value', y = 'Parameter (Survival)')
+
+paramvalues_s
+ggsave(paramvalues_s,
+       filename = here::here('04-communication',
+                             'figures', 
+                             'manuscript',
+                             'paramvalues_s.png'),
+       height = 4, width = 6.5, units = 'in')
 ```
 
-Significant effects:
 
-  - Intercept (+)
-  - Size (+)
-  - Fire (-)
-  - Basal area (+)
-  - CWD Departure (-)
-  - Size X Fire (+)
-  - Size X BA (-)
 
 ## Growth
 
@@ -364,7 +463,8 @@ predict_survival_fixeff =
 
 ## size main effect (no disturbances, continuous variables held at 0, which is 
 ## the subplot-level mean (so like the average subplot))
-expand.grid('intercept' = 1,
+size_fixeff_s = 
+  expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
@@ -392,12 +492,15 @@ expand.grid('intercept' = 1,
   geom_ribbon(aes(ymin = p.25, ymax = p.75),
               color = NA, alpha = 0.25)+
   geom_line(aes(y = p.median), lwd = 1.5)+
-  scale_y_continuous(limits = c(0, 1))+
+  #scale_y_continuous(limits = c(0, 1))+
   theme_minimal()+
-  labs(y = 'Predicted Survival')
+  labs(y = 'Survival',
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
 
 # size X fire
-expand.grid('intercept' = 1,
+fire_fixeff_s = 
+  expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = c(0,1),
             'wpbr' = 0,
@@ -426,16 +529,18 @@ expand.grid('intercept' = 1,
               color = NA, alpha = 0.25)+
   geom_line(aes(y = p.median), lwd = 1.5)+
   #scale_y_continuous(limits = c(0, 1))+
-  scale_color_viridis_d(begin = 0.05, end = 0.85)+
-  scale_fill_viridis_d(begin = 0.05, end = 0.85)+
+  scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
+  scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
   theme_minimal()+
-  labs(y = 'Predicted Survival',
+  labs(y = 'Survival',
        fill = 'Fire',
        color = 'Fire',
-       x = 'DBH (m)')
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
 
 # size X wpbr
-expand.grid('intercept' = 1,
+wpbr_fixeff_s = 
+  expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = c(0,1),
@@ -464,20 +569,22 @@ expand.grid('intercept' = 1,
               color = NA, alpha = 0.25)+
   geom_line(aes(y = p.median), lwd = 1.5)+
   #scale_y_continuous(limits = c(0, 1))+
-  scale_color_viridis_d(begin = 0.05, end = 0.85)+
-  scale_fill_viridis_d(begin = 0.05, end = 0.85)+
+  scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
+  scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
   theme_minimal()+
-  labs(y = 'Predicted Survival',
-       fill = 'wpbr',
-       color = 'wpbr',
-       x = 'DBH (m)')
+  labs(y = 'Survival',
+       fill = 'WPBR',
+       color = 'WPBR',
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
 
 # size X Basal area
-expand.grid('intercept' = 1,
+ba_fixeff_s = 
+  expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
-            'ba_scaled' = c(-1,0,1),
+            'ba_scaled' = c(-1,1),
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
@@ -502,21 +609,23 @@ expand.grid('intercept' = 1,
               color = NA, alpha = 0.25)+
   geom_line(aes(y = p.median), lwd = 1.5)+
   #scale_y_continuous(limits = c(0, 1))+
-  scale_color_viridis_d(begin = 0.05, end = 0.85)+
-  scale_fill_viridis_d(begin = 0.05, end = 0.85)+
+  scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
+  scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
   theme_minimal()+
-  labs(y = 'Predicted Survival',
-       fill = 'Basal Area (scaled)',
-       color = 'Basal Area (scaled)',
-       x = 'DBH (m)')
+  labs(y = 'Survival',
+       fill = 'Basal Area',
+       color = 'Basal Area',
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
 
 # size X drought
-expand.grid('intercept' = 1,
+drought_fixeff_s = 
+  expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
-            'cwd_dep90_scaled' = c(-1,0,1),
+            'cwd_dep90_scaled' = c(-1,1),
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
          dbh_wpbr = dbh_m.init*wpbr,
@@ -540,22 +649,24 @@ expand.grid('intercept' = 1,
               color = NA, alpha = 0.25)+
   geom_line(aes(y = p.median), lwd = 1.5)+
   #scale_y_continuous(limits = c(0, 1))+
-  scale_color_viridis_d(begin = 0.05, end = 0.85)+
-  scale_fill_viridis_d(begin = 0.05, end = 0.85)+
+  scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
+  scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
   theme_minimal()+
-  labs(y = 'Predicted Survival',
-       fill = 'CWD Departure (scaled)',
-       color = 'CWD Departure (scaled)',
-       x = 'DBH (m)')
+  labs(y = 'Survival',
+       fill = 'Drought',
+       color = 'Drought',
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
 
 # size X dryness
-expand.grid('intercept' = 1,
+dryness_fixeff_s = 
+  expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
-            'cwd_mean_scaled' = c(-1,0,1)) %>%
+            'cwd_mean_scaled' = c(-1,1)) %>%
   mutate(dbh_fire = dbh_m.init*fire,
          dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
@@ -578,15 +689,27 @@ expand.grid('intercept' = 1,
               color = NA, alpha = 0.25)+
   geom_line(aes(y = p.median), lwd = 1.5)+
   #scale_y_continuous(limits = c(0, 1))+
-  scale_color_viridis_d(begin = 0.05, end = 0.85)+
-  scale_fill_viridis_d(begin = 0.05, end = 0.85)+
+  scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
+  scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
   theme_minimal()+
-  labs(y = 'Predicted Survival',
-       fill = 'CWD Mean (scaled)',
-       color = 'CWD Mean (scaled)',
-       x = 'DBH (m)')
+  labs(y = 'Survival',
+       fill = 'Site Dryness',
+       color = 'Site Dryness',
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
 
 
+fixeff_s = 
+  plot_grid(size_fixeff_s, fire_fixeff_s, wpbr_fixeff_s,
+          ba_fixeff_s, drought_fixeff_s, dryness_fixeff_s)
+
+
+ggsave(fixeff_s,
+       filename = here::here('04-communication',
+                             'figures',
+                             'manuscript',
+                             'fixeff_s.png'), 
+       height = 6.5, width = 4, units = 'in')
 ```
 
 ## Growth
@@ -622,7 +745,8 @@ predict_grow_fixeff =
 
 ## size main effect (no disturbances, continuous variables held at 0, which is 
 ## the subplot-level mean (so like the average subplot))
-expand.grid('intercept' = 1,
+size_fixeff_g = 
+  expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
@@ -651,10 +775,12 @@ expand.grid('intercept' = 1,
               color = NA, alpha = 0.25)+
   geom_line(aes(y = grow.median), lwd = 1.5)+
   theme_minimal()+
-  labs(y = 'Predicted DBH Growth (m)')
+  labs(y = 'DBH growth (m)')+
+  theme(legend.position = 'bottom')
 
 # size X fire
-expand.grid('intercept' = 1,
+fire_fixeff_g = 
+  expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = c(0,1),
             'wpbr' = 0,
@@ -682,16 +808,18 @@ expand.grid('intercept' = 1,
   geom_ribbon(aes(ymin = grow.25, ymax = grow.75, fill = as.factor(fire)),
               color = NA, alpha = 0.25)+
   geom_line(aes(y = grow.median), lwd = 1.5)+
-  scale_color_viridis_d(begin = 0.05, end = 0.85)+
-  scale_fill_viridis_d(begin = 0.05, end = 0.85)+
+  scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
+  scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
   theme_minimal()+
-  labs(y = 'Predicted DBH Growth (m)',
+  labs(y = 'DBH growth (m)',
        fill = 'Fire',
        color = 'Fire',
-       x = 'DBH (m)')
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
 
 # size X wpbr
-expand.grid('intercept' = 1,
+wpbr_fixeff_g = 
+  expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = c(0,1),
@@ -720,20 +848,22 @@ expand.grid('intercept' = 1,
               color = NA, alpha = 0.25)+
   geom_line(aes(y = grow.median), lwd = 1.5)+
   #scale_y_continuous(limits = c(0, 1))+
-  scale_color_viridis_d(begin = 0.05, end = 0.85)+
-  scale_fill_viridis_d(begin = 0.05, end = 0.85)+
+  scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
+  scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
   theme_minimal()+
-  labs(y = 'Predicted DBH Growth (m)',
-       fill = 'wpbr',
-       color = 'wpbr',
-       x = 'DBH (m)')
+  labs(y = 'DBH growth (m)',
+       fill = 'WPBR',
+       color = 'WPBR',
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
 
 # size X Basal area
-expand.grid('intercept' = 1,
+ba_fixeff_g = 
+  expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
-            'ba_scaled' = c(-1,0,1),
+            'ba_scaled' = c(-1,1),
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
@@ -758,21 +888,23 @@ expand.grid('intercept' = 1,
               color = NA, alpha = 0.25)+
   geom_line(aes(y = grow.median), lwd = 1.5)+
   #scale_y_continuous(limits = c(0, 1))+
-  scale_color_viridis_d(begin = 0.05, end = 0.85)+
-  scale_fill_viridis_d(begin = 0.05, end = 0.85)+
+  scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
+  scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
   theme_minimal()+
-  labs(y = 'Predicted DBH Growth (m)',
-       fill = 'Basal Area (scaled)',
-       color = 'Basal Area (scaled)',
-       x = 'DBH (m)')
+  labs(y = 'DBH growth (m)',
+       fill = 'Basal Area',
+       color = 'Basal Area',
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
 
 # size X drought
-expand.grid('intercept' = 1,
+drought_fixeff_g = 
+  expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
-            'cwd_dep90_scaled' = c(-1,0,1),
+            'cwd_dep90_scaled' = c(-1,1),
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
          dbh_wpbr = dbh_m.init*wpbr,
@@ -796,22 +928,24 @@ expand.grid('intercept' = 1,
               color = NA, alpha = 0.25)+
   geom_line(aes(y = grow.median), lwd = 1.5)+
   #scale_y_continuous(limits = c(0, 1))+
-  scale_color_viridis_d(begin = 0.05, end = 0.85)+
-  scale_fill_viridis_d(begin = 0.05, end = 0.85)+
+  scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
+  scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
   theme_minimal()+
-  labs(y = 'Predicted DBH Growth (m)',
-       fill = 'CWD Departure (scaled)',
-       color = 'CWD Departure (scaled)',
-       x = 'DBH (m)')
+  labs(y = 'DBH growth (m)',
+       fill = 'Drought',
+       color = 'Drought',
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
 
 # size X dryness
-expand.grid('intercept' = 1,
+dryness_fixeff_g = 
+  expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
-            'cwd_mean_scaled' = c(-1,0,1)) %>%
+            'cwd_mean_scaled' = c(-1,1)) %>%
   mutate(dbh_fire = dbh_m.init*fire,
          dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
@@ -834,15 +968,27 @@ expand.grid('intercept' = 1,
               color = NA, alpha = 0.25)+
   geom_line(aes(y = grow.median), lwd = 1.5)+
   #scale_y_continuous(limits = c(0, 1))+
-  scale_color_viridis_d(begin = 0.05, end = 0.85)+
-  scale_fill_viridis_d(begin = 0.05, end = 0.85)+
+  scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
+  scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
   theme_minimal()+
-  labs(y = 'Predicted DBH Growth (m)',
-       fill = 'CWD Mean (scaled)',
-       color = 'CWD Mean (scaled)',
-       x = 'DBH (m)')
+  labs(y = 'DBH growth (m)',
+       fill = 'Site Dryness',
+       color = 'Site Dryness',
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
 
+fixeff_g = 
+  plot_grid(size_fixeff_g, fire_fixeff_g, wpbr_fixeff_g, ba_fixeff_g, 
+            drought_fixeff_g, dryness_fixeff_g)
 
+fixeff_g
+
+ggsave(fixeff_g,
+       filename = here::here('04-communication',
+                             'figures',
+                             'manuscript',
+                             'fixeff_g.png'), 
+       height = 6.5, width = 4, units = 'in')
 ```
 
 ## Fecundity
@@ -877,7 +1023,8 @@ predict_fecundity_fixeff =
 
 ## size main effect (no disturbances, continuous variables held at 0, which is 
 ## the subplot-level mean (so like the average subplot))
-expand.grid('intercept' = 1,
+size_fixeff_f = 
+  expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
@@ -906,10 +1053,12 @@ expand.grid('intercept' = 1,
               color = NA, alpha = 0.25)+
   geom_line(aes(y = fecundity.median), lwd = 1.5)+
   theme_minimal()+
-  labs(y = 'Predicted Fecundity')
+  labs(y = 'Fecundity')+
+  theme(legend.position = 'bottom')
 
 # size X fire
-expand.grid('intercept' = 1,
+fire_fixeff_f = 
+  expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = c(0,1),
             'wpbr' = 0,
@@ -937,16 +1086,18 @@ expand.grid('intercept' = 1,
   geom_ribbon(aes(ymin = fecundity.25, ymax = fecundity.75, fill = as.factor(fire)),
               color = NA, alpha = 0.25)+
   geom_line(aes(y = fecundity.median), lwd = 1.5)+
-  scale_color_viridis_d(begin = 0.05, end = 0.85)+
-  scale_fill_viridis_d(begin = 0.05, end = 0.85)+
+  scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
+  scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
   theme_minimal()+
-  labs(y = 'Predicted Fecundity',
+  labs(y = 'Fecundity',
        fill = 'Fire',
        color = 'Fire',
-       x = 'DBH (m)')
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
 
 # size X wpbr
-expand.grid('intercept' = 1,
+wpbr_fixeff_f = 
+  expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = c(0,1),
@@ -975,20 +1126,22 @@ expand.grid('intercept' = 1,
               color = NA, alpha = 0.25)+
   geom_line(aes(y = fecundity.median), lwd = 1.5)+
   #scale_y_continuous(limits = c(0, 1))+
-  scale_color_viridis_d(begin = 0.05, end = 0.85)+
-  scale_fill_viridis_d(begin = 0.05, end = 0.85)+
+  scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
+  scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
   theme_minimal()+
-  labs(y = 'Predicted DBH Growth (m)',
-       fill = 'wpbr',
-       color = 'wpbr',
-       x = 'DBH (m)')
+  labs(y = 'Fecundity',
+       fill = 'WPBR',
+       color = 'WPBR',
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
 
 # size X Basal area
-expand.grid('intercept' = 1,
+ba_fixeff_f = 
+  expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
-            'ba_scaled' = c(-1,0,1),
+            'ba_scaled' = c(-1,1),
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
@@ -1013,21 +1166,23 @@ expand.grid('intercept' = 1,
               color = NA, alpha = 0.25)+
   geom_line(aes(y = fecundity.median), lwd = 1.5)+
   #scale_y_continuous(limits = c(0, 1))+
-  scale_color_viridis_d(begin = 0.05, end = 0.85)+
-  scale_fill_viridis_d(begin = 0.05, end = 0.85)+
+  scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
+  scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
   theme_minimal()+
-  labs(y = 'Predicted DBH Growth (m)',
-       fill = 'Basal Area (scaled)',
-       color = 'Basal Area (scaled)',
-       x = 'DBH (m)')
+  labs(y = 'Fecundity',
+       fill = 'Basal Area',
+       color = 'Basal Area',
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
 
 # size X drought
-expand.grid('intercept' = 1,
+drought_fixeff_f = 
+  expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
-            'cwd_dep90_scaled' = c(-1,0,1),
+            'cwd_dep90_scaled' = c(-1,1),
             'cwd_mean_scaled' = 0) %>%
   mutate(dbh_fire = dbh_m.init*fire,
          dbh_wpbr = dbh_m.init*wpbr,
@@ -1051,22 +1206,24 @@ expand.grid('intercept' = 1,
               color = NA, alpha = 0.25)+
   geom_line(aes(y = fecundity.median), lwd = 1.5)+
   #scale_y_continuous(limits = c(0, 1))+
-  scale_color_viridis_d(begin = 0.05, end = 0.85)+
-  scale_fill_viridis_d(begin = 0.05, end = 0.85)+
+  scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
+  scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
   theme_minimal()+
-  labs(y = 'Predicted DBH Growth (m)',
-       fill = 'CWD Departure (scaled)',
-       color = 'CWD Departure (scaled)',
-       x = 'DBH (m)')
+  labs(y = 'Fecundity',
+       fill = 'Drought',
+       color = 'Drought',
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
 
 # size X dryness
-expand.grid('intercept' = 1,
+dryness_fixeff_f = 
+  expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
-            'cwd_mean_scaled' = c(-1,0,1)) %>%
+            'cwd_mean_scaled' = c(-1,1)) %>%
   mutate(dbh_fire = dbh_m.init*fire,
          dbh_wpbr = dbh_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
@@ -1089,14 +1246,27 @@ expand.grid('intercept' = 1,
               color = NA, alpha = 0.25)+
   geom_line(aes(y = fecundity.median), lwd = 1.5)+
   #scale_y_continuous(limits = c(0, 1))+
-  scale_color_viridis_d(begin = 0.05, end = 0.85)+
-  scale_fill_viridis_d(begin = 0.05, end = 0.85)+
+  scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
+  scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
   theme_minimal()+
-  labs(y = 'Predicted DBH Growth (m)',
-       fill = 'CWD Mean (scaled)',
-       color = 'CWD Mean (scaled)',
-       x = 'DBH (m)')
+  labs(y = 'Fecundity',
+       fill = 'Site Dryness',
+       color = 'Site Dryness',
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
 
+fixeff_f = 
+  plot_grid(size_fixeff_f, fire_fixeff_f, wpbr_fixeff_f, ba_fixeff_f,
+            drought_fixeff_f, dryness_fixeff_f)
+
+fixeff_f
+
+ggsave(fixeff_f,
+       filename = here::here('04-communication',
+                             'figures', 
+                             'manuscript',
+                             'fixeff_f.png'),
+       height = 4, width = 6.5, units = 'in')
 
 ```
 
@@ -1166,11 +1336,22 @@ ecoEffect_s.med =
 ecosub.sf$ecoEffect_s.med = 
   ecoEffect_s.med[ecosub.sf$ecosub.i]
 
-ggplot(data = ecosub.sf,
+ecoEffect_map_s = 
+  ggplot(data = ecosub.sf,
        aes(fill = ecoEffect_s.med))+
+  geom_sf(data = 
+            USAboundaries::us_states(),
+          fill = NA)+
   geom_sf(color = NA)+
   theme_minimal()+
-  scale_fill_viridis_c()
+  scale_fill_viridis_c()+
+  labs(fill = 'Ecoregion effect\n(Survival)')+
+  theme(legend.position = 'bottom')+
+  coord_sf(xlim = c(390000, 1100000), ylim = c(3740000, 5020000),
+           crs = "EPSG:26910")+
+  annotation_scale()
+
+ecoEffect_map_s
 
 plotEffect_s.med = 
   samples %>%
@@ -1203,11 +1384,20 @@ ecoEffect_g.med =
 ecosub.sf$ecoEffect_g.med = 
   ecoEffect_g.med[ecosub.sf$ecosub.i]
 
-ggplot(data = ecosub.sf,
+ecoEffect_map_g = 
+  ggplot(data = ecosub.sf,
        aes(fill = ecoEffect_g.med))+
+  geom_sf(data = 
+            USAboundaries::us_states(),
+          fill = NA)+
   geom_sf(color = NA)+
   theme_minimal()+
-  scale_fill_viridis_c()
+  scale_fill_viridis_c()+
+  labs(fill = 'Ecoregion effect\n(Growth)')+
+  theme(legend.position = 'bottom')+
+  coord_sf(xlim = c(390000, 1100000), ylim = c(3740000, 5020000),
+           crs = "EPSG:26910")+
+  annotation_scale()
 
 plotEffect_g.med = 
   samples %>%
@@ -1242,11 +1432,20 @@ ecoEffect_f.med =
 ecosub.sf$ecoEffect_f.med = 
   ecoEffect_f.med[ecosub.sf$ecosub.i]
 
-ggplot(data = ecosub.sf,
+ecoEffect_map_f = 
+  ggplot(data = ecosub.sf,
        aes(fill = ecoEffect_f.med))+
+  geom_sf(data = 
+            USAboundaries::us_states(),
+          fill = NA)+
   geom_sf(color = NA)+
   theme_minimal()+
-  scale_fill_viridis_c()
+  scale_fill_viridis_c()+
+  labs(fill = 'Ecoregion effect\n(Fecundity)')+
+  theme(legend.position = 'bottom')+
+  coord_sf(xlim = c(390000, 1100000), ylim = c(3740000, 5020000),
+           crs = "EPSG:26910")+
+  annotation_scale()
 
 plotEffect_f.med = 
   samples %>%
@@ -1262,5 +1461,23 @@ ggplot(data = plots.sf,
   geom_sf(size = 1, alpha = 0.5)+
   theme_minimal()+
   scale_color_viridis_c()
+
+```
+
+## Ecoregion effect map for all three
+
+```{r}
+ecoEffect_map = 
+  plot_grid(ecoEffect_map_s, ecoEffect_map_g, ecoEffect_map_f,
+            nrow = 1)
+
+ecoEffect_map
+
+ggsave(ecoEffect_map,
+       filename = here::here('04-communication',
+                  'figures',
+                  'manuscript',
+                  'ecoEffect_map.png'),
+       height = 4.5, width = 6.5, units = 'in')
 
 ```
