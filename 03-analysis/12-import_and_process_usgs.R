@@ -360,6 +360,11 @@ census_data$cwd_departure90 = cwd_departure_span
 
 head(census_data)
 
+census_data = 
+  census_data %>%
+  mutate(ba_scaled = as.numeric(scale(ba_m2ha)),
+         cwd_scaled = as.numeric(scale(cwd_departure90)))
+
 #### complete crossing of plot, year, species and size for fecundity ###########
 
 # want one row per species:plot:year:dbh_class, with columns for explanatory variables and 
@@ -464,4 +469,88 @@ recruit_counts =
 head(recruit_counts)
 
 
-#### scratch ###################################################################
+#### filter to sugar pine ######################################################
+
+individual_data.pila = 
+  individual_data %>%
+  filter(spp == 'PILA')
+
+recruit_counts.pila = 
+  recruit_counts %>%
+  filter(spp == 'PILA')
+
+individual_recruits.pila = 
+  individual_recruits %>%
+  filter(spp == 'PILA')
+
+fecundity_data.pila = 
+  fecundity_data %>%
+  filter(spp == 'PILA')
+
+
+#### add indices ###############################################################
+
+unique_plots.pila = 
+  individual_data.pila %>%
+  group_by(plot) %>%
+  summarise() %>%
+  mutate(plot_id.i = as.integer(factor(plot)))
+
+individual_data.pila = 
+  individual_data.pila %>%
+  left_join(unique_plots.pila)
+
+recruit_counts.pila = 
+  recruit_counts.pila %>%
+  left_join(unique_plots.pila)
+
+individual_recruits.pila = 
+  individual_recruits.pila %>%
+  left_join(unique_plots.pila)
+
+fecundity_data.pila = 
+  fecundity_data.pila %>%
+  left_join(unique_plots.pila)
+
+#### survival data #############################################################
+
+survival_data.pila = 
+  individual_data.pila %>%
+  left_join(census_data,
+            by = c('plot' = 'plot',
+                   'year_0' = 'year_0',
+                   'year_T' = 'year_T',
+                   'obs_0' = 'census')) %>%
+  mutate(intercept = 1,
+         dbh_0.m = dbh_0 * 0.01,
+         dbh_fire = dbh_0.m * burned_0T,
+         dbh_wpbr = dbh_0.m * wpbr,
+         dbh_ba = dbh_0.m * ba_scaled,
+         dbh_cwd = dbh_0.m * cwd_scaled) %>%
+  select(plot, plot_id.i, tree_id, spp, obs_0, year_0, status_0, 
+         year_T, status_T, intercept, dbh_0.m, fire = burned_0T, wpbr,
+         ba_scaled, cwd_scaled, dbh_fire, dbh_wpbr, dbh_ba, dbh_cwd)
+
+head(survival_data.pila)
+
+
+#### build model data ##########################################################
+
+pila_data = 
+  list(
+    K = 10,
+    P = nrow(unique_plots.pila),
+    
+    # survival data
+    N_s = nrow(survival_data.pila),
+    surv_s = as.integer(survival_data.pila$status_T=='live'),
+    X_s = survival_data.pila[,c('intercept', 'dbh_0.m', 'fire', 'wpbr', 
+                                'ba_scaled', 'cwd_scaled', 'dbh_fire', 'dbh_wpbr',
+                                'dbh_ba', 'dbh_cwd')] %>%
+      as.matrix(),
+    plotid_s = survival_data.pila$plot_id.i
+    )
+
+
+saveRDS(pila_data,
+        here::here('02-data', '02-for_analysis', 'usgs', 'pila_data.rds'))
