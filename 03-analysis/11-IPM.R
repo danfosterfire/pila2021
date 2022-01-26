@@ -535,12 +535,21 @@ subplot_lambdas.med =
 subplots.pila$lambda_postmed = 
   subplot_lambdas.med
 
-ggplot(data = subplots.pila,
+postmed_lambda_distribution = 
+  ggplot(data = subplots.pila,
        aes(x = lambda_postmed))+
-  geom_density()+
+  geom_histogram()+
   theme_minimal()+
   scale_x_continuous(limits = c(0, 2.5))+
-  geom_vline(xintercept = 1, color = 'grey', lty = 2, lwd = 1)
+  geom_vline(xintercept = 1, color = 'grey', lty = 2, lwd = 1)+
+  labs(y = 'N subplots', x = 'Lambda')
+
+ggsave(postmed_lambda_distribution,
+       filename = here::here('04-communication',
+                  'figures',
+                  'manuscript',
+                  'postmed_lambda_distribution.png'),
+       height = 4, width = 6.5, units = 'in')
 
 library(sf)
 library(scales)
@@ -579,13 +588,13 @@ A_hypotheticals =
   array(dim = c(nrow(size_metadata), # sizeclass to
                 nrow(size_metadata), # sizeclass from
                 nrow(hypothetical_subplots), # subplots
-                400), # posterior draws
+                4000), # posterior draws
         dimnames = list('class_to' = 1:nrow(size_metadata),
                         'class_from' = 1:nrow(size_metadata),
                         'subplot' = 1:nrow(hypothetical_subplots),
-                        'draw' = 1:400),
+                        'draw' = 1:4000),
         data = 
-          sapply(X = 1:400,
+          sapply(X = 1:4000,
                  FUN = function(draw){
                    
                    # get beta_s for the current draw
@@ -685,12 +694,12 @@ hypothetical_lambdas =
   hypothetical_subplots %>%
   expand(nesting(subp_id, name, intercept, fire, wpbr, ba_scaled, cwd_dep90_scaled, 
                  cwd_mean_scaled),
-         data.frame(draw = 1:400))
+         data.frame(draw = 1:4000))
 
 hypothetical_lambdas$lambda = 
   sapply(X = 1:nrow(hypothetical_subplots),
          FUN = function(subplot){
-           sapply(X = 1:400,
+           sapply(X = 1:4000,
                   FUN = function(draw){
                     # paste0('s:',subplot,'d:',draw) for testing
                     max(as.numeric(eigen(A_hypotheticals[,,subplot,draw])$values))

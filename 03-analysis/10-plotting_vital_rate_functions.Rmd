@@ -312,7 +312,29 @@ mcmc_intervals(samples,
 
 help(summary)
 
-pila_fit$summary(variables = c('beta_s', 'sigmaPlot_s', 'sigmaEco_s'))
+summary_s = 
+  pila_fit$summary(variables = c('beta_s', 'sigmaPlot_s', 'sigmaEco_s')) %>%
+  left_join(beta_s_names %>%
+              bind_rows(
+                data.frame(param = c('sigmaPlot_s', 'sigmaEco_s'),
+                       position = c('13', '14'),
+                       pretty_name = c('SD Plots', 'SD Ecoregions'))
+              ),
+            by = c('variable' = 'param')) %>%
+  select(Position = position,
+         Parameter = pretty_name, 
+         Mean = mean, Median = median, StDev = sd, 
+         q5, q95, rhat, ess_bulk, ess_tail) %>%
+  arrange(Position) %>%
+  select(-Position)
+
+summary_s
+
+write.csv(summary_s,
+          here::here('04-communication',
+                     'tables',
+                     'summary_s.csv'),
+          row.names = FALSE)
 
 pretty_params_s = 
   samples %>%
@@ -402,6 +424,32 @@ mcmc_intervals(samples,
                         'sigmaEpsilon_g'))
 
 
+summary_g = 
+  pila_fit$summary(variables = c('beta_g', 'sigmaPlot_g', 'sigmaEco_g',
+                                 'sigmaEpsilon_g')) %>%
+  left_join(beta_g_names %>%
+              bind_rows(
+                data.frame(param = c('sigmaPlot_g', 'sigmaEco_g',
+                                     'sigmaEpsilon_g'),
+                       position = c('13', '14', '15'),
+                       pretty_name = c('SD Plots', 'SD Ecoregions', 'SD Residual'))
+              ),
+            by = c('variable' = 'param')) %>%
+  select(Position = position,
+         Parameter = pretty_name, 
+         Mean = mean, Median = median, StDev = sd, 
+         q5, q95, rhat, ess_bulk, ess_tail) %>%
+  arrange(Position) %>%
+  select(-Position)
+
+summary_g
+
+write.csv(summary_g,
+          here::here('04-communication',
+                     'tables',
+                     'summary_g.csv'),
+          row.names = FALSE)
+
 ```
 
 ## Fecundity
@@ -425,6 +473,31 @@ mcmc_intervals(samples,
 
 mcmc_intervals(samples, pars = 'kappa_r')
 
+
+summary_f = 
+  pila_fit$summary(variables = c('beta_f', 'sigmaPlot_f', 'sigmaEco_f', 'kappa_r')) %>%
+  left_join(beta_f_names %>%
+              bind_rows(
+                data.frame(param = c('sigmaPlot_f', 'sigmaEco_f',
+                                     'kappa_r'),
+                       position = c('13', '14', '15'),
+                       pretty_name = c('SD Plots', 'SD Ecoregions', 'NB Dispersion'))
+              ),
+            by = c('variable' = 'param')) %>%
+  select(Position = position,
+         Parameter = pretty_name, 
+         Mean = mean, Median = median, StDev = sd, 
+         q5, q95, rhat, ess_bulk, ess_tail) %>%
+  arrange(Position) %>%
+  select(-Position)
+
+summary_f
+
+write.csv(summary_f,
+          here::here('04-communication',
+                     'tables',
+                     'summary_f.csv'),
+          row.names = FALSE)
 
 ```
 
@@ -701,7 +774,8 @@ dryness_fixeff_s =
 
 fixeff_s = 
   plot_grid(size_fixeff_s, fire_fixeff_s, wpbr_fixeff_s,
-          ba_fixeff_s, drought_fixeff_s, dryness_fixeff_s)
+          ba_fixeff_s, drought_fixeff_s, dryness_fixeff_s,
+          nrow = 3, ncol = 2)
 
 
 ggsave(fixeff_s,
@@ -709,7 +783,7 @@ ggsave(fixeff_s,
                              'figures',
                              'manuscript',
                              'fixeff_s.png'), 
-       height = 6.5, width = 4, units = 'in')
+       height = 8, width = 6.5, units = 'in')
 ```
 
 ## Growth
@@ -775,7 +849,8 @@ size_fixeff_g =
               color = NA, alpha = 0.25)+
   geom_line(aes(y = grow.median), lwd = 1.5)+
   theme_minimal()+
-  labs(y = 'DBH growth (m)')+
+  labs(y = 'DBH growth (m)',
+       x = 'DBH (m)')+
   theme(legend.position = 'bottom')
 
 # size X fire
@@ -979,7 +1054,8 @@ dryness_fixeff_g =
 
 fixeff_g = 
   plot_grid(size_fixeff_g, fire_fixeff_g, wpbr_fixeff_g, ba_fixeff_g, 
-            drought_fixeff_g, dryness_fixeff_g)
+            drought_fixeff_g, dryness_fixeff_g, 
+            ncol = 2, nrow = 3)
 
 fixeff_g
 
@@ -988,7 +1064,7 @@ ggsave(fixeff_g,
                              'figures',
                              'manuscript',
                              'fixeff_g.png'), 
-       height = 6.5, width = 4, units = 'in')
+       height =8, width = 6.5, units = 'in')
 ```
 
 ## Fecundity
@@ -1053,7 +1129,8 @@ size_fixeff_f =
               color = NA, alpha = 0.25)+
   geom_line(aes(y = fecundity.median), lwd = 1.5)+
   theme_minimal()+
-  labs(y = 'Fecundity')+
+  labs(y = 'Fecundity',
+       x = 'DBH (m)')+
   theme(legend.position = 'bottom')
 
 # size X fire
@@ -1257,7 +1334,8 @@ dryness_fixeff_f =
 
 fixeff_f = 
   plot_grid(size_fixeff_f, fire_fixeff_f, wpbr_fixeff_f, ba_fixeff_f,
-            drought_fixeff_f, dryness_fixeff_f)
+            drought_fixeff_f, dryness_fixeff_f,
+            nrow = 3, ncol = 2)
 
 fixeff_f
 
@@ -1266,7 +1344,7 @@ ggsave(fixeff_f,
                              'figures', 
                              'manuscript',
                              'fixeff_f.png'),
-       height = 4, width = 6.5, units = 'in')
+       height = 8, width = 6.5, units = 'in')
 
 ```
 
@@ -1478,6 +1556,6 @@ ggsave(ecoEffect_map,
                   'figures',
                   'manuscript',
                   'ecoEffect_map.png'),
-       height = 4.5, width = 6.5, units = 'in')
+       height = 6.5, width = 8.5, units = 'in')
 
 ```
