@@ -190,7 +190,25 @@ census_years =
 
 
 #### adding plot level spatial data ############################################
+<<<<<<< HEAD
 
+=======
+>>>>>>> 2afe2ec572c4cde9d73a1bd5875f8851e0a48276
+
+plots_spatial = 
+  st_read(here::here('02-data',
+                     '00-source',
+                     'usgs',
+                     'Boundary Polygons.gdb'),
+          layer = 'allplotscombined') %>%
+  st_transform(crs = 'EPSG:4326') %>%
+  st_centroid() %>%
+  select(plot = PLOT, Shape, areaha) %>%
+  mutate(lat = st_coordinates(.)[,'Y'],
+         lon = st_coordinates(.)[,'X']) %>%
+  as.data.frame() %>%
+  select(-Shape) %>%
+  as_tibble()
 
 plots_spatial = 
   st_read(here::here('02-data',
@@ -446,7 +464,6 @@ recruit_counts =
 head(recruit_counts)
 
 
-
 #### scratch ###################################################################
 
 
@@ -664,3 +681,11 @@ usgs_model_data =
 #### write results #############################################################
 
 
+<<<<<<< HEAD
+=======
+
+#### scratch ###################################################################
+
+
+
+>>>>>>> 2afe2ec572c4cde9d73a1bd5875f8851e0a48276
