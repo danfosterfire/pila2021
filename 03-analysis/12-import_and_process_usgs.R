@@ -502,22 +502,30 @@ unique_plots.pila =
   summarise() %>%
   mutate(plot_id.i = as.integer(factor(plot)))
 
+unique_trees.pila = 
+  individual_data.pila %>%
+  group_by(tree_id) %>%
+  summarise() %>%
+  mutate(tree_id.i = as.integer(factor(tree_id)))
+
+
 individual_data.pila = 
   individual_data.pila %>%
-  left_join(unique_plots.pila)
+  left_join(unique_plots.pila) %>%
+  left_join(unique_trees.pila)
 
 recruit_counts.pila = 
   recruit_counts.pila %>%
-  left_join(unique_plots.pila)%>%
+  left_join(unique_plots.pila)%>% 
   arrange(plot, census)
 
-individual_recruits.test = 
+individual_recruits.pila = 
   individual_recruits.pila %>%
-  left_join(unique_plots.pila) 
+  left_join(unique_plots.pila)
 
 fecundity_data.pila = 
   fecundity_data.pila %>%
-  left_join(unique_plots.pila) %>%
+  left_join(unique_plots.pila)  %>%
   arrange(plot, census, dbh_class)
 
 #### survival data #############################################################
@@ -529,17 +537,19 @@ survival_data.pila =
                    'year_0' = 'year_0',
                    'year_T' = 'year_T',
                    'obs_0' = 'census')) %>%
+  filter(burned_0T == FALSE) %>%
   mutate(intercept = 1,
+         year_scaled = year_0 - 1982,
          dbh_0.m = dbh_0 * 0.01,
          dbh_fire = dbh_0.m * burned_0T,
          dbh_wpbr = dbh_0.m * wpbr,
          dbh_ba = dbh_0.m * ba_scaled,
-         dbh_cwd = dbh_0.m * cwd_scaled) %>%
+         dbh_cwd = dbh_0.m * cwd_scaled,
+         dbh_year = dbh_0.m * year_scaled) %>%
   select(plot, plot_id.i, tree_id, spp, obs_0, year_0, status_0, 
-         year_T, status_T, intercept, dbh_0.m, fire = burned_0T, wpbr,
-         ba_scaled, cwd_scaled, dbh_fire, dbh_wpbr, dbh_ba, dbh_cwd)
+         year_T, status_T, intercept, dbh_0.m, year_scaled, fire = burned_0T, wpbr,
+         ba_scaled, cwd_scaled, dbh_fire, dbh_wpbr, dbh_ba, dbh_cwd, dbh_year)
 
-head(survival_data.pila)
 
 
 #### growth data ###############################################################
@@ -547,17 +557,24 @@ head(survival_data.pila)
 growth_data.pila = 
   individual_data.pila %>%
   filter(status_0 == 'live' & status_T == 'live') %>%
-  left_join(census_data)%>%
+  left_join(census_data,
+            by = c('plot' = 'plot',
+                   'year_0' = 'year_0',
+                   'year_T' = 'year_T',
+                   'obs_0' = 'census')) %>%
+  filter(burned_0T == FALSE) %>%
   mutate(intercept = 1,
+         year_scaled = year_0-1982,
          dbh_0.m = dbh_0 * 0.01,
          dbh_T.m = dbh_T * 0.01,
          dbh_fire = dbh_0.m * burned_0T,
          dbh_wpbr = dbh_0.m * wpbr,
          dbh_ba = dbh_0.m * ba_scaled,
-         dbh_cwd = dbh_0.m * cwd_scaled) %>%
+         dbh_cwd = dbh_0.m * cwd_scaled,
+         dbh_year = dbh_0.m * year_scaled) %>%
   select(plot, plot_id.i, tree_id, spp, obs_0, year_0, status_0, 
-         year_T, status_T, dbh_T.m, intercept, dbh_0.m, fire = burned_0T, wpbr,
-         ba_scaled, cwd_scaled, dbh_fire, dbh_wpbr, dbh_ba, dbh_cwd)
+         year_T, status_T, dbh_T.m, intercept, dbh_0.m, year_scaled, fire = burned_0T, wpbr,
+         ba_scaled, cwd_scaled, dbh_fire, dbh_wpbr, dbh_ba, dbh_cwd, dbh_year)
 
 head(growth_data.pila)
 
@@ -570,10 +587,33 @@ ggplot(data = survival_data.pila,
 head(fecundity_data.pila)
 fecundity_data.pila = 
   fecundity_data.pila %>%
+  filter(burned_0T == FALSE) %>%
   mutate(intercept = 0,
-         dbh_0.m = dbh_med*0.01)
+         dbh_0.m = dbh_med*0.01,
+         year_scaled = year_0 - 1982,
+         dbh_year = dbh_0.m * year_scaled)
 
-head(fecundity_data.pila)
+
+head(recruit_counts)
+
+recruit_counts.pila = 
+  recruit_counts.pila %>%
+  left_join(census_data,
+            by = c('plot' = 'plot',
+                   'year_0' = 'year_0',
+                   'year_T' = 'year_T',
+                   'census' = 'census')) %>%
+  filter(burned_0T == FALSE)
+
+head(individual_recruits.pila)
+
+
+individual_recruits.pila = 
+  individual_recruits.pila %>%
+  left_join(census_data,
+            by = c('plot' = 'plot',
+                   'year_recr' = 'year_0')) %>%
+  filter(burned_0T == FALSE)
 
 #### build model data ##########################################################
 
@@ -592,7 +632,9 @@ pila_data =
     # growth data
     N_g = nrow(growth_data.pila),
     dbhT_g = growth_data.pila$dbh_T.m,
-    X_g = growth_data.pila[,c('intercept', 'dbh_0.m')] %>% as.matrix(),
+    X_g = 
+      growth_data.pila[,c('intercept', 'dbh_0.m')] %>% 
+      as.matrix(),
     plotid_g = growth_data.pila$plot_id.i,
     
     # fecundity data
@@ -610,15 +652,20 @@ pila_data =
                              ungroup()),
                data = fecundity_data.pila$tph_0,
                byrow = FALSE),
-    X_f = fecundity_data.pila[,c('intercept', 'dbh_0.m')] %>% as.matrix(),
+    X_f = 
+      fecundity_data.pila[,c('intercept', 'dbh_0.m')] %>% 
+      as.matrix(),
     plotid_f = fecundity_data.pila$plot_id.i,
     a = 
       fecundity_data.pila %>%
       group_by(plot, census, areaha) %>%
       summarise() %>%
       ungroup() %>%
-      pull(areaha)
-    )
+      pull(areaha),
+    
+    # recruit size data
+    N_r = nrow(individual_recruits.pila),
+    logdbh_r = log(individual_recruits.pila$dbh_recr))
 
 
 saveRDS(pila_data,

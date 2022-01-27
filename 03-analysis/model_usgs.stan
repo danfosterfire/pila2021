@@ -14,7 +14,7 @@ data {
   int<lower=0> N_g; // number of individual observations (tree:census) in the 
                     // growth model
   real<lower=0> dbhT_g[N_g]; // observed size at time T for each observation in meters
-  matrix[N_g, 2] X_g; // fixed effects covariates matrix for growth model
+  matrix[N_g, K] X_g; // fixed effects covariates matrix for growth model
   int<lower=1, upper=P> plotid_g[N_g]; // plot indices for growth observations
   
   // fecundity data
@@ -28,14 +28,16 @@ data {
   vector[C_f] a; // plot areas for each census
   
   // recruit size data
-  
+  int<lower=0> N_r; // number of individual new recruits
+  real logdbh_r[N_r]; // log(dbh) of new recruits
 }
+
 
 parameters {
   // survival
   vector[K] beta_s; // fixed effects coefficients 
   real<lower=0> sigmaPlot_s; // random effect SD
-  vector[P] zPlot_s; // standard normal deviates for random effect
+  vector[P] zPlot_s; // standard normal deviates for random effectrepeat
   
   // growth
   vector[K] beta_g; // fixed effects coeffs
@@ -48,6 +50,10 @@ parameters {
   real<lower=0> sigmaPlot_f; // random effect sd
   vector[P] zPlot_f; // std normal deviates for raneff
   real<lower=0> kappa_f; // neg binomial dispersion
+  
+  // recruitment
+  real mu_r; // mean of log(dbh) of new recruits
+  real<lower=0> sigmaEpsilon_r; // sd of log(dbh) of new recruits
 }
 
 transformed parameters {
@@ -125,5 +131,6 @@ model {
   for (i in 1:C_f){
     cprime_f[i] ~ neg_binomial_2(nprime[i]*a[i], kappa_f);
   }
-  
+  // // recruitment
+  logdbh_r ~ normal(mu_r, sigmaEpsilon_r);
 }
