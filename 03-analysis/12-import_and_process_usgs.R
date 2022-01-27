@@ -190,10 +190,6 @@ census_years =
 
 
 #### adding plot level spatial data ############################################
-<<<<<<< HEAD
-
-=======
->>>>>>> 2afe2ec572c4cde9d73a1bd5875f8851e0a48276
 
 plots_spatial = 
   st_read(here::here('02-data',
@@ -477,7 +473,12 @@ individual_data.pila =
 
 recruit_counts.pila = 
   recruit_counts %>%
-  filter(spp == 'PILA')
+  mutate(pc = paste0(plot,'-',census)) %>%
+  filter(spp == 'PILA' &
+           is.element(pc,
+                      individual_data.pila %>%
+                        mutate(pc = paste0(plot, '-', obs_0)) %>%
+                        pull(pc)))
 
 individual_recruits.pila = 
   individual_recruits %>%
@@ -485,7 +486,12 @@ individual_recruits.pila =
 
 fecundity_data.pila = 
   fecundity_data %>%
-  filter(spp == 'PILA')
+  mutate(pc = paste0(plot,'-',census)) %>%
+  filter(spp == 'PILA' &
+           is.element(pc,
+                      individual_data.pila %>%
+                        mutate(pc = paste0(plot, '-', obs_0)) %>%
+                        pull(pc)))
 
 
 #### add indices ###############################################################
@@ -502,15 +508,17 @@ individual_data.pila =
 
 recruit_counts.pila = 
   recruit_counts.pila %>%
-  left_join(unique_plots.pila)
+  left_join(unique_plots.pila)%>%
+  arrange(plot, census)
 
-individual_recruits.pila = 
+individual_recruits.test = 
   individual_recruits.pila %>%
-  left_join(unique_plots.pila)
+  left_join(unique_plots.pila) 
 
 fecundity_data.pila = 
   fecundity_data.pila %>%
-  left_join(unique_plots.pila)
+  left_join(unique_plots.pila) %>%
+  arrange(plot, census, dbh_class)
 
 #### survival data #############################################################
 
@@ -534,21 +542,82 @@ survival_data.pila =
 head(survival_data.pila)
 
 
+#### growth data ###############################################################
+
+growth_data.pila = 
+  individual_data.pila %>%
+  filter(status_0 == 'live' & status_T == 'live') %>%
+  left_join(census_data)%>%
+  mutate(intercept = 1,
+         dbh_0.m = dbh_0 * 0.01,
+         dbh_T.m = dbh_T * 0.01,
+         dbh_fire = dbh_0.m * burned_0T,
+         dbh_wpbr = dbh_0.m * wpbr,
+         dbh_ba = dbh_0.m * ba_scaled,
+         dbh_cwd = dbh_0.m * cwd_scaled) %>%
+  select(plot, plot_id.i, tree_id, spp, obs_0, year_0, status_0, 
+         year_T, status_T, dbh_T.m, intercept, dbh_0.m, fire = burned_0T, wpbr,
+         ba_scaled, cwd_scaled, dbh_fire, dbh_wpbr, dbh_ba, dbh_cwd)
+
+head(growth_data.pila)
+
+ggplot(data = survival_data.pila,
+       aes(x = fire))+
+  geom_bar()
+
+#### fecundity data ############################################################
+
+head(fecundity_data.pila)
+fecundity_data.pila = 
+  fecundity_data.pila %>%
+  mutate(intercept = 0,
+         dbh_0.m = dbh_med*0.01)
+
+head(fecundity_data.pila)
+
 #### build model data ##########################################################
 
 pila_data = 
   list(
-    K = 10,
+    K = 2,
     P = nrow(unique_plots.pila),
     
     # survival data
     N_s = nrow(survival_data.pila),
     surv_s = as.integer(survival_data.pila$status_T=='live'),
-    X_s = survival_data.pila[,c('intercept', 'dbh_0.m', 'fire', 'wpbr', 
-                                'ba_scaled', 'cwd_scaled', 'dbh_fire', 'dbh_wpbr',
-                                'dbh_ba', 'dbh_cwd')] %>%
+    X_s = survival_data.pila[,c('intercept', 'dbh_0.m')] %>%
       as.matrix(),
-    plotid_s = survival_data.pila$plot_id.i
+    plotid_s = survival_data.pila$plot_id.i,
+    
+    # growth data
+    N_g = nrow(growth_data.pila),
+    dbhT_g = growth_data.pila$dbh_T.m,
+    X_g = growth_data.pila[,c('intercept', 'dbh_0.m')] %>% as.matrix(),
+    plotid_g = growth_data.pila$plot_id.i,
+    
+    # fecundity data
+    N_f = nrow(fecundity_data.pila),
+    C_f = nrow(fecundity_data.pila %>%
+                 group_by(plot, census) %>%
+                 summarise() %>%
+                 ungroup()),
+    M_f = nrow(size_metadata),
+    cprime_f = recruit_counts.pila$count,
+    n = matrix(nrow = nrow(size_metadata),
+               ncol = nrow(fecundity_data.pila %>%
+                             group_by(plot,census) %>%
+                             summarise() %>%
+                             ungroup()),
+               data = fecundity_data.pila$tph_0,
+               byrow = FALSE),
+    X_f = fecundity_data.pila[,c('intercept', 'dbh_0.m')] %>% as.matrix(),
+    plotid_f = fecundity_data.pila$plot_id.i,
+    a = 
+      fecundity_data.pila %>%
+      group_by(plot, census, areaha) %>%
+      summarise() %>%
+      ungroup() %>%
+      pull(areaha)
     )
 
 
