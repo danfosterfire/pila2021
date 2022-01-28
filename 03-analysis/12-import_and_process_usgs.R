@@ -508,6 +508,9 @@ unique_trees.pila =
   summarise() %>%
   mutate(tree_id.i = as.integer(factor(tree_id)))
 
+plots_spatial = 
+  plots_spatial %>%
+  left_join(unique_plots.pila)
 
 individual_data.pila = 
   individual_data.pila %>%
@@ -588,7 +591,7 @@ head(fecundity_data.pila)
 fecundity_data.pila = 
   fecundity_data.pila %>%
   filter(burned_0T == FALSE) %>%
-  mutate(intercept = 0,
+  mutate(intercept = 1,
          dbh_0.m = dbh_med*0.01,
          year_scaled = year_0 - 1982,
          dbh_year = dbh_0.m * year_scaled)
@@ -670,3 +673,7 @@ pila_data =
 
 saveRDS(pila_data,
         here::here('02-data', '02-for_analysis', 'usgs', 'pila_data.rds'))
+
+# this is useful for plotting later
+saveRDS(plots_spatial,
+        here::here('02-data', '02-for_analysis', 'usgs', 'plots_spatial.rds'))

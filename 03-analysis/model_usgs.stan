@@ -114,6 +114,8 @@ model {
   sigmaPlot_f ~ normal(0,5);
   sigmaEpsilon_g ~ normal(0,5);
   kappa_f ~ cauchy(0,5);
+  mu_r ~ normal(0, 5);
+  sigmaEpsilon_r ~ normal(0, 5);
   
   // random effect realizations
   zPlot_s ~ std_normal();
@@ -134,3 +136,5 @@ model {
   // // recruitment
   logdbh_r ~ normal(mu_r, sigmaEpsilon_r);
 }
+
+

@@ -1,0 +1,850 @@
+---
+title: "15-plotting_vital_rate_functions:USGS"
+author: "Danny Foster"
+date: "1/18/2022"
+output: html_document
+---
+
+```{r}
+# setup
+library(here)
+library(tidyverse)
+library(posterior)
+library(bayesplot)
+library(cowplot)
+library(ggspatial)
+library(basemaps)
+# load observed data
+pila_data = readRDS(here::here('02-data', '02-for_analysis','usgs', 'pila_data.rds'))
+
+# load mcmc results
+pila_fit = readRDS(here::here('02-data', '03-results', 'real_fits','usgs', 'pila.rds'))
+
+samples = as_draws_df(pila_fit$draws())
+
+betas_s = samples %>% select(contains('beta_s'))
+betas_g = samples %>% select(contains('beta_g'))
+betas_f = samples %>% select(contains('beta_f'))
+
+
+```
+
+# Posteriors vs Priors
+
+## Survival
+
+```{r}
+
+beta_s_names =   
+  data.frame(
+      param = c('beta_s[1]', 'beta_s[2]'),
+      data_name = c('intercept', 'dbh_0.m'),
+      position = str_pad(1:2, width = 2, side = 'left', pad = '0'),
+      pretty_name = 
+          c('Intercept','DBH (m)'))
+
+pretty_beta_s_labels = 
+  beta_s_names$pretty_name
+names(pretty_beta_s_labels) = beta_s_names$position
+beta_s_priorvpost = 
+  betas_s %>%
+  rowid_to_column('iter') %>%
+  pivot_longer(cols = c(-iter),
+               names_to = 'param',
+               values_to = 'value') %>%
+  left_join(beta_s_names
+    ) %>%
+  ggplot(aes(x = value))+
+  geom_density(lwd = 1)+
+  geom_density(
+    data = data.frame(prior = rnorm(n = 1000, mean = 0, sd = 5)),
+    aes(x = prior),
+    color = 'red'
+  )+
+  geom_vline(xintercept = 0, color = 'grey', lty = 2, lwd = 1)+
+  theme_minimal()+
+  facet_wrap(~position, scales = 'free',
+             labeller = 
+               labeller(position = pretty_beta_s_labels))
+
+beta_s_priorvpost
+
+ggsave(beta_s_priorvpost,
+       filename = here::here('04-communication',
+                             'figures',
+                             'report',
+                             'beta_s_priorvpost_usgs.png'), 
+       height = 6.5, width = 4, units = 'in')
+
+
+sigmaPlot_s_priorvpost = 
+  samples %>%
+  select(sigmaPlot_s) %>%
+  ggplot(aes(x = sigmaPlot_s))+
+  geom_density(lwd = 1)+
+  geom_density(data = 
+                 data.frame(prior = truncnorm::rtruncnorm(n = 1000, a = 0, mean = 0, sd = 5)),
+               aes(x = prior), color = 'red')+
+  theme_minimal()
+
+sigmaPlot_s_priorvpost
+
+
+ggsave(sigmaPlot_s_priorvpost,
+       filename = here::here('04-communication',
+                  'figures',
+                  'report',
+                  'sigmas_s_priorvpost_usgs.png'), height = 6.5, width = 4, units = 'in')
+
+
+```
+
+## Growth
+
+```{r}
+beta_g_names =   
+  data.frame(
+      param = c('beta_g[1]', 'beta_g[2]'),
+      data_name = c('intercept', 'dbh_0.m'),
+      position = str_pad(1:2, width = 2, side = 'left', pad = '0'),
+      pretty_name = 
+          c('Intercept','DBH (m)'))
+
+pretty_beta_g_labels = 
+  beta_g_names$pretty_name
+names(pretty_beta_g_labels) = beta_g_names$position
+
+beta_g_priorvpost = 
+  betas_g %>%
+  rowid_to_column('iter') %>%
+  pivot_longer(cols = c(-iter),
+               names_to = 'param',
+               values_to = 'value') %>%
+  left_join(beta_g_names
+    ) %>%
+  ggplot(aes(x = value))+
+  geom_density(lwd = 1)+
+  geom_density(
+    data = data.frame(prior = rnorm(n = 1000, mean = 0, sd = 5)),
+    aes(x = prior),
+    color = 'red'
+  )+
+  geom_vline(xintercept = 0, color = 'grey', lty = 2, lwd = 1)+
+  theme_minimal()+
+  facet_wrap(~position, scales = 'free',
+             labeller = 
+               labeller(position = pretty_beta_g_labels))
+
+beta_g_priorvpost
+
+ggsave(beta_g_priorvpost,
+       filename = here::here('04-communication',
+                             'figures',
+                             'report',
+                             'beta_g_priorvpost_usgs.png'), height = 6.5, width = 4, units = 'in')
+
+sigmaPlot_g_priorvpost = 
+  samples %>%
+  select(sigmaPlot_g) %>%
+  ggplot(aes(x = sigmaPlot_g))+
+  geom_density(lwd = 1)+
+  geom_density(data = 
+                 data.frame(prior = truncnorm::rtruncnorm(n = 1000, a = 0, mean = 0, sd = 5)),
+               aes(x = prior), color = 'red')+
+  theme_minimal()
+
+
+sigmaEpsilon_g_priorvpost = 
+  samples %>%
+  select(sigmaEpsilon_g) %>%
+  ggplot(aes(x = sigmaEpsilon_g))+
+  geom_density(lwd = 1)+
+  geom_density(data = 
+                 data.frame(prior = truncnorm::rtruncnorm(n = 1000, a = 0, mean = 0, sd = 5)),
+               aes(x = prior), color = 'red')+
+  theme_minimal()
+
+sigmas_g_priorvpost = 
+  plot_grid(sigmaPlot_g_priorvpost,
+            sigmaEpsilon_g_priorvpost)
+
+ggsave(sigmas_g_priorvpost,
+       filename = here::here('04-communication',
+                             'figures',
+                             'report',
+                             'sigmas_g_priorvpost_usgs.png'), height = 6.5, width = 4, units = 'in')
+
+```
+
+## Fecundity
+
+```{r}
+beta_f_names =   
+  data.frame(
+      param = c('beta_f[1]', 'beta_f[2]'),
+      data_name = c('intercept', 'dbh_0.m'),
+      position = str_pad(1:2, width = 2, side = 'left', pad = '0'),
+      pretty_name = 
+          c('Intercept','DBH (m)'))
+
+pretty_beta_f_labels = 
+  beta_f_names$pretty_name
+names(pretty_beta_f_labels) = beta_f_names$position
+
+beta_f_priorvpost = 
+  betas_f %>%
+  rowid_to_column('iter') %>%
+  pivot_longer(cols = c(-iter),
+               names_to = 'param',
+               values_to = 'value') %>%
+  left_join(beta_f_names
+    ) %>%
+  ggplot(aes(x = value))+
+  geom_density(lwd = 1)+
+  geom_density(
+    data = data.frame(prior = rnorm(n = 1000, mean = 0, sd = 5)),
+    aes(x = prior),
+    color = 'red'
+  )+
+  geom_vline(xintercept = 0, color = 'grey', lty = 2, lwd = 1)+
+  theme_minimal()+
+  facet_wrap(~position, scales = 'free',
+             labeller = 
+               labeller(position = pretty_beta_f_labels))
+
+beta_f_priorvpost
+
+ggsave(beta_f_priorvpost,
+       filename = here::here('04-communication',
+                             'figures',
+                             'report',
+                             'beta_f_priorvpost_usgs.png'), height = 6.5, width = 4, units = 'in')
+
+half_cauchy_samples = 
+  sapply(X = 1:1000,
+         FUN = function(i){
+           sample = 0
+           while(sample<=0){
+            sample = rcauchy(n = 1, location = 0, scale = 5)
+           }
+           return(sample)
+         })
+
+kappa_r_priorvpost = 
+  samples %>%
+  select(kappa_f) %>%
+  ggplot(aes(x = kappa_f))+
+  geom_density(lwd = 1)+
+  theme_minimal()+
+  geom_density(
+    data = data.frame(prior = half_cauchy_samples),
+    aes(x = prior), 
+    color = 'red'
+  )+
+  scale_x_continuous(limits = c(0, 10))
+
+kappa_r_priorvpost
+sigmaPlot_f_priorvpost = 
+  samples %>%
+  select(sigmaPlot_f) %>%
+  ggplot(aes(x = sigmaPlot_f))+
+  geom_density(lwd = 1)+
+  geom_density(data = 
+                 data.frame(prior = truncnorm::rtruncnorm(n = 1000, a = 0, mean = 0, sd = 5)),
+               aes(x = prior), color = 'red')+
+  theme_minimal()
+
+sigmaPlot_f_priorvpost
+
+ggsave(kappa_r_priorvpost,
+       filename = here::here('04-communication',
+                             'figures',
+                             'report',
+                             'kappa_r_priorvpost_usgs.png'), 
+       height = 6.5, width = 4, units = 'in')
+
+```
+
+
+## Recruit size
+
+```{r}
+mu_r_priorvpost = 
+  samples %>%
+  ggplot(aes(x = mu_r))+
+  geom_density(lwd = 1)+
+  geom_density(data = 
+                 data.frame(prior = rnorm(n = 1000, mean = 0, sd = 5)),
+               aes(x = prior), color = 'red')+
+  theme_minimal()
+  
+sigmaEpsilon_r_priorvpost = 
+  samples %>%
+  ggplot(aes(x = sigmaEpsilon_r))+
+  geom_density(lwd = 1)+
+  geom_density(data = 
+                 data.frame(prior = truncnorm::rtruncnorm(n = 1000, a = 0, mean = 0, sd = 5)),
+               aes(x = prior), color = 'red')+
+  theme_minimal()
+
+recrsize_priorvpost = 
+  plot_grid(mu_r_priorvpost, sigmaEpsilon_r_priorvpost)
+
+recrsize_priorvpost
+ggsave(recrsize_priorvpost,
+       filename = here::here('04-communication',
+                             'figures',
+                             'report',
+                             'recrsize_priorvpost.png'), 
+       height = 6.5, width = 4, units = 'in')
+
+
+```
+
+# Plotting parameters
+
+## Survival
+
+```{r}
+mcmc_intervals(samples,
+               pars = c('beta_s[1]',
+                        'beta_s[2]',
+                        'sigmaPlot_s'))
+
+help(summary)
+
+summary_s = 
+  pila_fit$summary(variables = c('beta_s', 'sigmaPlot_s')) %>%
+  left_join(beta_s_names %>%
+              bind_rows(
+                data.frame(param = c('sigmaPlot_s'),
+                       position = c('3'),
+                       pretty_name = c('SD Plots'))
+              ),
+            by = c('variable' = 'param')) %>%
+  select(Position = position,
+         Parameter = pretty_name, 
+         Mean = mean, Median = median, StDev = sd, 
+         q5, q95, rhat, ess_bulk, ess_tail) %>%
+  arrange(Position) %>%
+  select(-Position)
+
+summary_s
+
+write.csv(summary_s,
+          here::here('04-communication',
+                     'tables',
+                     'usgs',
+                     'summary_s.csv'),
+          row.names = FALSE)
+
+pretty_params_s = 
+  samples %>%
+  select(sigmaPlot_s, contains('beta_s')) %>%
+  pivot_longer(cols = everything(), names_to = 'param', values_to = 'value') %>%
+  left_join(beta_s_names %>%
+              bind_rows(
+                data.frame(param = c('sigmaPlot_s'),
+                       position = c('03'),
+                       pretty_name = c('SD Plots'))
+              ))
+
+paramvalues_s = 
+  ggplot(
+  data = 
+    pretty_params_s %>%
+    group_by(param, position, pretty_name) %>%
+    summarise(value.05 = quantile(value, probs = 0.05),
+              value.25 = quantile(value, probs = 0.25),
+              value.50 = quantile(value, probs = 0.5),
+              value.75 = quantile(value, probs = 0.75),
+              value.95 = quantile(value, probs = 0.95)) %>%
+    ungroup() %>%
+    mutate(pretty_name = 
+             factor(pretty_name, 
+                    levels = c('Intercept', 'DBH (m)','SD Plots'))))+
+  geom_vline(xintercept = 0, lty = 2, color = 'grey', lwd = 1)+
+  geom_segment(aes(y = pretty_name, yend = pretty_name, x = value.05, xend = value.95),
+               color = 'deepskyblue1', lwd = 1)+
+  geom_segment(aes(y = pretty_name, yend = pretty_name, x = value.25, xend = value.75),
+               color = 'deepskyblue3', lwd = 2)+
+  geom_point(aes(x = value.50, y = pretty_name), size = 4)+
+  theme_minimal()+
+  labs(x = 'Value', y = 'Parameter (Survival)')
+
+paramvalues_s
+ggsave(paramvalues_s,
+       filename = here::here('04-communication',
+                             'figures', 
+                             'report',
+                             'paramvalues_s_usgs.png'),
+       height = 4, width = 6.5, units = 'in')
+```
+
+
+
+## Growth
+
+
+```{r}
+
+
+summary_g = 
+  pila_fit$summary(variables = c('beta_g', 'sigmaPlot_g',
+                                 'sigmaEpsilon_g')) %>%
+  left_join(beta_g_names %>%
+              bind_rows(
+                data.frame(param = c('sigmaPlot_g', 
+                                     'sigmaEpsilon_g'),
+                       position = c('03', '04'),
+                       pretty_name = c('SD Plots', 'SD Residual'))
+              ),
+            by = c('variable' = 'param')) %>%
+  select(Position = position,
+         Parameter = pretty_name, 
+         Mean = mean, Median = median, StDev = sd, 
+         q5, q95, rhat, ess_bulk, ess_tail) %>%
+  arrange(Position) %>%
+  select(-Position)
+
+summary_g
+
+write.csv(summary_g,
+          here::here('04-communication',
+                     'tables',
+                     'usgs',
+                     'summary_g.csv'),
+          row.names = FALSE)
+
+```
+
+## Fecundity
+
+```{r}
+mcmc_intervals(samples,
+               pars = c('beta_f[1]',
+                        'beta_f[2]',
+                        'sigmaPlot_f'))
+
+mcmc_intervals(samples, pars = 'kappa_f')
+
+
+summary_f = 
+  pila_fit$summary(variables = c('beta_f', 'sigmaPlot_f', 'kappa_f')) %>%
+  left_join(beta_f_names %>%
+              bind_rows(
+                data.frame(param = c('sigmaPlot_f', 
+                                     'kappa_f'),
+                       position = c('03', '04'),
+                       pretty_name = c('SD Plots', 'NB Dispersion'))
+              ),
+            by = c('variable' = 'param')) %>%
+  select(Position = position,
+         Parameter = pretty_name, 
+         Mean = mean, Median = median, StDev = sd, 
+         q5, q95, rhat, ess_bulk, ess_tail) %>%
+  arrange(Position) %>%
+  select(-Position)
+
+summary_f
+
+write.csv(summary_f,
+          here::here('04-communication',
+                     'tables',
+                     'usgs',
+                     'summary_f.csv'),
+          row.names = FALSE)
+
+```
+
+## Recruit size
+
+```{r}
+
+mcmc_intervals(samples,
+               pars = c('mu_r', 'sigmaEpsilon_r'))
+
+
+
+summary_r = 
+  pila_fit$summary(variables = c('mu_r', 'sigmaEpsilon_r')) %>%
+  left_join(data.frame(param = c('mu_r', 'sigmaEpsilon_r'),
+                       position = c('01', '02'),
+                       pretty_name = c('Mean Recr Size (cm)', 'SD Recr Size (cm)')),
+            by = c('variable' = 'param')) %>%
+  select(Position = position,
+         Parameter = pretty_name, 
+         Mean = mean, Median = median, StDev = sd, 
+         q5, q95, rhat, ess_bulk, ess_tail) %>%
+  arrange(Position) %>%
+  select(-Position)
+
+summary_r
+
+write.csv(summary_r,
+          here::here('04-communication',
+                     'tables',
+                     'usgs',
+                     'summary_r.csv'),
+          row.names = FALSE)
+
+```
+
+# Fixed Effects Counterfactuals
+
+## Survival
+
+```{r}
+
+predict_survival_fixeff = 
+  function(dataset){
+    do.call('rbind',
+            lapply(X = 1:4000,
+                   FUN = function(i){
+                     
+                     beta_i = as.numeric(betas_s[i,])
+                     
+                     X = dataset[,c('intercept', 'dbh_m.init')]
+                     
+                     predictions = X
+                     predictions$logitp = 
+                       as.numeric(as.matrix(X) %*% beta_i)
+                     predictions$p = boot::inv.logit(predictions$logitp)
+                     return(predictions)
+                     
+                   }))
+    
+  }
+
+# first, "main effects" (other than the focal variable, disturbances held at false 
+# and continuous variables held at 0 (other than size, they are scaled) 
+
+## size main effect (no disturbances, continuous variables held at 0, which is 
+## the subplot-level mean (so like the average subplot))
+size_fixeff_s = 
+  expand.grid('intercept' = 1,
+            'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01)) %>%
+  predict_survival_fixeff() %>%
+  group_by(intercept, dbh_m.init) %>%
+  summarise(p.median = median(p),
+            p.025 = quantile(p, probs = 0.025),
+            p.25 = quantile(p, probs = 0.25),
+            p.75 = quantile(p, probs = 0.75),
+            p.975 = quantile(p, probs = 0.975)) %>%
+  ggplot(data = .,
+         aes(x = dbh_m.init))+
+  geom_ribbon(aes(ymin = p.025, ymax = p.975),
+              color = NA, alpha = 0.1)+
+  geom_ribbon(aes(ymin = p.25, ymax = p.75),
+              color = NA, alpha = 0.25)+
+  geom_line(aes(y = p.median), lwd = 1.5)+
+  #scale_y_continuous(limits = c(0, 1))+
+  theme_minimal()+
+  labs(y = 'Survival',
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
+
+size_fixeff_s
+
+
+ggsave(size_fixeff_s,
+       filename = here::here('04-communication',
+                             'figures',
+                             'report',
+                             'size_fixeff_s_usgs.png'), 
+       height = 4, width = 6.5, units = 'in')
+```
+
+## Growth
+
+```{r}
+
+predict_grow_fixeff = 
+  function(dataset){
+    do.call('rbind',
+            lapply(X = 1:4000,
+                   FUN = function(i){
+                     
+                     beta_i = as.numeric(betas_g[i,])
+                     
+                     X = dataset[,c('intercept', 'dbh_m.init')]
+                     
+                     predictions = X
+                     predictions$size1 = 
+                       as.numeric(as.matrix(X) %*% beta_i)
+                     predictions$grow = 
+                       predictions$size1-predictions$dbh_m.init
+                     return(predictions)
+                     
+                   }))
+    
+  }
+# first, "main effects" (other than the focal variable, disturbances held at false 
+# and continuous variables held at 0 (other than size, they are scaled) 
+
+## size main effect (no disturbances, continuous variables held at 0, which is 
+## the subplot-level mean (so like the average subplot))
+size_fixeff_g = 
+  expand.grid('intercept' = 1,
+            'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01)) %>%
+  predict_grow_fixeff() %>%
+  group_by(intercept, dbh_m.init) %>%
+  summarise(grow.median = median(grow),
+            grow.025 = quantile(grow, probs = 0.025),
+            grow.25 = quantile(grow, probs = 0.25),
+            grow.75 = quantile(grow, probs = 0.75),
+            grow.975 = quantile(grow, probs = 0.975)) %>%
+  ggplot(data = .,
+         aes(x = dbh_m.init))+
+  geom_ribbon(aes(ymin = grow.025, ymax = grow.975),
+              color = NA, alpha = 0.1)+
+  geom_ribbon(aes(ymin = grow.25, ymax = grow.75),
+              color = NA, alpha = 0.25)+
+  geom_line(aes(y = grow.median), lwd = 1.5)+
+  theme_minimal()+
+  labs(y = 'DBH growth (m)',
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
+
+size_fixeff_g
+
+# 
+
+ggsave(size_fixeff_g,
+       filename = here::here('04-communication',
+                             'figures',
+                             'report',
+                             'size_fixeff_g_usgs.png'), 
+       height =4, width = 6.5, units = 'in')
+```
+
+## Fecundity
+
+```{r}
+predict_fecundity_fixeff = 
+  function(dataset){
+    do.call('rbind',
+            lapply(X = 1:4000,
+                   FUN = function(i){
+                     
+                     beta_i = as.numeric(betas_f[i,])
+                     
+                     X = dataset[,c('intercept', 'dbh_m.init')]
+                     
+                     predictions = X
+                     predictions$logf = 
+                       as.numeric(as.matrix(X) %*% beta_i)
+                     predictions$fecundity = 
+                       exp(predictions$logf)
+                     return(predictions)
+                     
+                   }))
+    
+  }
+# first, "main effects" (other than the focal variable, disturbances held at false 
+# and continuous variables held at 0 (other than size, they are scaled) 
+
+## size main effect (no disturbances, continuous variables held at 0, which is 
+## the subplot-level mean (so like the average subplot))
+size_fixeff_f = 
+  expand.grid('intercept' = 1,
+            'dbh_m.init' = seq(from = 0.1, to = 1.25, by = 0.01)) %>%
+  predict_fecundity_fixeff() %>%
+  group_by(intercept, dbh_m.init) %>%
+  summarise(fecundity.median = median(fecundity),
+            fecundity.025 = quantile(fecundity, probs = 0.025),
+            fecundity.25 = quantile(fecundity, probs = 0.25),
+            fecundity.75 = quantile(fecundity, probs = 0.75),
+            fecundity.975 = quantile(fecundity, probs = 0.975)) %>%
+  ggplot(data = .,
+         aes(x = dbh_m.init))+
+  geom_ribbon(aes(ymin = fecundity.025, ymax = fecundity.975),
+              color = NA, alpha = 0.1)+
+  geom_ribbon(aes(ymin = fecundity.25, ymax = fecundity.75),
+              color = NA, alpha = 0.25)+
+  geom_line(aes(y = fecundity.median), lwd = 1.5)+
+  theme_minimal()+
+  labs(y = 'Fecundity',
+       x = 'DBH (m)')+
+  theme(legend.position = 'bottom')
+size_fixeff_f
+
+ggsave(size_fixeff_f,
+       filename = here::here('04-communication',
+                             'figures', 
+                             'report',
+                             'size_fixeff_f_usgs.png'),
+       height = 4, width = 6.5, units = 'in')
+
+```
+
+# Random Effects
+
+```{r}
+# get ecoregion polygons for mapping random effects
+# (ecological subsection polygons downloaded from 
+# https://data.fs.usda.gov/geodata/edw/datasets.php?dsetCategory=geoscientificinformation
+# on Jan 9, 2022)
+library(sf)
+
+plots.sf = 
+  readRDS(here::here('02-data', 
+                     '02-for_analysis',
+                     'usgs',
+                     'plots_spatial.rds')) %>%
+  st_as_sf(coords = c('lon', 'lat'),
+           crs = 4269) %>%
+  filter(!is.na(plot_id.i))
+
+
+head(plots.sf)
+
+```
+
+## Survival
+
+```{r}
+
+plotEffect_s.med = 
+  samples %>%
+  select(contains('plotEffect_s')) %>%
+  summarise_all(median) %>%
+  as.numeric()
+
+plots.sf$plotEffect_s.med = 
+  plotEffect_s.med[plots.sf$plot_id.i]
+
+map_plotEffect_s = 
+  basemap_ggplot(ext = 
+                 plots.sf %>%
+                  filter(!is.element(plot,c('CRCRPIPO', 'YOHOPIPO'))) %>%
+                  st_transform('EPSG:3857') %>%
+                 st_buffer(1000) %>%
+                 st_bbox(),
+                  map_service = 'esri',
+                  map_type = 'world_topo_map')+
+  geom_sf(data = plots.sf %>%
+         filter(!is.element(plot, c('CRCRPIPO', 'YOHOPIPO'))) %>%
+           st_transform('EPSG:3857'),
+        aes(color = plotEffect_s.med),
+       size = 4)+
+  theme_minimal()+
+  scale_color_viridis_c(option = 'C')+
+  annotation_scale()+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank())+
+  labs(color = 'Plot effect (survival)')
+
+map_plotEffect_s
+
+ggsave(map_plotEffect_s,
+       filename = here::here('04-communication',
+                             'figures',
+                             'report',
+                             'map_plotEffect_s_usgs.png'), 
+       height =4, width = 6.5, units = 'in')
+
+```
+
+
+## Growth
+
+
+```{r}
+
+plotEffect_g.med = 
+  samples %>%
+  select(contains('plotEffect_g')) %>%
+  summarise_all(median) %>%
+  as.numeric()
+
+plots.sf$plotEffect_g.med = 
+  plotEffect_g.med[plots.sf$plot_id.i]
+
+map_plotEffect_g = 
+  basemap_ggplot(ext = 
+                 plots.sf %>%
+                  filter(!is.element(plot,c('CRCRPIPO', 'YOHOPIPO'))) %>%
+                  st_transform('EPSG:3857') %>%
+                 st_buffer(1000) %>%
+                 st_bbox(),
+                  map_service = 'esri',
+                  map_type = 'world_topo_map')+
+  geom_sf(data = plots.sf %>%
+         filter(!is.element(plot, c('CRCRPIPO', 'YOHOPIPO'))) %>%
+           st_transform('EPSG:3857'),
+        aes(color = plotEffect_g.med),
+       size = 4)+
+  theme_minimal()+
+  scale_color_viridis_c(option = 'C')+
+  annotation_scale()+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank())=
+  labs(color = 'Plot effect (growth)')
+
+map_plotEffect_g
+
+ggsave(map_plotEffect_g,
+       filename = here::here('04-communication',
+                             'figures',
+                             'report',
+                             'map_plotEffect_g_usgs.png'), 
+       height =4, width = 6.5, units = 'in')
+```
+
+Ecoregion-level effects don't look independent here; there's a clear pattern 
+of higher growth in the SE part of the range and lower growth in the NW.
+
+## Fecundity
+
+
+```{r}
+
+plotEffect_f.med = 
+  samples %>%
+  select(contains('plotEffect_f')) %>%
+  summarise_all(median) %>%
+  as.numeric()
+
+plots.sf$plotEffect_f.med = 
+  plotEffect_f.med[plots.sf$plot_id.i]
+
+map_plotEffect_f = 
+  basemap_ggplot(ext = 
+                 plots.sf %>%
+                  filter(!is.element(plot,c('CRCRPIPO', 'YOHOPIPO'))) %>%
+                  st_transform('EPSG:3857') %>%
+                 st_buffer(1000) %>%
+                 st_bbox(),
+                  map_service = 'esri',
+                  map_type = 'world_topo_map')+
+  geom_sf(data = plots.sf %>%
+         filter(!is.element(plot, c('CRCRPIPO', 'YOHOPIPO'))) %>%
+           st_transform('EPSG:3857'),
+        aes(color = plotEffect_f.med),
+       size = 4)+
+  theme_minimal()+
+  scale_color_viridis_c(option = 'C')+
+  annotation_scale()+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank())+
+  labs(color = 'Plot effect (fecundity)')
+
+map_plotEffect_f
+
+ggsave(map_plotEffect_f,
+       filename = here::here('04-communication',
+                             'figures',
+                             'report',
+                             'map_plotEffect_f_usgs.png'), 
+       height =4, width = 6.5, units = 'in')
+
+```
+
+

@@ -28,15 +28,15 @@ fitted_model =
     parallel_chains = 4,
     output_dir = here::here('02-data', '03-results', 'real_fits', 'usgs'),
     output_basename = 'pila',
-    seed = 112188)
+    seed = 110819)
 
-pila_data$plotid_f
 
 #### model diagnostics #########################################################
 
-fitted_model$summary(c('beta_s',  'sigmaEco_s', 'sigmaPlot_s',
-                       'beta_g', 'sigmaEco_g', 'sigmaPlot_g', 'sigmaEpsilon_g',
-                       'beta_f', 'sigmaEco_f', 'sigmaPlot_f', 'kappa_r')) %>% 
+fitted_model$summary(c('beta_s',  'sigmaPlot_s',
+                       'beta_g', 'sigmaPlot_g', 'sigmaEpsilon_g',
+                       'beta_f', 'sigmaPlot_f', 'kappa_f', 
+                       'mu_r', 'sigmaEpsilon_r')) %>% 
   print(n = Inf)
 
 # I think it's ok for there to be some correlation in the parameter esitmates 
@@ -44,25 +44,30 @@ fitted_model$summary(c('beta_s',  'sigmaEco_s', 'sigmaPlot_s',
 # identified but I don't have a good a priori reason to want to set beta_size 
 # to 1
 mcmc_pairs(fitted_model$draws(),
-           pars = c('beta_g[1]', 'beta_g[2]','sigmaEpsilon_g', 'sigmaEco_g', 'sigmaPlot_g'))
+           pars = c('beta_g[1]', 'beta_g[2]','sigmaEpsilon_g', 'sigmaPlot_g'))
 
 mcmc_pairs(fitted_model$draws(),
-           pars = c('beta_s[1]', 'beta_s[2]', 'sigmaEco_s', 'sigmaPlot_s'))
+           pars = c('beta_s[1]', 'beta_s[2]', 'sigmaPlot_s'))
 
 mcmc_pairs(fitted_model$draws(),
-           pars = c('beta_f[1]', 'beta_f[2]', 'sigmaEco_f', 'sigmaPlot_f', 'kappa_r'))
+           pars = c('beta_f[1]', 'beta_f[2]', 'sigmaPlot_f', 'kappa_f'))
 
 mcmc_pairs(fitted_model$draws(),
            pars = c('beta_s[1]', 'beta_g[1]', 'beta_f[1]'))
 
-mcmc_dens_overlay(fitted_model$draws(variables = 
-                                       c('beta_s', 'sigmaEco_s','sigmaPlot_s')))
+mcmc_pairs(fitted_model$draws(),
+           pars = c('mu_r', 'sigmaEpsilon_r'))
 
 mcmc_dens_overlay(fitted_model$draws(variables = 
-                                       c('beta_g', 'sigmaEco_g','sigmaPlot_s', 'sigmaEpsilon_g')))
+                                       c('beta_s', 'sigmaPlot_s')))
 
 mcmc_dens_overlay(fitted_model$draws(variables = 
-                                       c('beta_f', 'sigmaEco_f','sigmaPlot_f', 'kappa_r')))
+                                       c('beta_g', 'sigmaPlot_s', 'sigmaEpsilon_g')))
+
+mcmc_dens_overlay(fitted_model$draws(variables = 
+                                       c('beta_f', 'sigmaPlot_f', 'kappa_f')))
+
+mcmc_dens_overlay(fitted_model$draws(variables = c('mu_r', 'sigmaEpsilon_r')))
 
 fitted_model$cmdstan_diagnose()
 
