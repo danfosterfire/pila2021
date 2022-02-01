@@ -1131,7 +1131,8 @@ size_fixeff_f =
   theme_minimal()+
   labs(y = 'Fecundity',
        x = 'DBH (m)')+
-  theme(legend.position = 'bottom')
+  theme(legend.position = 'bottom')+
+  scale_y_log10()
 
 # size X fire
 fire_fixeff_f = 
@@ -1170,7 +1171,8 @@ fire_fixeff_f =
        fill = 'Fire',
        color = 'Fire',
        x = 'DBH (m)')+
-  theme(legend.position = 'bottom')
+  theme(legend.position = 'bottom')+
+  scale_y_log10()
 
 # size X wpbr
 wpbr_fixeff_f = 
@@ -1210,7 +1212,8 @@ wpbr_fixeff_f =
        fill = 'WPBR',
        color = 'WPBR',
        x = 'DBH (m)')+
-  theme(legend.position = 'bottom')
+  theme(legend.position = 'bottom')+
+  scale_y_log10()
 
 # size X Basal area
 ba_fixeff_f = 
@@ -1250,7 +1253,8 @@ ba_fixeff_f =
        fill = 'Basal Area',
        color = 'Basal Area',
        x = 'DBH (m)')+
-  theme(legend.position = 'bottom')
+  theme(legend.position = 'bottom')+
+  scale_y_log10()
 
 # size X drought
 drought_fixeff_f = 
@@ -1290,7 +1294,8 @@ drought_fixeff_f =
        fill = 'Drought',
        color = 'Drought',
        x = 'DBH (m)')+
-  theme(legend.position = 'bottom')
+  theme(legend.position = 'bottom')+
+  scale_y_log10()
 
 # size X dryness
 dryness_fixeff_f = 
@@ -1330,7 +1335,8 @@ dryness_fixeff_f =
        fill = 'Site Dryness',
        color = 'Site Dryness',
        x = 'DBH (m)')+
-  theme(legend.position = 'bottom')
+  theme(legend.position = 'bottom')+
+  scale_y_log10()
 
 fixeff_f = 
   plot_grid(size_fixeff_f, fire_fixeff_f, wpbr_fixeff_f, ba_fixeff_f,

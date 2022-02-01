@@ -228,6 +228,8 @@ postmed_lambda_distribution =
   geom_vline(xintercept = 1, color = 'grey', lty = 2, lwd = 1)+
   labs(y = 'Density', x = 'Lambda')
 
+summary(subplots.pila$lambda_postmed)
+
 ggsave(postmed_lambda_distribution,
        filename = here::here('04-communication',
                   'figures',
@@ -274,13 +276,13 @@ A_hypotheticals =
   array(dim = c(nrow(size_metadata), # sizeclass to
                 nrow(size_metadata), # sizeclass from
                 nrow(hypothetical_subplots), # subplots
-                400), # posterior draws
+                4000), # posterior draws
         dimnames = list('class_to' = 1:nrow(size_metadata),
                         'class_from' = 1:nrow(size_metadata),
                         'subplot' = 1:nrow(hypothetical_subplots),
-                        'draw' = 1:400),
+                        'draw' = 1:4000),
         data = 
-          sapply(X = 1:400,
+          sapply(X = 1:4000,
                  FUN = function(draw){
                    
                    # get beta_s for the current draw
@@ -382,13 +384,13 @@ hypothetical_lambdas =
   hypothetical_subplots %>%
   expand(nesting(subp_id, name, intercept, fire, wpbr, ba_scaled, cwd_dep90_scaled, 
                  cwd_mean_scaled),
-         data.frame(draw = 1:400))
+         data.frame(draw = 1:4000))
 
 
 hypothetical_lambdas$lambda = 
   sapply(X = 1:nrow(hypothetical_subplots),
          FUN = function(subplot){
-           sapply(X = 1:400,
+           sapply(X = 1:4000,
                   FUN = function(draw){
                     # paste0('s:',subplot,'d:',draw) for testing
                     max(as.numeric(eigen(A_hypotheticals[,,subplot,draw])$values))
@@ -407,6 +409,20 @@ pretty_names =
   hypothetical_subplots$name
 names(pretty_names) = hypothetical_subplots$subp_id
 
+head(hypothetical_lambdas)
+
+hypothetical_lambda_summary = 
+  hypothetical_lambdas %>%
+  group_by(subp_id, name) %>%
+  summarise(lambda.med = median(lambda),
+            lambda.05 = quantile(lambda, probs = 0.05),
+            lambda.95 = quantile(lambda, probs = 0.95))
+
+write.csv(hypothetical_lambda_summary,
+          here::here('04-communication', 
+                     'tables',
+                     'hypothetical_lambdas_summary.csv'),
+          row.names = FALSE)
 
 hypothetical_lambdas_plot = 
   ggplot(data = 
@@ -431,6 +447,5 @@ ggsave(hypothetical_lambdas_plot,
                              'hypotheticals_lambda_post.png'),
        height = 7.5, width = 4, units = 'in')
 
-#### using hypothetical subplots (fixed and random effects) ####################
 
 
