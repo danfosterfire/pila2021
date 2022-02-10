@@ -209,7 +209,8 @@ ggsave(ipm_density,
 
 head(ipm_results)
 
-ipm_results %>%
+ipm_ci = 
+  ipm_results %>%
   group_by(plot) %>%
   summarise(lambda.05 = quantile(lambda, probs = c(0.05)),
             lambda.25 = quantile(lambda, probs = c(0.25)),
@@ -218,13 +219,20 @@ ipm_results %>%
             lambda.95 = quantile(lambda, probs = 0.95)) %>%
   ungroup() %>%
   ggplot()+
-  geom_point(aes(x = lambda.50, y = plot), size = 3)+
-  geom_segment()
+  geom_segment(aes(y = plot, yend = plot, x = lambda.05, xend = lambda.95),
+               lwd = 1, color = 'slategray3')+
+  geom_segment(aes(y = plot, yend = plot, x = lambda.25, xend = lambda.75),
+               lwd = 2, color = 'slategray4')+
+  geom_point(aes(x = lambda.50, y = plot), size = 5)+
   theme_minimal()+
   labs(x = 'Lambda', y = 'Plot')
 
-ipm_results %>%
-  group_by()
+ggsave(ipm_ci,
+       filename = here::here('04-communication',
+                             'figures',
+                             'report',
+                             'ipm_ci.png'),
+       height = 4, width = 6.5, units = 'in')
 
 saveRDS(ipm_results,
         here::here('02-data',
