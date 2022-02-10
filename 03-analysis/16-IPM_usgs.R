@@ -191,11 +191,40 @@ ipm_results$lambda =
   as.numeric()
 
 
-ggplot(data = ipm_results,
+
+ipm_density = 
+  ggplot(data = ipm_results,
        aes(x = lambda, color = plot))+
   geom_density()+
   theme_minimal()+
-  geom_vline(xintercept = 1, lty = 2, lwd = 1)
+  geom_vline(xintercept = 1, lty = 2, lwd = 1)+
+  labs(color = 'Plot', y = 'Posterior probability density', x = 'Lambda')
+
+ggsave(ipm_density,
+       filename = here::here('04-communication',
+                             'figures',
+                             'report',
+                             'ipm_density.png'),
+       height = 4, width = 6.5, units = 'in')
+
+head(ipm_results)
+
+ipm_results %>%
+  group_by(plot) %>%
+  summarise(lambda.05 = quantile(lambda, probs = c(0.05)),
+            lambda.25 = quantile(lambda, probs = c(0.25)),
+            lambda.50 = median(lambda),
+            lambda.75 = quantile(lambda, probs = 0.75),
+            lambda.95 = quantile(lambda, probs = 0.95)) %>%
+  ungroup() %>%
+  ggplot()+
+  geom_point(aes(x = lambda.50, y = plot), size = 3)+
+  geom_segment()
+  theme_minimal()+
+  labs(x = 'Lambda', y = 'Plot')
+
+ipm_results %>%
+  group_by()
 
 saveRDS(ipm_results,
         here::here('02-data',
