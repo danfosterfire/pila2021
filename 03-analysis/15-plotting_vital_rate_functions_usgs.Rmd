@@ -311,8 +311,6 @@ mcmc_intervals(samples,
                         'beta_s[2]',
                         'sigmaPlot_s'))
 
-help(summary)
-
 summary_s = 
   pila_fit$summary(variables = c('beta_s', 'sigmaPlot_s')) %>%
   left_join(beta_s_names %>%
@@ -666,7 +664,8 @@ size_fixeff_f =
   theme_minimal()+
   labs(y = 'Fecundity',
        x = 'DBH (m)')+
-  theme(legend.position = 'bottom')
+  theme(legend.position = 'bottom')+
+  scale_y_log10()
 size_fixeff_f
 
 ggsave(size_fixeff_f,
@@ -783,7 +782,7 @@ map_plotEffect_g =
   theme(axis.title.x = element_blank(),
         axis.title.y = element_blank(),
         axis.text.x = element_blank(),
-        axis.text.y = element_blank())=
+        axis.text.y = element_blank())+
   labs(color = 'Plot effect (growth)')
 
 map_plotEffect_g
