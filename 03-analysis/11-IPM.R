@@ -230,6 +230,10 @@ postmed_lambda_distribution =
 
 summary(subplots.pila$lambda_postmed)
 
+# what proportion of plots is the pop predicted to decline on
+length(subplots.pila$lambda_postmed[subplots.pila$lambda_postmed<1])/
+  length(subplots.pila$lambda_postmed)
+
 ggsave(postmed_lambda_distribution,
        filename = here::here('04-communication',
                   'figures',
@@ -405,6 +409,12 @@ saveRDS(hypothetical_lambdas,
                    'real_fits',
                    'hypothetical_lambdas.rds'))
 
+hypothetical_lambdas = 
+  readRDS(here::here('02-data',
+                     '03-results',
+                     'real_fits',
+                     'hypothetical_lambdas.rds'))
+
 pretty_names = 
   hypothetical_subplots$name
 names(pretty_names) = hypothetical_subplots$subp_id
@@ -417,6 +427,8 @@ hypothetical_lambda_summary =
   summarise(lambda.med = median(lambda),
             lambda.05 = quantile(lambda, probs = 0.05),
             lambda.95 = quantile(lambda, probs = 0.95))
+
+hypothetical_lambda_summary
 
 write.csv(hypothetical_lambda_summary,
           here::here('04-communication', 

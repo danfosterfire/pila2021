@@ -677,3 +677,7 @@ saveRDS(pila_data,
 # this is useful for plotting later
 saveRDS(plots_spatial,
         here::here('02-data', '02-for_analysis', 'usgs', 'plots_spatial.rds'))
+
+# this is useful for the IPM later
+saveRDS(size_metadata,
+        here::here('02-data', '02-for_analysis', 'usgs', 'size_metadata.rds'))
