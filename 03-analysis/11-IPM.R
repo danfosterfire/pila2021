@@ -228,6 +228,23 @@ postmed_lambda_distribution =
   geom_vline(xintercept = 1, color = 'grey', lty = 2, lwd = 1)+
   labs(y = 'Density', x = 'Lambda')
 
+postmed_lambda_distribution_ppt = 
+  ggplot(data = subplots.pila,
+         aes(x = lambda_postmed))+
+  geom_histogram()+
+  theme_minimal()+
+  scale_x_continuous(limits = c(0, 2.5))+
+  geom_vline(xintercept = 1, color = 'grey', lty = 2, lwd = 1)+
+  labs(y = 'N subplots', x = 'Lambda')+
+  theme(text = element_text(size = 18))
+
+ggsave(postmed_lambda_distribution_ppt,
+       filename = here::here('04-communication',
+                             'figures',
+                             'powerpoint',
+                             'subplot_lambdas.png'),
+       height = 4, width = 6.5, units = 'in')
+
 summary(subplots.pila$lambda_postmed)
 
 # what proportion of plots is the pop predicted to decline on
@@ -458,6 +475,30 @@ ggsave(hypothetical_lambdas_plot,
                              'manuscript',
                              'hypotheticals_lambda_post.png'),
        height = 7.5, width = 4, units = 'in')
+
+hypothetical_lambdas_ppt = 
+  ggplot(data = 
+         hypothetical_lambdas,
+       aes(x = lambda))+
+  geom_density(lwd = 1)+
+  geom_vline(xintercept = 1, color = 'grey', lty = 2, lwd = 1)+
+  theme_minimal()+
+  facet_grid(.~subp_id, scales = 'free_x',
+             labeller = labeller(subp_id = pretty_names))+
+  scale_x_continuous(limits = c(0.5,3))+
+  theme(axis.text.x = element_blank(),
+        text = element_text(size = 16))+
+  labs(x = 'Lambda', y = 'Posterior Density')+
+  coord_flip(xlim = c(0.9, 1.4))
+
+hypothetical_lambdas_ppt
+
+ggsave(hypothetical_lambdas_ppt,
+       filename = here::here('04-communication',
+                             'figures',
+                             'powerpoint',
+                             'hypotheticals_lambda_post.png'),
+       height = 4, width = 11, units = 'in')
 
 
 

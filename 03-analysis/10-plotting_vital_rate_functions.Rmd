@@ -778,6 +778,36 @@ fixeff_s =
           nrow = 3, ncol = 2)
 
 
+fixeff_s_ppt = 
+  plot_grid(
+    size_fixeff_s+theme(text = element_text(size = 14)),
+    fire_fixeff_s+theme(text = element_text(size = 14), 
+                        axis.title.y = element_blank(),
+                        axis.title.x = element_blank()),
+    wpbr_fixeff_s+theme(text = element_text(size = 14), 
+                        axis.title.y = element_blank(),
+                        axis.title.x = element_blank()),
+    ba_fixeff_s+theme(text = element_text(size = 14), 
+                        axis.title.y = element_blank(),
+                        axis.title.x = element_blank()),
+    drought_fixeff_s+theme(text = element_text(size = 14), 
+                        axis.title.y = element_blank(),
+                        axis.title.x = element_blank()),
+    dryness_fixeff_s+theme(text = element_text(size = 14), 
+                        axis.title.y = element_blank(),
+                        axis.title.x = element_blank()),
+    nrow = 2, ncol = 3
+  )
+
+fixeff_s_ppt
+
+ggsave(fixeff_s_ppt,
+       filename = here::here('04-communication',
+                             'figures',
+                             'powerpoint',
+                             'fixeff_s.png'),
+       height = 5, width = 11)
+
 ggsave(fixeff_s,
        filename = here::here('04-communication',
                              'figures',
@@ -1065,6 +1095,36 @@ ggsave(fixeff_g,
                              'manuscript',
                              'fixeff_g.png'), 
        height =8, width = 6.5, units = 'in')
+
+fixeff_g_ppt = 
+  plot_grid(
+    size_fixeff_g+theme(text = element_text(size = 14)),
+    fire_fixeff_g+theme(text = element_text(size = 14), 
+                        axis.title.y = element_blank(),
+                        axis.title.x = element_blank()),
+    wpbr_fixeff_g+theme(text = element_text(size = 14), 
+                        axis.title.y = element_blank(),
+                        axis.title.x = element_blank()),
+    ba_fixeff_g+theme(text = element_text(size = 14), 
+                        axis.title.y = element_blank(),
+                        axis.title.x = element_blank()),
+    drought_fixeff_g+theme(text = element_text(size = 14), 
+                        axis.title.y = element_blank(),
+                        axis.title.x = element_blank()),
+    dryness_fixeff_g+theme(text = element_text(size = 14), 
+                        axis.title.y = element_blank(),
+                        axis.title.x = element_blank()),
+    nrow = 2, ncol = 3
+  )
+
+fixeff_g_ppt
+
+ggsave(fixeff_g_ppt,
+       filename = here::here('04-communication',
+                             'figures',
+                             'powerpoint',
+                             'fixeff_g.png'),
+       height = 5, width = 11)
 ```
 
 ## Fecundity
@@ -1352,6 +1412,36 @@ ggsave(fixeff_f,
                              'fixeff_f.png'),
        height = 8, width = 6.5, units = 'in')
 
+fixeff_f_ppt = 
+  plot_grid(
+    size_fixeff_f+theme(text = element_text(size = 14)),
+    fire_fixeff_f+theme(text = element_text(size = 14), 
+                        axis.title.y = element_blank(),
+                        axis.title.x = element_blank()),
+    wpbr_fixeff_f+theme(text = element_text(size = 14), 
+                        axis.title.y = element_blank(),
+                        axis.title.x = element_blank()),
+    ba_fixeff_f+theme(text = element_text(size = 14), 
+                        axis.title.y = element_blank(),
+                        axis.title.x = element_blank()),
+    drought_fixeff_f+theme(text = element_text(size = 14), 
+                        axis.title.y = element_blank(),
+                        axis.title.x = element_blank()),
+    dryness_fixeff_f+theme(text = element_text(size = 14), 
+                        axis.title.y = element_blank(),
+                        axis.title.x = element_blank()),
+    nrow = 2, ncol = 3
+  )
+
+fixeff_f_ppt
+
+ggsave(fixeff_f_ppt,
+       filename = here::here('04-communication',
+                             'figures',
+                             'powerpoint',
+                             'fixeff_f.png'),
+       height = 5, width = 11)
+
 ```
 
 # Random Effects
@@ -1407,6 +1497,7 @@ plots.sf =
 
 
 ```
+
 
 ## Survival
 
@@ -1563,5 +1654,73 @@ ggsave(ecoEffect_map,
                   'manuscript',
                   'ecoEffect_map.png'),
        height = 6.5, width = 8.5, units = 'in')
+
+```
+
+
+# Data slide
+
+A map with all the data sources on it:
+
+```{r}
+pila_range.sf = 
+  st_read(here::here('02-data',
+                    '01-preprocessed',
+                    'pila_range_map.shp'))
+
+
+overview_map = 
+  ggplot(data = 
+         spData::world %>%
+         filter(continent=='North America'))+
+  geom_sf(fill = NA, lwd = 1)+
+  geom_rect(xmin = 390000, xmax = 1100000, ymin = 3740000, ymax = 5020000,
+            fill = NA, color = 'red', lwd = 2)+
+  coord_sf(crs = "EPSG:26910",
+           xlim = c(200000, 5000000), ylim = c(1000000, 8000000))+
+  theme_minimal()+
+  theme(axis.text.y = element_blank(), axis.text.x = element_blank(),
+        panel.grid = element_blank(),
+        plot.background = element_rect(fill = 'white'),
+        plot.margin = unit(c(0, 0, 0, 0), 'cm'))
+
+overview_map
+
+range_map = 
+  ggplot(data = pila_range.sf)+
+  geom_sf(data = 
+            us_states(),
+          fill = NA, lwd = 1)+
+  #geom_sf(color = 'blue', fill = NA)+
+  geom_sf(data = plots.sf, aes(color = 'red'), size = 1, alpha = 0.5)+
+  theme_minimal()+
+  coord_sf(xlim = c(390000, 1100000), ylim = c(3740000, 5020000),
+           crs = "EPSG:26910")+
+  annotation_scale()+
+  scale_color_manual(name = '', 
+                     values = c('red' = 'red'), 
+                     labels = c('FIA plots'))+
+  theme(legend.position = 'bottom',
+        text = element_text(size = 18),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank())
+
+range_map
+
+
+data_map = 
+  ggdraw()+
+  draw_plot(range_map)+
+  draw_plot(overview_map,
+            x = 0.48, y = 0.6, width = 0.3, height = 0.3)
+
+data_map
+
+ggsave(data_map,
+       filename = here::here('04-communication',
+                             'figures',
+                             'powerpoint',
+                             'data_map.png'),
+       height = 6, width = 4, units = 'in')
 
 ```

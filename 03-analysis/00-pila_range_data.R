@@ -85,6 +85,31 @@ range_map =
 
 range_map
 
+
+fire_perims = 
+  st_read(here::here('02-data',
+                     '00-source',
+                     'usfs',
+                     'S_USA.FinalFirePerimeter',
+                     'S_USA.FinalFirePerimeter.shp')) %>%
+  filter(FIREYEAR>=2011)
+
+head(fire_perims)
+
+range_map_fire = 
+  ggplot(data = pila_range.sf)+
+  geom_sf(data = 
+            us_states(),
+          fill = NA, lwd = 1)+
+  geom_sf(color = 'black', fill = '#20A387FF')+
+  geom_sf(data = fire_perims, color = NA, fill = 'red')+
+  theme_minimal()+
+  coord_sf(xlim = c(390000, 1100000), ylim = c(3740000, 5020000),
+           crs = "EPSG:26910")+
+  annotation_scale()
+
+range_map_fire
+
 pila_rangemap = 
   ggdraw()+
   draw_plot(range_map)+
