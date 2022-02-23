@@ -43,9 +43,22 @@ lapply(X = c('fire', 'wpbr'),
 # too few instances of insects = 1
 
 # plot Y distribution
-ggplot(data = growth_data,
+response_growth = 
+  ggplot(data = growth_data,
        aes(x = size1_g))+
-  geom_histogram()
+  geom_histogram()+
+  theme_minimal()+
+  theme(text = element_text(size = 14))+
+  labs(y = 'N trees', x = 'DBH at remeasurement (m)')
+
+response_growth
+
+ggsave(response_growth,
+       filename = here::here('04-communication',
+                             'figures',
+                             'powerpoint',
+                             'response_growth.png'),
+       height = 2.5, width = 5.5, units = 'in')
 
 # plot XX distributions
 lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
@@ -119,8 +132,6 @@ lapply(X = c('fire', 'wpbr'),
 
 #### survival data #############################################################
 
-
-
 surv_data = 
   pila_data$X_s %>%
   as_tibble()
@@ -136,6 +147,72 @@ lapply(X = c('dbh_m.init','ba_scaled',
                 aes(x = .data[[v]]))+
            geom_histogram()
        })
+
+explanatory_size = 
+  ggplot(data = surv_data,
+         aes(x = dbh_m.init))+
+  geom_histogram()+
+  theme_minimal()+
+  theme(text = element_text(size = 14))+
+  labs(x = 'DBH (m)', y = 'N trees')
+
+ggsave(explanatory_size,
+       filename = here::here('04-communication',
+                             'figures',
+                             'powerpoint',
+                             'explanatory_size.png'),
+       height = 4.5, width = 5.5, units = 'in')
+
+explanatory_ba = 
+  ggplot(data = surv_data,
+         aes(x = ba_scaled))+
+  geom_histogram()+
+  theme_minimal()+
+  theme(text = element_text(size = 14))+
+  labs(x = 'Basal area (scaled)', y = 'N trees')
+
+explanatory_ba
+
+ggsave(explanatory_ba,
+       filename = here::here('04-communication',
+                             'figures',
+                             'powerpoint',
+                             'explanatory_ba.png'),
+       height = 4.5, width = 5.5, units = 'in')
+
+explanatory_drought = 
+  ggplot(data = surv_data,
+         aes(x = cwd_dep90_scaled))+
+  geom_histogram()+
+  theme_minimal()+
+  theme(text = element_text(size = 14))+
+  labs(x = 'Drought (scaled CWD departure)', y = 'N trees')
+
+ggsave(explanatory_drought,
+       filename = here::here('04-communication',
+                             'figures',
+                             'powerpoint',
+                             'explanatory_drought.png'),
+       height = 4.5, width = 5.5, units = 'in')
+
+explanatory_dryness = 
+  ggplot(data = surv_data,
+         aes(x = cwd_mean_scaled))+
+  geom_histogram()+
+  theme_minimal()+
+  theme(text = element_text(size = 14))+
+  labs(x = 'Site dryness (scaled mean CWD)', y = 'N trees')
+
+ggsave(explanatory_dryness,
+       filename = here::here('04-communication',
+                             'figures',
+                             'powerpoint',
+                             'explanatory_dryness.png'),
+       height = 4.5, width = 5.5, units = 'in')
+
+
+
+
 lapply(X = c('fire', 'wpbr'),
        FUN = function(v){
   ggplot(data = surv_data,
@@ -143,12 +220,56 @@ lapply(X = c('fire', 'wpbr'),
     geom_bar()
 })
 
+explanatory_fire = 
+  ggplot(data = surv_data,
+         aes(x = as.factor(fire)))+
+  geom_bar()+
+  theme_minimal()+
+  labs(y = 'N trees', x = 'Fire')+
+  theme(text = element_text(size = 14))
+
+ggsave(explanatory_fire,
+       filename = here::here('04-communication',
+                             'figures',
+                             'powerpoint',
+                             'explanatory_fire.png'),
+       height = 4.5, width = 5.5, units = 'in')
+
+explanatory_wpbr = 
+  ggplot(data = surv_data,
+         aes(x = as.factor(wpbr)))+
+  geom_bar()+
+  theme_minimal()+
+  labs(y = 'N trees', x = 'WPBR')+
+  theme(text = element_text(size = 14))
+
+ggsave(explanatory_wpbr,
+       filename = here::here('04-communication',
+                             'figures',
+                             'powerpoint',
+                             'explanatory_wpbr.png'),
+       height = 4.5, width = 5.5, units = 'in')
+
+
 # too few instances of insects = 1
 
 # plot Y distribution
-ggplot(data = surv_data,
+response_surv = 
+  ggplot(data = surv_data,
        aes(x = as.factor(surv)))+
-  geom_bar()
+  geom_bar()+
+  theme_minimal()+
+  theme(text = element_text(size = 14))+
+  labs(y = 'N trees', x = 'Survived')
+
+response_surv
+
+ggsave(response_surv,
+       filename = here::here('04-communication',
+                             'figures',
+                             'powerpoint',
+                             'response_surv.png'),
+       height = 2.5, width = 5.5, units = 'in')
 
 # plot XX distributions
 lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
@@ -225,3 +346,27 @@ lapply(X = c('fire', 'wpbr'),
 # class rather than each individual, so plotting it is less useful. 
 # The recr subplots are the intersection of the subplots included in 
 # the growth and survival datasets so I expect them to be similar.
+
+# plot y distribution
+pila_data$cprime
+
+response_untagged = 
+  data.frame(dbh_0_13 = pila_data$cprime[1,],
+           dbh_13_25 = pila_data$cprime[2,]) %>%
+  pivot_longer(cols = everything(),
+               names_to = 'class',
+               values_to = 'count') %>%
+  ggplot(aes(x = count))+
+  geom_histogram()+
+  theme_minimal()+
+  theme(text = element_text(size = 14))+
+  facet_wrap(~class, scales = 'free')+
+  labs(y = 'N subplots', x = 'N untagged trees')
+
+ggsave(response_untagged,
+       filename = here::here('04-communication',
+                             'figures',
+                             'powerpoint',
+                             'response_untagged.png'),
+       height = 2.5, width = 5.5, units = 'in')
+
