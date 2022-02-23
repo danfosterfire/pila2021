@@ -202,7 +202,7 @@ lapply(X = c('ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
                 aes(x = dbh_m.init, 
                     y = surv, 
                     color = cut(.data[[v]],
-                               breaks = quantile(.data[[v]], probs = c(0, 0.33, 0.66, 1)),
+                               breaks = c(-10, -1, 1, 10),
                                include_lowest = TRUE)))+
            geom_jitter(width = 0, height = 0.1, size = 0)+
            geom_smooth(method = 'glm', method.args = list(family = 'binomial'))+

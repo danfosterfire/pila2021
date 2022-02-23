@@ -744,7 +744,7 @@ subplot_data =
   # get the live BA for the initial measurement
   left_join(treelist %>%
               filter(tree_status == 'live') %>%
-              mutate(ba_ft2ac = (pi*((0.5*(dbh_in/12))^2))*tpa_unadj) %>%
+              mutate(ba_ft2ac = (pi*((0.5*(dbh_in/12))^2))*tpa_unadj/4) %>%
               group_by(plt_cn, subp_id) %>%
               summarise(ba_ft2ac = sum(ba_ft2ac, na.rm = TRUE)) %>%
               ungroup(),
@@ -764,7 +764,6 @@ subplot_data =
            ifelse(is.na(wpbr), FALSE, wpbr))
 
 summary(subplot_data$wpbr)
-
 
 #### pull in CWD data ##########################################################
 
