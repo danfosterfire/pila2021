@@ -172,6 +172,11 @@ lapply(X =
            geom_boxplot()
        }) # a little confusing; keep in mind that cwd_departure is over the previous 10 years, not 
 # the year shown
+# not a strong signal of the 2012-2016 drought when looking at time, though you 
+# do see it show up in the southern sierra plots when looking across space. Theres 
+# a ton of plots from the northern part of the range in the klamath and cascades,
+# where the 2012-2016 drought was much less pronounced in the CWD data.
+
 
 # plot them across eachother
 ggplot(data = subplot_data,

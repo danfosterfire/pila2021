@@ -4,10 +4,6 @@ library(tidyverse)
 library(DBI)
 library(RSQLite)
 
-pila_range.sf = 
-  sf::st_read(here::here('02-data',
-                     '01-preprocessed',
-                     'pila_range_map.shp'))
 
 #### read in data from SQLite databases ########################################
 
@@ -608,7 +604,6 @@ treelist =
                           'OTHER'))
 
 
-head(treelist)
          
 #### prepare seedling data #####################################################
 
@@ -663,27 +658,23 @@ subplots =
   filter(invyr >= 2000 & invyr <= 2021) %>%
   
   # only sampled plots
-  filter(plot_status != 'nonsampled')
-
-
-# lat,lon within PILA range polygon
-plt_cn_within_range = 
+  filter(plot_status != 'nonsampled') %>%
   
-  # create spatial points
-  sf::st_as_sf(subplots,
-           coords = c('lon', 'lat'),
-           crs = 4269) %>%
-  
-  # intersect them with the range polygon
-  sf::st_intersection(sf::st_transform(pila_range.sf, sf::st_crs(.))) %>%
-  
-  # extract the plt_cns 
-  pull(plt_cn)
-
-subplots = 
-  subplots %>%
-  filter(is.element(plt_cn, plt_cn_within_range))
-
+  # plots where PILA is present
+  left_join(
+    fia$PLOT %>%
+      left_join(fia$TREE %>%
+                  select(PLT_CN, STATUSCD, SPCD),
+                by = c('CN' = 'PLT_CN')) %>%
+      mutate(live_pila = STATUSCD==1 & SPCD==117,
+             plot_id = paste(STATECD, UNITCD, COUNTYCD, PLOT,
+                             sep = '-')) %>%
+      select(plot_id, live_pila) %>%
+      group_by(plot_id) %>%
+      summarise(live_pila = any(live_pila, na.rm = TRUE)) %>%
+      ungroup()
+  ) %>%
+  filter(live_pila)
 
 
 #### filter treelist ###########################################################
@@ -770,6 +761,12 @@ summary(subplot_data$wpbr)
 library(terra)
 
 head(subplot_data)
+
+subplots_data.sf = 
+  subplot_data %>%
+  st_as_sf(coords = c('lon', 'lat'),
+           crs = 'EPSG:4269')
+
 
 subplots_bbox = 
   list('lat_min' = min(subplot_data$lat)-1,
@@ -1097,7 +1094,7 @@ untagged_data =
 # of each bin
 size_metadata = 
   data.frame(bin_midpoint = 
-               seq(from = 0.5, to = 97.5, by = 5)) %>%
+               seq(from = 2.5, to = 97.5, by = 5)) %>%
   mutate(bin_id = cut(bin_midpoint,
                       breaks = seq(from = 0, to = 100, by = 5),
                       labels = FALSE,
@@ -1132,6 +1129,12 @@ size_metadata =
     summarise(dbh_in.mean = mean(dbh_in, na.rm = TRUE)) %>%
     ungroup())
 
+# fudge one bin with no trees in it
+size_metadata[size_metadata$bin_id==18,'dbh_in.mean'] = 
+  (size_metadata[size_metadata$bin_id==17,'dbh_in.mean']+
+     size_metadata[size_metadata$bin_id==19,'dbh_in.mean'])/2
+
+size_metadata
 
 #### write results #############################################################
 

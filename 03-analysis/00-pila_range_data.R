@@ -166,6 +166,13 @@ test_threshold =
   }
 
 # optimize the threshold value
+# depending on whether we're optimizing for accuracy or precisions, we wind 
+# up either way overpredicting the range or way underpredicting it, relative 
+# to the actual FIA plots. Also, in the current version of the paper we're only 
+# modelling sugar pine so it makes more sense to just use all plots where 
+# sugar pine is present, rather than try to ID a the range spatially, which 
+# would be more useful for ID'ing "in range" plots with no PILA for modelling 
+# other spp.
 optim_results = 
   optim(par = c(1), 
       fn = test_threshold, 
@@ -186,11 +193,11 @@ plot(test_raster)
 # this gives a level of inclusivity which is about on par with the little polygons
 # filtering to to include anything > 0 gives too inclusive an area, including many 
 # plots where PILA presence isn't really plausible up in WA
-pila_range[pila_range<2] = NA 
+pila_range[pila_range<exp(optim_results$par)] = NA 
 
 # turn the raster into a multipart polygon
 pila_range.sf = 
-  raster::rasterToPolygons(x = pila_range>=2) %>%
+  raster::rasterToPolygons(x = pila_range>=exp(optim_results$par)) %>%
   sf::st_as_sf() %>%
   mutate(area_m2 = st_area(.)) %>%
   summarise(area_m2 = sum(area_m2)) %>%
@@ -200,7 +207,6 @@ pila_range.sf =
 
 plot(pila_range.sf)
 
-test = spData::world
 
 
 
@@ -222,11 +228,15 @@ overview_map =
 overview_map
 
 range_map = 
-  ggplot(data = pila_range.sf)+
+  ggplot(data = 
+           pila_presabs %>%
+           filter(live_pila == TRUE) %>%
+           st_as_sf(coords = c('lon', 'lat'),
+                    crs = 'EPSG:4269'))+
   geom_sf(data = 
             us_states(),
           fill = NA, lwd = 1)+
-  geom_sf(color = 'black', fill = '#20A387FF')+
+  geom_sf(color = 'red', size = 1)+
   theme_minimal()+
   coord_sf(xlim = c(390000, 1100000), ylim = c(3740000, 5020000),
            crs = "EPSG:26910")+
@@ -235,47 +245,19 @@ range_map =
 range_map
 
 
-fire_perims = 
-  st_read(here::here('02-data',
-                     '00-source',
-                     'usfs',
-                     'S_USA.FinalFirePerimeter',
-                     'S_USA.FinalFirePerimeter.shp')) %>%
-  filter(FIREYEAR>=2011)
-
-head(fire_perims)
-
-range_map_fire = 
-  ggplot(data = pila_range.sf)+
-  geom_sf(data = 
-            us_states(),
-          fill = NA, lwd = 1)+
-  geom_sf(color = 'black', fill = '#20A387FF')+
-  geom_sf(data = fire_perims, color = NA, fill = 'red')+
-  theme_minimal()+
-  coord_sf(xlim = c(390000, 1100000), ylim = c(3740000, 5020000),
-           crs = "EPSG:26910")+
-  annotation_scale()
-
-range_map_fire
-
 pila_rangemap = 
   ggdraw()+
   draw_plot(range_map)+
   draw_plot(overview_map,
             x = 0.48, y = 0.6, width = 0.3, height = 0.3)
 
+pila_rangemap
+
 ggsave(plot = pila_rangemap,
        filename = 
          here::here('04-communication',
                     'figures',
                     'manuscript',
-                    'pila_range_map.png'))
+                    'pila_plots.png'))
 
-
-st_write(pila_range.sf,
-         here::here('02-data',
-                    '01-preprocessed',
-                    'pila_range_map.shp'),
-         delete_dsn=TRUE)
 
