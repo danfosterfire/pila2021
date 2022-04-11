@@ -133,6 +133,8 @@ growth_retrodictions_plot =
               alpha = 0.2)+
   labs(x = 'rank (simulated size)', y = 'Size at remeasure')
 
+growth_retrodictions_plot
+
 # model is slightly overpredicting size of the smallest trees, missing some variation
 # in size
 
@@ -150,6 +152,8 @@ growth_retrodictions_plot2 =
   geom_ribbon(aes(x = size1_sim.50, ymin = size1_sim.025, ymax = size1_sim.975, y = size1_sim.50),
               alpha = 0.2)+
   geom_abline(intercept = 0, slope = 1, color = 'blue')
+
+growth_retrodictions_plot2
 
 ggsave(growth_retrodictions_plot2,
        filename = here::here('04-communication',
@@ -361,6 +365,7 @@ recr_retrodictions_plot =
   scale_x_continuous(limits = c(-1, 10))+
   theme_minimal()
 
+recr_retrodictions_plot
 # looks good
 
 recr_retrodictions_plot2 = 
@@ -386,3 +391,4 @@ ggsave(recr_retrodictions_plot2,
                              'figures',
                              'manuscript',
                              'retrodictions_r.png'))
+
