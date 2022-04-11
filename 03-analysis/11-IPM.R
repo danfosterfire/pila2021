@@ -138,84 +138,102 @@ sigmaEpsilon_g.med =
   summarise_all(median) %>%
   pull(sigmaEpsilon_g) %>%
   as.numeric()
-            
+           
+subplot_transitions.med = 
+  
+  array(dim = list(nrow(size_metadata),
+                   nrow(size_metadata),
+                   nrow(subplots.pila)),
+        dimnames = list('class_to' = 1:nrow(size_metadata),
+                        'class_from' = 1:nrow(size_metadata),
+                        'subplot' = 1:nrow(subplots.pila)),
+        data = 
+          sapply(X = 1:nrow(subplots.pila),
+                 FUN = function(subplot){
+                   
+                   # construct explanatory variable matrix for survival 
+                   # for teh current subplot
+                   X = 
+                     subplots.pila %>%
+                     slice(subplot) %>%
+                     expand(nesting(intercept, fire, wpbr, ba_scaled,
+                                    cwd_dep90_scaled,cwd_mean_scaled),
+                            dbh = size_metadata$dbh_m.mean) %>%
+                     mutate(dbh_fire = dbh*fire,
+                            dbh_wpbr = dbh*wpbr,
+                            dbh_ba = dbh*ba_scaled,
+                            dbh_cwd_dep90 = dbh*cwd_dep90_scaled,
+                            dbh_cwd_mean = dbh*cwd_mean_scaled) %>%
+                     select(intercept, dbh, fire, wpbr, ba_scaled,
+                            cwd_dep90_scaled, cwd_mean_scaled, 
+                            dbh_fire, dbh_wpbr, dbh_ba,
+                            dbh_cwd_dep90, dbh_cwd_mean) %>%
+                     as.matrix()
+                   
+                   # calculate size_from length vector of survival 
+                   # probabilities on this subplot with this parameter draw
+                   p = 
+                     boot::inv.logit(as.numeric(X %*% beta_s.med) +
+                                       ecoEffect_s.med[subplots.pila$ecosub.i[subplot]]+
+                                       plotEffect_s.med[subplots.pila$plot_id.i][subplot])
+                   
+                   mu = as.numeric(X %*% beta_g.med)+
+                     ecoEffect_g.med[subplots.pila$ecosub.i[subplot]]+
+                     plotEffect_g.med[subplots.pila$plot_id.i[subplot]]
+                   
+                   f = 
+                     exp(as.numeric(X %*% beta_f.med)+
+                           ecoEffect_f.med[subplots.pila$ecosub.i[subplot]]+
+                           plotEffect_f.med[subplots.pila$plot_id.i[subplot]])
+                   
+                   sapply(X = 1:nrow(size_metadata),
+                          FUN = function(class_from){
+                            
+                             g = 
+                                ((pnorm(size_metadata$bin_upper,
+                                        mu[class_from],
+                                        sigmaEpsilon_g.med) - 
+                                    pnorm(size_metadata$bin_lower,
+                                          mu[class_from],
+                                          sigmaEpsilon_g.med))/
+                                   (1-pnorm(0,
+                                            mu[class_from],
+                                            sigmaEpsilon_g.med)))
+                            
+                            sapply(X = 1:nrow(size_metadata),
+                                   FUN = function(class_to){
+                                     
+                                     # for testing
+                                    #paste0('to:',class_to,',from:',class_from,
+                                    #       ',subplot:',subplot)
+                                    transition_prob = 
+                                         # survival of each from class
+                                         (p[class_from] *
+                                            # prob of growth from to
+                                            g[class_to]) +
+                                         # number of new recruits
+                                         (f[class_from] *
+                                            size_metadata$r[class_to])
+                                       return(transition_prob)
+                                     
+                                   })
+                            
+                          })
+                   
+                 }))
+
 subplot_lambdas.med = 
   sapply(X = 1:nrow(subplots.pila),
-       FUN = function(subplot){
-         
-         # construct explanatory variable matrix for survival 
-         # for teh current subplot
-         X = 
-           subplots.pila %>%
-           slice(subplot) %>%
-           expand(nesting(intercept, fire, wpbr, ba_scaled,
-                          cwd_dep90_scaled,cwd_mean_scaled),
-                  dbh = size_metadata$dbh_m.mean) %>%
-           mutate(dbh_fire = dbh*fire,
-                  dbh_wpbr = dbh*wpbr,
-                  dbh_ba = dbh*ba_scaled,
-                  dbh_cwd_dep90 = dbh*cwd_dep90_scaled,
-                  dbh_cwd_mean = dbh*cwd_mean_scaled) %>%
-           select(intercept, dbh, fire, wpbr, ba_scaled,
-                  cwd_dep90_scaled, cwd_mean_scaled, 
-                  dbh_fire, dbh_wpbr, dbh_ba,
-                  dbh_cwd_dep90, dbh_cwd_mean) %>%
-           as.matrix()
-         
-         # calculate size_from length vector of survival 
-         # probabilities on this subplot with this parameter draw
-         p = 
-           boot::inv.logit(as.numeric(X %*% beta_s.med) +
-                             ecoEffect_s.med[subplots.pila$ecosub.i[subplot]]+
-                             plotEffect_s.med[subplots.pila$plot_id.i][subplot])
-         
-         mu = as.numeric(X %*% beta_g.med)+
-           ecoEffect_g.med[subplots.pila$ecosub.i[subplot]]+
-           plotEffect_g.med[subplots.pila$plot_id.i[subplot]]
-         
-         f = 
-           exp(as.numeric(X %*% beta_f.med)+
-                 ecoEffect_f.med[subplots.pila$ecosub.i[subplot]]+
-                 plotEffect_f.med[subplots.pila$plot_id.i[subplot]])
-         
-         A.subplot = 
-           sapply(X = 1:nrow(size_metadata),
-                FUN = function(class_from){
-                  
-                  g = 
-                    ((pnorm(size_metadata$bin_upper,
-                            mu[class_from],
-                            sigmaEpsilon_g.med) - 
-                        pnorm(size_metadata$bin_lower,
-                              mu[class_from],
-                              sigmaEpsilon_g.med))/
-                       (1-pnorm(0,
-                                mu[class_from],
-                                sigmaEpsilon_g.med)))
-                  
-                  sapply(X = 1:nrow(size_metadata),
-                         FUN = function(class_to){
-                           
-                           transition_prob = 
-                             # survival of each from class
-                             (p[class_from] *
-                                # prob of growth from to
-                                g[class_to]) +
-                             # number of new recruits
-                             (f[class_from] *
-                                size_metadata$r[class_to])
-                           return(transition_prob)
-                           
-                           # for testing
-                           #paste0('d:',draw,'|s:',subplot,
-                           #  '|f:',class_from,'|t:',class_to)
-                         })
-                })
-         lambda.subplot = max(as.numeric(eigen(A.subplot)$values))
+         FUN = function(subplot){
+           
+          A.subplot = subplot_transitions.med[,,subplot]
+           
+         lambda.subplot = max(as.numeric(Re(eigen(A.subplot)$values)))
          return(lambda.subplot)
        })
  
 
+# lambda: asymptotic population growth rate
 subplots.pila$lambda_postmed = 
   subplot_lambdas.med
 
@@ -260,7 +278,308 @@ ggsave(postmed_lambda_distribution,
 
 postmed_lambda_distribution
 
-library(sf)
+# stable size distribution
+subplot_ssd.med = 
+  matrix(nrow = nrow(size_metadata),
+         ncol = nrow(subplots.pila),
+         byrow = FALSE,
+         data = 
+           sapply(X = 1:nrow(subplots.pila),
+                  FUN = function(subplot){
+                    A.subplot = subplot_transitions.med[,,subplot]
+                    # from supplamentory materials for merow et al 2014 
+                    # "On using integral projection models..."
+                    w.eigen = Re(eigen(A.subplot)$vectors[,1])
+                    ssd = w.eigen / sum(w.eigen)
+                    return(ssd)
+                  }))
+
+subplot_ssd.df = 
+  expand.grid('subplot' = 1:nrow(subplots.pila),
+            'sizeclass' = 1:nrow(size_metadata)) %>%
+  left_join(size_metadata %>%
+              mutate(bin_midpoint_cm = bin_midpoint*100) %>%
+              select(sizeclass = bin_id, bin_midpoint_cm))
+
+subplot_ssd.df$class_proportion = 
+  
+  as.numeric(
+    sapply(X = 1:nrow(size_metadata),
+           FUN = function(sizeclass){
+             
+             return(subplot_ssd.med[sizeclass,])
+             
+           })
+  )
+
+# stable size distribution is inverse J not surprising
+subplot_ssd.df %>%
+  group_by(bin_midpoint_cm, sizeclass) %>%
+  summarise(prop.med = median(class_proportion),
+            prop.05 = quantile(class_proportion, 0.05),
+            prop.95 = quantile(class_proportion, 0.95)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_cm))+
+  geom_point(aes(y = prop.med), size = 3)+
+  geom_errorbar(aes(ymin = prop.05, ymax = prop.95),
+                width = 1)+
+  theme_minimal()
+
+
+# reproductive value
+subplot_repro.med = 
+  matrix(nrow = nrow(size_metadata),
+         ncol = nrow(subplots.pila),
+         byrow = FALSE,
+         data = 
+           sapply(X = 1:nrow(subplots.pila),
+                  FUN = function(subplot){
+                    A.subplot = subplot_transitions.med[,,subplot]
+                    # from supplementary materials for merow et al 2014 
+                    # "On using integral projection models..."
+                    v.eigen = Re(eigen(t(A.subplot))$vectors[,1])
+                    
+                    rv = v.eigen / v.eigen[1]
+                    return(rv)
+                  }))
+
+# sensitivity and elasticity
+v.dot.w = 
+  sapply(X = 1:nrow(subplots.pila),
+         FUN = function(subplot){
+           sum(subplot_ssd.med[,subplot] * subplot_repro.med[,subplot])*0.127
+         })
+
+sens = 
+  array(dim = list(nrow(size_metadata),
+                   nrow(size_metadata),
+                   nrow(subplots.pila)),
+        dimnames = 
+          list('size_to' = 1:nrow(size_metadata),
+               'size_from' = 1:nrow(size_metadata),
+               'subplot' = 1:nrow(subplots.pila)),
+        data = 
+  sapply(X = 1:nrow(subplots.pila),
+         FUN = function(subplot){
+           outer(subplot_repro.med[,subplot], subplot_ssd.med[,subplot])/
+             v.dot.w[subplot]
+         }))
+
+sens.agg = 
+  matrix(nrow = nrow(size_metadata),
+         ncol = nrow(size_metadata),
+         byrow = FALSE,
+         data = 
+           sapply(X = 1:nrow(size_metadata),
+                  FUN = function(size_to){
+                    sapply(X = 1:nrow(size_metadata),
+                           FUN = function(size_from){
+                             median(as.vector(sens[size_to,size_from,]),
+                                    na.rm= TRUE)
+                           })
+                  }))
+
+sens.df = 
+  expand.grid(size_to = size_metadata$bin_id,
+              size_from = size_metadata$bin_id) %>%
+  left_join(size_metadata %>%
+              select(size_to = bin_id, 
+                     bin_midpoint_to_m = bin_midpoint)) %>%
+  left_join(size_metadata %>%
+              select(size_from = bin_id,
+                     bin_midpoint_from_m = bin_midpoint)) 
+
+# looks like its transitions from the biggest classes into the smallest classes
+# that matter most
+fields::image.plot(size_metadata$bin_midpoint,
+           size_metadata$bin_midpoint,
+           t(sens.agg),
+           xlab = 'Size (t)', ylab = 'Size (t+1)')
+
+sens.df$sensitivity = 
+  sapply(X = 1:nrow(size_metadata),
+         FUN = function(size_from){
+           sapply(X = 1:nrow(size_metadata),
+                  FUN = function(size_to){
+                    sens.agg[size_to, size_from]
+           })
+         }) %>%
+  as.vector()
+
+ggplot(sens.df,
+       aes(x = bin_midpoint_from_m,
+           y = bin_midpoint_to_m,
+           fill = sensitivity))+
+  geom_tile()+
+  coord_fixed()+
+  theme_minimal()+
+  scale_fill_viridis_c()
+
+
+sens = 
+  array(dim = list(nrow(size_metadata),
+                   nrow(size_metadata),
+                   nrow(subplots.pila)),
+        dimnames = 
+          list('size_to' = 1:nrow(size_metadata),
+               'size_from' = 1:nrow(size_metadata),
+               'subplot' = 1:nrow(subplots.pila)),
+        data = 
+          sapply(X = 1:nrow(subplots.pila),
+                 FUN = function(subplot){
+                   outer(subplot_repro.med[,subplot], subplot_ssd.med[,subplot])/
+                     v.dot.w[subplot]
+                 }))
+
+
+elas = 
+  
+  array(dim = list(nrow(size_metadata),
+                   nrow(size_metadata),
+                   nrow(subplots.pila)),
+        dimnames = 
+          list('size_to' = 1:nrow(size_metadata),
+               'size_from' = 1:nrow(size_metadata),
+               'subplot' = 1:nrow(subplots.pila)),
+        data = 
+          sapply(X = 1:nrow(subplots.pila),
+                 FUN = function(subplot){
+                    matrix(as.vector(sens[,,subplot])*
+                            as.vector(subplot_transitions.med[,,subplot])/
+                            subplot_lambdas.med[subplot])
+                 }))
+
+elas.agg = 
+  matrix(nrow = nrow(size_metadata),
+         ncol = nrow(size_metadata),
+         byrow = FALSE,
+         data = 
+           sapply(X = 1:nrow(size_metadata),
+                  FUN = function(size_to){
+                    sapply(X = 1:nrow(size_metadata),
+                           FUN = function(size_from){
+                             median(as.vector(elas[size_to,size_from,]),
+                                    na.rm= TRUE)
+                           })
+                  }))
+
+elas.df = 
+  expand.grid(size_to = size_metadata$bin_id,
+              size_from = size_metadata$bin_id) %>%
+  left_join(size_metadata %>%
+              select(size_to = bin_id, 
+                     bin_midpoint_to_m = bin_midpoint)) %>%
+  left_join(size_metadata %>%
+              select(size_from = bin_id,
+                     bin_midpoint_from_m = bin_midpoint)) 
+
+# looks like its transitions from the biggest classes into the smallest classes
+# that matter most
+fields::image.plot(size_metadata$bin_midpoint,
+           size_metadata$bin_midpoint,
+           t(elas.agg),
+           xlab = 'Size (t)', ylab = 'Size (t+1)')
+
+elas.df$elasticity = 
+  sapply(X = 1:nrow(size_metadata),
+         FUN = function(size_from){
+           sapply(X = 1:nrow(size_metadata),
+                  FUN = function(size_to){
+                    elas.agg[size_to, size_from]
+           })
+         }) %>%
+  as.vector()
+
+ggplot(elas.df,
+       aes(x = bin_midpoint_from_m,
+           y = bin_midpoint_to_m,
+           fill = elasticity))+
+  geom_tile()+
+  coord_fixed()+
+  theme_minimal()+
+  scale_fill_viridis_c()
+
+
+
+subplot_repro.df = 
+  expand.grid('subplot' = 1:nrow(subplots.pila),
+            'sizeclass' = 1:nrow(size_metadata)) %>%
+  left_join(size_metadata %>%
+              mutate(bin_midpoint_cm = bin_midpoint*100) %>%
+              select(sizeclass = bin_id, bin_midpoint_cm))
+
+subplot_repro.df$reproductive_value = 
+  
+  as.numeric(
+    sapply(X = 1:nrow(size_metadata),
+           FUN = function(sizeclass){
+             
+             return(subplot_repro.med[sizeclass,])
+             
+           })
+  )
+
+
+subplot_repro.df %>%
+  filter(!is.element(subplot, c(1150, 3000))) %>%
+  summary()
+
+# stable size distribution is inverse J not surprising
+subplot_repro.df %>%
+  
+  group_by(bin_midpoint_cm, sizeclass) %>%
+  
+  # there's a couple of NA subplots for reproductive value, looks like cases 
+  # where numerical errors are resulting in a divide by zero when going from 
+  # v.eigen to reproductive value? 
+  summarise(repr.med = median(reproductive_value, na.rm = TRUE),
+            
+            # there's a couple of NAs in h
+            repr.05 = quantile(reproductive_value, 0.25, na.rm = TRUE),
+            repr.95 = quantile(reproductive_value, 0.75, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_cm))+
+  geom_point(aes(y = repr.med), size = 3)+
+  #geom_errorbar(aes(ymin = repr.05, ymax = repr.95),
+  #              width = 1)+
+  theme_minimal()
+
+
+v = Re(eigen(t(subplot_transitions.med[,,49]))$vectors[,1])
+
+
+
+test = subplots.pila
+
+bad_subplots = 
+   subplot_repro.df %>%
+                          filter(reproductive_value<0) %>%
+                          group_by(subplot) %>%
+                          summarise() %>%
+                          ungroup() %>%
+                          pull(subplot)
+test$subp_number = 1:nrow(subplots.pila)
+head(test)
+test$bad_subplot = 
+  sapply(X = test$subp_number,
+         FUN = function(s){
+           is.element(s, bad_subplots)
+         })
+
+test %>%
+  filter(bad_subplot) %>%
+  print(width = Inf, n = Inf)
+
+test %>% 
+  print(width = Inf, n = Inf)
+
+test %>%
+  ggplot(aes(x = bad_subplot, y = lambda_postmed))+
+  geom_boxplot()+
+  theme_minimal()+
+  scale_y_continuous(limits = c(0, 2))
+
+flibrary(sf)
 library(scales)
 subplots.pila.sf = 
   subplots.pila %>%
