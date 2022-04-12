@@ -138,7 +138,8 @@ sigmaEpsilon_g.med =
   summarise_all(median) %>%
   pull(sigmaEpsilon_g) %>%
   as.numeric()
-           
+          
+#### subplot tranasition matrices ############################################## 
 subplot_transitions.med = 
   
   array(dim = list(nrow(size_metadata),
@@ -228,6 +229,13 @@ saveRDS(subplot_transitions.med,
                    'real_fits',
                    'subplot_As.rds'))
 
+subplot_transitions.med = 
+  readRDS(here::here('02-data',
+                   '03-results',
+                   'real_fits',
+                   'subplot_As.rds'))
+
+#### subplot lambda ############################################################
 subplot_lambdas.med = 
   sapply(X = 1:nrow(subplots.pila),
          FUN = function(subplot){
@@ -271,6 +279,7 @@ ggsave(postmed_lambda_distribution_ppt,
 
 summary(subplots.pila$lambda_postmed)
 
+
 # what proportion of plots is the pop predicted to decline on
 length(subplots.pila$lambda_postmed[subplots.pila$lambda_postmed<1])/
   length(subplots.pila$lambda_postmed)
@@ -283,6 +292,8 @@ ggsave(postmed_lambda_distribution,
        height = 4, width = 6.5, units = 'in')
 
 postmed_lambda_distribution
+
+#### subplot stable size distribution ##########################################
 
 # stable size distribution
 subplot_ssd.med = 
@@ -331,7 +342,7 @@ subplot_ssd.df %>%
                 width = 1)+
   theme_minimal()
 
-
+#### subplot reproductive value ################################################
 # reproductive value
 subplot_repro.med = 
   matrix(nrow = nrow(size_metadata),
@@ -349,6 +360,52 @@ subplot_repro.med =
                     return(rv)
                   }))
 
+
+subplot_repro.df = 
+  expand.grid('subplot' = 1:nrow(subplots.pila),
+            'sizeclass' = 1:nrow(size_metadata)) %>%
+  left_join(size_metadata %>%
+              mutate(bin_midpoint_cm = bin_midpoint*100) %>%
+              select(sizeclass = bin_id, bin_midpoint_cm))
+
+subplot_repro.df$reproductive_value = 
+  
+  as.numeric(
+    sapply(X = 1:nrow(size_metadata),
+           FUN = function(sizeclass){
+             
+             return(subplot_repro.med[sizeclass,])
+             
+           })
+  )
+
+
+subplot_repro.df %>%
+  filter(!is.element(subplot, c(1150, 3000))) %>%
+  summary()
+
+# stable size distribution is inverse J not surprising
+subplot_repro.df %>%
+  
+  group_by(bin_midpoint_cm, sizeclass) %>%
+  
+  # there's a couple of NA subplots for reproductive value, looks like cases 
+  # where numerical errors are resulting in a divide by zero when going from 
+  # v.eigen to reproductive value? 
+  summarise(repr.med = median(reproductive_value, na.rm = TRUE),
+            
+            # there's a couple of NAs in h
+            repr.05 = quantile(reproductive_value, 0.25, na.rm = TRUE),
+            repr.95 = quantile(reproductive_value, 0.75, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_cm))+
+  geom_point(aes(y = repr.med), size = 3)+
+  #geom_errorbar(aes(ymin = repr.05, ymax = repr.95),
+  #              width = 1)+
+  theme_minimal()
+
+
+#### subplot sensitivity and elasticity ########################################
 # sensitivity and elasticity
 v.dot.w = 
   sapply(X = 1:nrow(subplots.pila),
@@ -507,48 +564,6 @@ ggplot(elas.df,
 
 
 
-subplot_repro.df = 
-  expand.grid('subplot' = 1:nrow(subplots.pila),
-            'sizeclass' = 1:nrow(size_metadata)) %>%
-  left_join(size_metadata %>%
-              mutate(bin_midpoint_cm = bin_midpoint*100) %>%
-              select(sizeclass = bin_id, bin_midpoint_cm))
-
-subplot_repro.df$reproductive_value = 
-  
-  as.numeric(
-    sapply(X = 1:nrow(size_metadata),
-           FUN = function(sizeclass){
-             
-             return(subplot_repro.med[sizeclass,])
-             
-           })
-  )
-
-
-subplot_repro.df %>%
-  filter(!is.element(subplot, c(1150, 3000))) %>%
-  summary()
-
-# stable size distribution is inverse J not surprising
-subplot_repro.df %>%
-  
-  group_by(bin_midpoint_cm, sizeclass) %>%
-  
-  # there's a couple of NA subplots for reproductive value, looks like cases 
-  # where numerical errors are resulting in a divide by zero when going from 
-  # v.eigen to reproductive value? 
-  summarise(repr.med = median(reproductive_value, na.rm = TRUE),
-            
-            # there's a couple of NAs in h
-            repr.05 = quantile(reproductive_value, 0.25, na.rm = TRUE),
-            repr.95 = quantile(reproductive_value, 0.75, na.rm = TRUE)) %>%
-  ungroup() %>%
-  ggplot(aes(x = bin_midpoint_cm))+
-  geom_point(aes(y = repr.med), size = 3)+
-  #geom_errorbar(aes(ymin = repr.05, ymax = repr.95),
-  #              width = 1)+
-  theme_minimal()
 
 
 v = Re(eigen(t(subplot_transitions.med[,,49]))$vectors[,1])
@@ -623,6 +638,7 @@ hypothetical_subplots =
              name = c('Undisturbed', 'Fire', 'WPBR', 'Low BA', 'High BA',
                       'Low Drought', 'High Drought', 'Wet Site', 'Dry Site'))
 
+#### hypothetical transitoin matrices ##########################################
 
 A_hypotheticals = 
   array(dim = c(nrow(size_metadata), # sizeclass to
@@ -731,6 +747,31 @@ A_hypotheticals =
                  }))
 
 
+saveRDS(A_hypotheticals,
+        here::here('02-data',
+                   '03-results',
+                   'real_fits',
+                   'hypothetical_As.rds'))
+
+A_hypotheticals = 
+  readRDS(here::here('02-data',
+                     '03-results',
+                     'real_fits',
+                     'hypothetical_As.rds'))
+
+#### hypothetical lambda #######################################################
+
+hypothetical_lambdas.matrix = 
+  matrix(nrow = nrow(hypothetical_subplots),
+         ncol = 4000,
+         data = 
+           sapply(X = 1:nrow(hypothetical_subplots),
+                  FUN = function(subplot){
+                    sapply(X = 1:4000,
+                           FUN = function(draw){
+                             max(Re(eigen(A_hypotheticals[,,subplot,draw])$values))
+                           })
+                  }))
 
 hypothetical_lambdas = 
   hypothetical_subplots %>%
@@ -750,12 +791,6 @@ hypothetical_lambdas$lambda =
          }) %>%
   as.numeric()
 
-saveRDS(A_hypotheticals,
-        here::here('02-data',
-                   '03-results',
-                   'real_fits',
-                   'hypothetical_As.rds'))
-
 saveRDS(hypothetical_lambdas,
         here::here('02-data',
                    '03-results',
@@ -767,6 +802,8 @@ hypothetical_lambdas =
                      '03-results',
                      'real_fits',
                      'hypothetical_lambdas.rds'))
+
+
 
 pretty_names = 
   hypothetical_subplots$name
@@ -836,5 +873,361 @@ ggsave(hypothetical_lambdas_ppt,
                              'hypotheticals_lambda_post.png'),
        height = 4, width = 11, units = 'in')
 
+
+#### hypothetical stable size distribution #####################################
+dim(A_hypotheticals)
+hypothetical_ssd = 
+  array(dim = c(nrow(size_metadata),
+                nrow(hypothetical_subplots),
+                4000),
+        dimnames = 
+          list('sizeclass' = 1:nrow(size_metadata),
+               'subplot' = 1:nrow(hypothetical_subplots),
+               'draw' = 1:4000),
+        data = 
+          sapply(X = 1:4000,
+                 FUN = function(draw){
+                   sapply(X = 1:nrow(hypothetical_subplots),
+                          FUN = function(subplot){
+                            A = A_hypotheticals[,,subplot,draw]
+                            w.eigen = Re(eigen(A)$vectors[,1])
+                            ssd = w.eigen / sum(w.eigen)
+                            return(ssd)
+                          })
+                 }))
+
+
+hypothetical_ssd.df = 
+  hypothetical_subplots %>%
+  expand(nesting(intercept, fire, wpbr, ba_scaled, cwd_dep90_scaled,
+                 cwd_mean_scaled, subp_id, name),
+         sizeclass = 1:nrow(size_metadata),
+         draw = 1:4000) %>%
+  left_join(size_metadata %>%
+              mutate(bin_midpoint_cm = bin_midpoint*100) %>%
+              select(sizeclass = bin_id, bin_midpoint_cm)) %>%
+  arrange(subp_id, sizeclass, draw)
+
+head(hypothetical_ssd.df)
+
+hypothetical_ssd.df$class_proportion = 
+  
+  as.numeric(
+    sapply(X = 1:nrow(hypothetical_subplots),
+           FUN = function(subplot){
+             
+             as.numeric(
+               sapply(X = 1:nrow(size_metadata),
+                      FUN = function(sizeclass){
+                        
+                        return(hypothetical_ssd[sizeclass,subplot,])
+                      })
+             )
+             
+           }))
+
+# Fire makes the SSD really for the very rare bigger size classes, fewer 
+# mid-to-large trees and more superlarge 
+hypothetical_ssd.df %>%
+  group_by(bin_midpoint_cm, sizeclass, name, subp_id) %>%
+  summarise(prop.med = median(class_proportion),
+            prop.05 = quantile(class_proportion, 0.05),
+            prop.95 = quantile(class_proportion, 0.95)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_cm, color = name, fill = name))+
+  #geom_point(aes(y = prop.med), size = 1)+
+  geom_line(aes(y = prop.med))+
+  geom_ribbon(aes(ymin = prop.05, ymax = prop.95), alpha = 0.25)+
+  theme_minimal()+
+  scale_y_log10()+
+  facet_wrap(~name)
+
+#### hypothetical reproductive value ###########################################
+
+hypothetical_repro = 
+  array(dim = c(nrow(size_metadata),
+                nrow(hypothetical_subplots),
+                4000),
+        dimnames = 
+          list('sizeclass' = 1:nrow(size_metadata),
+               'subplot' = 1:nrow(hypothetical_subplots),
+               'draw' = 1:4000),
+        data = 
+          sapply(X = 1:4000,
+                 FUN = function(draw){
+                   sapply(X = 1:nrow(hypothetical_subplots),
+                          FUN = function(subplot){
+                            A = A_hypotheticals[,,subplot,draw]
+                            v.eigen = Re(eigen(t(A))$vectors[,1])
+                            rv = v.eigen / v.eigen[1]
+                            return(rv)
+                          })
+                 }))
+
+
+hypothetical_repro.df = 
+  hypothetical_subplots %>%
+  expand(nesting(intercept, fire, wpbr, ba_scaled, cwd_dep90_scaled,
+                 cwd_mean_scaled, subp_id, name),
+         sizeclass = 1:nrow(size_metadata),
+         draw = 1:4000) %>%
+  left_join(size_metadata %>%
+              mutate(bin_midpoint_cm = bin_midpoint*100) %>%
+              select(sizeclass = bin_id, bin_midpoint_cm)) %>%
+  arrange(subp_id, sizeclass, draw)
+
+hypothetical_repro.df$repro = 
+  
+  as.numeric(
+    sapply(X = 1:nrow(hypothetical_subplots),
+           FUN = function(subplot){
+             
+             as.numeric(
+               sapply(X = 1:nrow(size_metadata),
+                      FUN = function(sizeclass){
+                        
+                        return(hypothetical_repro[sizeclass,subplot,])
+                      })
+             )
+             
+           }))
+
+# Again these reproductive values are wonky, esp for burned subplots. Something 
+# about the transition matrix for burned subplots is weird.
+hypothetical_repro.df %>%
+  group_by(bin_midpoint_cm, sizeclass, name, subp_id) %>%
+  summarise(repro.med = median(repro),
+            repro.05 = quantile(repro, 0.05, na.rm = TRUE),
+            repro.95 = quantile(repro, 0.95, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_cm, color = name, fill = name))+
+  #geom_point(aes(y = prop.med), size = 1)+
+  geom_line(aes(y = repro.med))+
+  #geom_ribbon(aes(ymin = repro.05, ymax = repro.95), alpha = 0.25)+
+  theme_minimal()+
+  facet_wrap(~name)+
+  coord_cartesian(ylim = c(0, 10000))
+
+#### hypothetical sensitivity and elasticity ###################################
+
+# sensitivity and elasticity
+hypothetical_vdotw = 
+  matrix(nrow = nrow(hypothetical_subplots),
+         ncol = 4000,
+         data = 
+           sapply(X = 1:nrow(hypothetical_subplots),
+                  FUN = function(subplot){
+                    sapply(X = 1:4000,
+                           FUN = function(draw){
+                             sum(hypothetical_ssd[,subplot,draw] *
+                                   hypothetical_repro[,subplot,draw])*0.127
+                           })
+                  }))
+
+
+hypothetical_sens = 
+  array(dim = list(nrow(size_metadata),
+                   nrow(size_metadata),
+                   nrow(hypothetical_subplots),
+                   4000),
+        dimnames = 
+          list('size_to' = 1:nrow(size_metadata),
+               'size_from' = 1:nrow(size_metadata),
+               'subplot' = 1:nrow(hypothetical_subplots),
+               'draw' = 1:4000),
+        data = 
+          
+          sapply(X = 1:4000,
+                 FUN = function(draw){
+                     sapply(X = 1:nrow(hypothetical_subplots),
+                           FUN = function(subplot){
+                             outer(hypothetical_repro[,subplot,draw], 
+                                   hypothetical_ssd[,subplot,draw])/
+                               hypothetical_vdotw[subplot,draw]
+                           })
+                 })
+        )
+
+hypothetical_elas = 
+  array(dim = list(nrow(size_metadata),
+                   nrow(size_metadata),
+                   nrow(hypothetical_subplots),
+                   4000),
+        dimnames = 
+          list('size_to' = 1:nrow(size_metadata),
+               'size_from' = 1:nrow(size_metadata),
+               'subplot' = 1:nrow(hypothetical_subplots),
+               'draw' = 1:4000),
+        data = 
+          
+          sapply(X = 1:4000,
+                 FUN = function(draw){
+                     sapply(X = 1:nrow(hypothetical_subplots),
+                           FUN = function(subplot){
+                             
+                          matrix(as.vector(hypothetical_sens[,,subplot,draw])*
+                            as.vector(A_hypotheticals[,,subplot,draw])/
+                            hypothetical_lambdas.matrix[subplot,draw])
+                             
+                             
+                           })
+                 })
+        )
+
+
+
+hypothetical_sens_elas.df  = 
+  expand.grid(size_to = size_metadata$bin_id,
+              size_from = size_metadata$bin_id) %>%
+  left_join(size_metadata %>%
+              select(size_to = bin_id, 
+                     bin_midpoint_to_m = bin_midpoint)) %>%
+  left_join(size_metadata %>%
+              select(size_from = bin_id,
+                     bin_midpoint_from_m = bin_midpoint)) %>%
+  expand(nesting(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m),
+         subp_id = 1:9,
+         draw = 1:4000) %>%
+  arrange(subp_id, size_to, size_from, draw)
+
+#### START HERE LOOKS LIKE THE SENSITIVITY IS TRANSPOSED ######################
+hypothetical_sens_elas.df$sensitivity = 
+  sapply(X = 1:nrow(hypothetical_subplots),
+         FUN = function(subplot){
+           sapply(X = 1:nrow(size_metadata),
+                  FUN = function(size_to){
+                    
+                    sapply(X = 1:nrow(size_metadata),
+                           FUN = function(size_from){
+                             hypothetical_sens[size_to, size_from, subplot,]
+                           })
+           })
+         }) %>%
+  as.vector()
+
+
+hypothetical_sens_elas.df$elasticity = 
+  sapply(X = 1:nrow(hypothetical_subplots),
+         FUN = function(subplot){
+           sapply(X = 1:nrow(size_metadata),
+                  FUN = function(size_to){
+                    
+                    sapply(X = 1:nrow(size_metadata),
+                           FUN = function(size_from){
+                             hypothetical_elas[size_to, size_from, subplot,]
+                           })
+           })
+         }) %>%
+  as.vector()
+
+hypothetical_sens_elas.df %>%
+  group_by(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m,
+           subp_id) %>%
+  summarise(sensitivity = median(sensitivity, na.rm = TRUE),
+            elasticity = median(elasticity, na.rm = TRUE)) %>%
+  ungroup() %>%
+  left_join(hypothetical_subplots %>%
+              select(subp_id, name)) %>%
+  filter(subp_id==1) %>%
+  ggplot(aes(x = bin_midpoint_from_m,
+             y = bin_midpoint_to_m,
+             fill = sensitivity))+
+  geom_tile()+
+  coord_fixed()+
+  theme_minimal()+
+  scale_fill_viridis_c()
+
+ggplot(sens.df,
+       aes(x = bin_midpoint_from_m,
+           y = bin_midpoint_to_m,
+           fill = sensitivity))+
+  geom_tile()+
+  coord_fixed()+
+  theme_minimal()+
+  scale_fill_viridis_c()
+
+
+sens = 
+  array(dim = list(nrow(size_metadata),
+                   nrow(size_metadata),
+                   nrow(subplots.pila)),
+        dimnames = 
+          list('size_to' = 1:nrow(size_metadata),
+               'size_from' = 1:nrow(size_metadata),
+               'subplot' = 1:nrow(subplots.pila)),
+        data = 
+          sapply(X = 1:nrow(subplots.pila),
+                 FUN = function(subplot){
+                   outer(subplot_repro.med[,subplot], subplot_ssd.med[,subplot])/
+                     v.dot.w[subplot]
+                 }))
+
+
+elas = 
+  
+  array(dim = list(nrow(size_metadata),
+                   nrow(size_metadata),
+                   nrow(subplots.pila)),
+        dimnames = 
+          list('size_to' = 1:nrow(size_metadata),
+               'size_from' = 1:nrow(size_metadata),
+               'subplot' = 1:nrow(subplots.pila)),
+        data = 
+          sapply(X = 1:nrow(subplots.pila),
+                 FUN = function(subplot){
+                    matrix(as.vector(sens[,,subplot])*
+                            as.vector(subplot_transitions.med[,,subplot])/
+                            subplot_lambdas.med[subplot])
+                 }))
+
+elas.agg = 
+  matrix(nrow = nrow(size_metadata),
+         ncol = nrow(size_metadata),
+         byrow = FALSE,
+         data = 
+           sapply(X = 1:nrow(size_metadata),
+                  FUN = function(size_to){
+                    sapply(X = 1:nrow(size_metadata),
+                           FUN = function(size_from){
+                             median(as.vector(elas[size_to,size_from,]),
+                                    na.rm= TRUE)
+                           })
+                  }))
+
+elas.df = 
+  expand.grid(size_to = size_metadata$bin_id,
+              size_from = size_metadata$bin_id) %>%
+  left_join(size_metadata %>%
+              select(size_to = bin_id, 
+                     bin_midpoint_to_m = bin_midpoint)) %>%
+  left_join(size_metadata %>%
+              select(size_from = bin_id,
+                     bin_midpoint_from_m = bin_midpoint)) 
+
+# looks like its transitions from the biggest classes into the smallest classes
+# that matter most
+fields::image.plot(size_metadata$bin_midpoint,
+           size_metadata$bin_midpoint,
+           t(elas.agg),
+           xlab = 'Size (t)', ylab = 'Size (t+1)')
+
+elas.df$elasticity = 
+  sapply(X = 1:nrow(size_metadata),
+         FUN = function(size_from){
+           sapply(X = 1:nrow(size_metadata),
+                  FUN = function(size_to){
+                    elas.agg[size_to, size_from]
+           })
+         }) %>%
+  as.vector()
+
+ggplot(elas.df,
+       aes(x = bin_midpoint_from_m,
+           y = bin_midpoint_to_m,
+           fill = elasticity))+
+  geom_tile()+
+  coord_fixed()+
+  theme_minimal()+
+  scale_fill_viridis_c()
 
 
