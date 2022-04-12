@@ -382,3 +382,4 @@ ggsave(recruitment_predictions_plot,
                              'figures',
                              'manuscript',
                              'predictions_r.png'))
+

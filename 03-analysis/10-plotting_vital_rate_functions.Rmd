@@ -73,6 +73,8 @@ beta_s_priorvpost =
              labeller = 
                labeller(position = pretty_beta_s_labels))
 
+beta_s_priorvpost
+
 ggsave(beta_s_priorvpost,
        filename = here::here('04-communication',
                              'figures',
@@ -80,7 +82,6 @@ ggsave(beta_s_priorvpost,
                              'beta_s_priorvpost.png'), 
        height = 6.5, width = 4, units = 'in')
 
-plot_grid()
 
 sigmaPlot_s_priorvpost = 
   samples %>%
@@ -104,6 +105,8 @@ sigmaEco_s_priorvpost =
 
 sigmas_s_priorvpost = 
   plot_grid(sigmaPlot_s_priorvpost, sigmaEco_s_priorvpost)
+
+sigmas_s_priorvpost
 
 ggsave(sigmas_s_priorvpost,
        filename = here::here('04-communication',
@@ -157,6 +160,8 @@ beta_g_priorvpost =
              labeller = 
                labeller(position = pretty_beta_g_labels))
 
+beta_g_priorvpost
+
 ggsave(beta_g_priorvpost,
        filename = here::here('04-communication',
                              'figures',
@@ -199,6 +204,8 @@ sigmas_g_priorvpost =
   plot_grid(sigmaPlot_g_priorvpost,
             sigmaEco_g_priorvpost,
             sigmaEpsilon_g_priorvpost)
+
+sigmas_g_priorvpost
 
 ggsave(sigmas_g_priorvpost,
        filename = here::here('04-communication',
@@ -251,6 +258,8 @@ beta_f_priorvpost =
              labeller = 
                labeller(position = pretty_beta_f_labels))
 
+beta_f_priorvpost
+
 ggsave(beta_f_priorvpost,
        filename = here::here('04-communication',
                              'figures',
@@ -278,6 +287,8 @@ kappa_r_priorvpost =
     aes(x = prior), 
     color = 'red'
   )
+
+kappa_r_priorvpost
 
 ggsave(kappa_r_priorvpost,
        filename = here::here('04-communication',
@@ -1460,15 +1471,7 @@ ecosub.sf =
                      'S_USA.EcomapSubsections',
                      'S_USA.EcomapSubsections.shp')) %>%
   st_make_valid() %>%
-  st_crop(st_read(here::here('02-data',
-                             '01-preprocessed',
-                             'pila_range_map.shp')) %>%
-            st_bbox()) %>%
   select(MAP_UNIT_S, MAP_UNIT_N) %>%
-  st_intersection(st_read(here::here('02-data',
-                                     '01-preprocessed',
-                                     'pila_range_map.shp'))) %>%
-  select(-area_km2) %>%
   left_join(
     readRDS(here::here('02-data',
                        '02-for_analysis',
@@ -1519,7 +1522,7 @@ ecoEffect_map_s =
           fill = NA)+
   geom_sf(color = NA)+
   theme_minimal()+
-  scale_fill_viridis_c()+
+  scale_fill_viridis_c(na.value = 'transparent')+
   labs(fill = 'Ecoregion effect\n(Survival)')+
   theme(legend.position = 'bottom')+
   coord_sf(xlim = c(390000, 1100000), ylim = c(3740000, 5020000),
@@ -1567,12 +1570,14 @@ ecoEffect_map_g =
           fill = NA)+
   geom_sf(color = NA)+
   theme_minimal()+
-  scale_fill_viridis_c()+
+  scale_fill_viridis_c(na.value = 'transparent')+
   labs(fill = 'Ecoregion effect\n(Growth)')+
   theme(legend.position = 'bottom')+
   coord_sf(xlim = c(390000, 1100000), ylim = c(3740000, 5020000),
            crs = "EPSG:26910")+
   annotation_scale()
+
+ecoEffect_map_g
 
 plotEffect_g.med = 
   samples %>%
@@ -1615,12 +1620,14 @@ ecoEffect_map_f =
           fill = NA)+
   geom_sf(color = NA)+
   theme_minimal()+
-  scale_fill_viridis_c()+
+  scale_fill_viridis_c(na.value = 'transparent')+
   labs(fill = 'Ecoregion effect\n(Fecundity)')+
   theme(legend.position = 'bottom')+
   coord_sf(xlim = c(390000, 1100000), ylim = c(3740000, 5020000),
            crs = "EPSG:26910")+
   annotation_scale()
+
+ecoEffect_map_f
 
 plotEffect_f.med = 
   samples %>%
@@ -1663,11 +1670,6 @@ ggsave(ecoEffect_map,
 A map with all the data sources on it:
 
 ```{r}
-pila_range.sf = 
-  st_read(here::here('02-data',
-                    '01-preprocessed',
-                    'pila_range_map.shp'))
-
 
 overview_map = 
   ggplot(data = 
@@ -1687,9 +1689,9 @@ overview_map =
 overview_map
 
 range_map = 
-  ggplot(data = pila_range.sf)+
+  ggplot()+
   geom_sf(data = 
-            us_states(),
+            spData::us_states,
           fill = NA, lwd = 1)+
   #geom_sf(color = 'blue', fill = NA)+
   geom_sf(data = plots.sf, aes(color = 'red'), size = 1, alpha = 0.5)+

@@ -222,6 +222,12 @@ subplot_transitions.med =
                    
                  }))
 
+saveRDS(subplot_transitions.med,
+        here::here('02-data',
+                   '03-results',
+                   'real_fits',
+                   'subplot_As.rds'))
+
 subplot_lambdas.med = 
   sapply(X = 1:nrow(subplots.pila),
          FUN = function(subplot){
@@ -593,7 +599,13 @@ ggplot(data =
   scale_color_viridis_c(limits = c(0.9,1.5), oob = scales::squish)+
   theme_minimal()
 
-
+ggplot(data = 
+         subplots.pila.sf %>%
+         mutate(lambda_binary = lambda_postmed>=1),
+       aes(color = lambda_binary))+
+  geom_sf(size = 1, alpha = 0.5)+
+  #scale_color_viridis_d(begin = 0.25, end = 0.85, option = 'C')+
+  theme_minimal()
 
 
 #### using hypothetical subplots (only fixed effects) ##########################
@@ -738,6 +750,11 @@ hypothetical_lambdas$lambda =
          }) %>%
   as.numeric()
 
+saveRDS(A_hypotheticals,
+        here::here('02-data',
+                   '03-results',
+                   'real_fits',
+                   'hypothetical_As.rds'))
 
 saveRDS(hypothetical_lambdas,
         here::here('02-data',
