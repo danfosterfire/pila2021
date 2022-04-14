@@ -20,6 +20,8 @@ size_metadata =
          bin_upper = bin_upper * 0.0254,
          dbh_m.mean = dbh_in.mean * 0.0254)
 
+size_metadata
+
 size_metadata$r = 
   c(readRDS(here::here('02-data',
                    '02-for_analysis',
@@ -408,10 +410,15 @@ subplot_repro.df %>%
 #### subplot sensitivity and elasticity ########################################
 # sensitivity and elasticity
 v.dot.w = 
+  
   sapply(X = 1:nrow(subplots.pila),
          FUN = function(subplot){
            sum(subplot_ssd.med[,subplot] * subplot_repro.med[,subplot])*0.127
          })
+
+
+test = outer(subplot_repro.med[,1], subplot_ssd.med[,1])/v.dot.w[1]
+
 
 sens = 
   array(dim = list(nrow(size_metadata),
@@ -434,9 +441,9 @@ sens.agg =
          byrow = FALSE,
          data = 
            sapply(X = 1:nrow(size_metadata),
-                  FUN = function(size_to){
+                  FUN = function(size_from){
                     sapply(X = 1:nrow(size_metadata),
-                           FUN = function(size_from){
+                           FUN = function(size_to){
                              median(as.vector(sens[size_to,size_from,]),
                                     na.rm= TRUE)
                            })
@@ -453,10 +460,14 @@ sens.df =
                      bin_midpoint_from_m = bin_midpoint)) 
 
 # looks like its transitions from the biggest classes into the smallest classes
-# that matter most
+# that matter most; edit: well now I'm confused, was I swapping the rows and 
+# columns before or am I swapping them now? this doesn't look biologically 
+# reasonable, but it does match the demo sensitivity in the merow paper
+# where its from the small class into the big class that has the highest 
+# sensitivity, now I'm wondering if the merow code has a bug?
 fields::image.plot(size_metadata$bin_midpoint,
            size_metadata$bin_midpoint,
-           t(sens.agg),
+           t(elas[,,4]),
            xlab = 'Size (t)', ylab = 'Size (t+1)')
 
 sens.df$sensitivity = 
@@ -600,7 +611,9 @@ test %>%
   theme_minimal()+
   scale_y_continuous(limits = c(0, 2))
 
-flibrary(sf)
+#### mapping lambda ############################################################
+
+library(sf)
 library(scales)
 subplots.pila.sf = 
   subplots.pila %>%
@@ -775,8 +788,8 @@ hypothetical_lambdas.matrix =
 
 hypothetical_lambdas = 
   hypothetical_subplots %>%
-  expand(nesting(subp_id, name, intercept, fire, wpbr, ba_scaled, cwd_dep90_scaled, 
-                 cwd_mean_scaled),
+  expand(nesting(subp_id, name, intercept, fire, wpbr, ba_scaled, 
+                 cwd_dep90_scaled, cwd_mean_scaled),
          data.frame(draw = 1:4000))
 
 
@@ -996,6 +1009,7 @@ hypothetical_repro.df$repro =
 # about the transition matrix for burned subplots is weird.
 hypothetical_repro.df %>%
   group_by(bin_midpoint_cm, sizeclass, name, subp_id) %>%
+  #filter(subp_id != 2) %>%
   summarise(repro.med = median(repro),
             repro.05 = quantile(repro, 0.05, na.rm = TRUE),
             repro.95 = quantile(repro, 0.95, na.rm = TRUE)) %>%
@@ -1005,8 +1019,15 @@ hypothetical_repro.df %>%
   geom_line(aes(y = repro.med))+
   #geom_ribbon(aes(ymin = repro.05, ymax = repro.95), alpha = 0.25)+
   theme_minimal()+
-  facet_wrap(~name)+
-  coord_cartesian(ylim = c(0, 10000))
+  facet_wrap(~name, scales = 'free_y')
+
+# ok this kind of makes sense: under disturbances that really reduce the 
+# survival of small stems (WPBR and esp fire) the reproductive value of 
+# big stems relative to little ones is magnified, because so few little ones 
+# survive to become real contributors to reproduction; still think theres
+# some numerical instability or smth causing the credible interval bounds for 
+# reproductive value to go wonky for fire, all the others look fine
+
 
 #### hypothetical sensitivity and elasticity ###################################
 
@@ -1090,7 +1111,7 @@ hypothetical_sens_elas.df  =
          draw = 1:4000) %>%
   arrange(subp_id, size_to, size_from, draw)
 
-#### START HERE LOOKS LIKE THE SENSITIVITY IS TRANSPOSED ######################
+
 hypothetical_sens_elas.df$sensitivity = 
   sapply(X = 1:nrow(hypothetical_subplots),
          FUN = function(subplot){
@@ -1128,7 +1149,7 @@ hypothetical_sens_elas.df %>%
   ungroup() %>%
   left_join(hypothetical_subplots %>%
               select(subp_id, name)) %>%
-  filter(subp_id==1) %>%
+  filter(subp_id==2) %>%
   ggplot(aes(x = bin_midpoint_from_m,
              y = bin_midpoint_to_m,
              fill = sensitivity))+
@@ -1137,97 +1158,27 @@ hypothetical_sens_elas.df %>%
   theme_minimal()+
   scale_fill_viridis_c()
 
-ggplot(sens.df,
-       aes(x = bin_midpoint_from_m,
-           y = bin_midpoint_to_m,
-           fill = sensitivity))+
+
+hypothetical_sens_elas.df %>%
+  group_by(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m,
+           subp_id) %>%
+  summarise(sensitivity = median(sensitivity, na.rm = TRUE),
+            elasticity = median(elasticity, na.rm = TRUE)) %>%
+  ungroup() %>%
+  left_join(hypothetical_subplots %>%
+              select(subp_id, name)) %>%
+  filter(subp_id==2) %>%
+  ggplot(aes(x = bin_midpoint_from_m,
+             y = bin_midpoint_to_m,
+             fill = elasticity))+
   geom_tile()+
   coord_fixed()+
   theme_minimal()+
   scale_fill_viridis_c()
 
-
-sens = 
-  array(dim = list(nrow(size_metadata),
-                   nrow(size_metadata),
-                   nrow(subplots.pila)),
-        dimnames = 
-          list('size_to' = 1:nrow(size_metadata),
-               'size_from' = 1:nrow(size_metadata),
-               'subplot' = 1:nrow(subplots.pila)),
-        data = 
-          sapply(X = 1:nrow(subplots.pila),
-                 FUN = function(subplot){
-                   outer(subplot_repro.med[,subplot], subplot_ssd.med[,subplot])/
-                     v.dot.w[subplot]
-                 }))
-
-
-elas = 
-  
-  array(dim = list(nrow(size_metadata),
-                   nrow(size_metadata),
-                   nrow(subplots.pila)),
-        dimnames = 
-          list('size_to' = 1:nrow(size_metadata),
-               'size_from' = 1:nrow(size_metadata),
-               'subplot' = 1:nrow(subplots.pila)),
-        data = 
-          sapply(X = 1:nrow(subplots.pila),
-                 FUN = function(subplot){
-                    matrix(as.vector(sens[,,subplot])*
-                            as.vector(subplot_transitions.med[,,subplot])/
-                            subplot_lambdas.med[subplot])
-                 }))
-
-elas.agg = 
-  matrix(nrow = nrow(size_metadata),
-         ncol = nrow(size_metadata),
-         byrow = FALSE,
-         data = 
-           sapply(X = 1:nrow(size_metadata),
-                  FUN = function(size_to){
-                    sapply(X = 1:nrow(size_metadata),
-                           FUN = function(size_from){
-                             median(as.vector(elas[size_to,size_from,]),
-                                    na.rm= TRUE)
-                           })
-                  }))
-
-elas.df = 
-  expand.grid(size_to = size_metadata$bin_id,
-              size_from = size_metadata$bin_id) %>%
-  left_join(size_metadata %>%
-              select(size_to = bin_id, 
-                     bin_midpoint_to_m = bin_midpoint)) %>%
-  left_join(size_metadata %>%
-              select(size_from = bin_id,
-                     bin_midpoint_from_m = bin_midpoint)) 
-
-# looks like its transitions from the biggest classes into the smallest classes
-# that matter most
 fields::image.plot(size_metadata$bin_midpoint,
            size_metadata$bin_midpoint,
-           t(elas.agg),
+           t(A_hypotheticals[,,2,1]),
            xlab = 'Size (t)', ylab = 'Size (t+1)')
-
-elas.df$elasticity = 
-  sapply(X = 1:nrow(size_metadata),
-         FUN = function(size_from){
-           sapply(X = 1:nrow(size_metadata),
-                  FUN = function(size_to){
-                    elas.agg[size_to, size_from]
-           })
-         }) %>%
-  as.vector()
-
-ggplot(elas.df,
-       aes(x = bin_midpoint_from_m,
-           y = bin_midpoint_to_m,
-           fill = elasticity))+
-  geom_tile()+
-  coord_fixed()+
-  theme_minimal()+
-  scale_fill_viridis_c()
 
 

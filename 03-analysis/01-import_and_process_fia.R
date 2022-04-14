@@ -877,6 +877,10 @@ mort_data =
                            FALSE))
 
 
+mort_data %>%
+  filter(species=='PILA'&dbh_in.init>70) %>%
+  print(width = Inf)
+
 #### make individual growth data frame #########################################
 
 growth_data = 
