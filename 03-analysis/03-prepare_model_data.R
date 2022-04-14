@@ -172,6 +172,12 @@ r =
                      'untagged_data.rds')) %>%
   filter(species=='PILA'&is.element(subp_id, recr_data.pila$subp_id)) %>%
   
+  # bring in the plot size for weighting
+  left_join(size_metadata %>%
+              select(dbh_class = bin_id,
+                     plot_area_ac)) %>%
+  mutate(tpa = count / plot_area_ac) %>%
+  
   # keep only the first two size classes (assume everything >10" dbh isn't 
   # really a new recruit, just a missed tree)
   filter(dbh_class <= 2) %>%
@@ -186,23 +192,28 @@ r =
                        'untagged_data.rds')) %>%
       filter(species=='PILA'&is.element(subp_id, recr_data.pila$subp_id))  %>%
       filter(dbh_class <= 2) %>%
+      left_join(size_metadata %>%
+                  select(dbh_class = bin_id,
+                         plot_area_ac)) %>%
+      mutate(tpa = count / plot_area_ac) %>%
       group_by(subp_id) %>% 
-      summarise(total_count = sum(count)) %>%
+      summarise(total_tpa = sum(tpa)) %>%
       ungroup() %>%
       # keep only subplots with at least 1 new recruit
-      filter(total_count > 0)
+      filter(total_tpa > 0)
   ) %>%
   
   # get the proportion of total new recruits in each of the first two size classes
-  mutate(p_total = count / total_count) %>%
+  mutate(p_tpa = tpa / total_tpa) %>%
   
   # get the average distribution across all subplots
   group_by(dbh_class) %>%
-  summarise(p_total = mean(p_total)) %>%
+  summarise(p_tpa = mean(p_tpa)) %>%
   ungroup() %>%
   
-  pull(p_total)
+  pull(p_tpa)
 
+r
 #### asssign plot and ecoregion indices ########################################
 
 # going to use a single unified index across all the datasets, which cleans 
@@ -429,3 +440,4 @@ saveRDS(union_plots,
         here::here('02-data', '02-for_analysis', 'union_plots.rds'))
 saveRDS(union_ecosubs,
         here::here('02-data', '02-for_analysis', 'union_ecosubs.rds'))
+
