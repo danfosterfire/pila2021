@@ -57,6 +57,10 @@ size_metadata$r =
 
 head(size_metadata)
 
+
+
+#### observed fixed and random #################################################
+
 subplots = 
   readRDS(here::here('02-data', '01-preprocessed', 'subplot_data.rds'))%>%
   mutate(ba_scaled = as.numeric(scale(ba_ft2ac)),
@@ -66,10 +70,6 @@ subplots =
   select(plot_id, subp_id, lat, lon, ecosubcd, intercept, fire, wpbr, ba_scaled, 
          cwd_dep90_scaled,cwd_mean_scaled)
 
-
-
-
-#### observed fixed and random #################################################
 
 
 subplots.pila = 
@@ -83,7 +83,7 @@ subplots.pila =
 
 
 A_subplot = 
-  foreach(draw = 1:10,
+  foreach(draw = 1:nrow(posterior),
           .packages = c('tidyverse')) %dopar% {
             
             # get beta_s for the current draw
@@ -283,13 +283,13 @@ A_hypotheticals =
   array(dim = c(nrow(size_metadata), # sizeclass to
                 nrow(size_metadata), # sizeclass from
                 nrow(hypothetical_subplots), # subplots
-                4000), # posterior draws
+                nrow(posterior)), # posterior draws
         dimnames = list('class_to' = 1:nrow(size_metadata),
                         'class_from' = 1:nrow(size_metadata),
                         'subplot' = 1:nrow(hypothetical_subplots),
-                        'draw' = 1:4000),
+                        'draw' = 1:nrow(posterior)),
         data = 
-          sapply(X = 1:4000,
+          sapply(X = 1:nrow(posterior),
                  FUN = function(draw){
                    
                    # get beta_s for the current draw
