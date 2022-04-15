@@ -67,3 +67,11 @@ mcmc_dens_overlay(fitted_model$draws(variables =
 fitted_model$cmdstan_diagnose()
 
 fitted_model$save_object(here::here('02-data', '03-results', 'real_fits', 'pila.rds'))
+
+# save the posterior dataframe directly for portability
+posterior = as_draws_df(fitted_model$draws())
+saveRDS(posterior,
+        here::here('02-data',
+                   '03-results',
+                   'real_fits',
+                   'posterior_draws.rds'))
