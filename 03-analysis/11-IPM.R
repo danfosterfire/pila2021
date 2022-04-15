@@ -140,8 +140,9 @@ sigmaEpsilon_g.med =
   summarise_all(median) %>%
   pull(sigmaEpsilon_g) %>%
   as.numeric()
-          
+
 #### subplot tranasition matrices ############################################## 
+start_time = Sys.time()
 subplot_transitions.med = 
   
   array(dim = list(nrow(size_metadata),
@@ -224,6 +225,9 @@ subplot_transitions.med =
                           })
                    
                  }))
+end_time = Sys.time()
+end_time-start_time
+
 
 saveRDS(subplot_transitions.med,
         here::here('02-data',
@@ -261,6 +265,8 @@ postmed_lambda_distribution =
   scale_x_continuous(limits = c(0, 2.5))+
   geom_vline(xintercept = 1, color = 'grey', lty = 2, lwd = 1)+
   labs(y = 'Density', x = 'Lambda')
+
+postmed_lambda_distribution
 
 postmed_lambda_distribution_ppt = 
   ggplot(data = subplots.pila,
@@ -467,7 +473,7 @@ sens.df =
 # sensitivity, now I'm wondering if the merow code has a bug?
 fields::image.plot(size_metadata$bin_midpoint,
            size_metadata$bin_midpoint,
-           t(elas[,,4]),
+           t(sens[,,4]),
            xlab = 'Size (t)', ylab = 'Size (t+1)')
 
 sens.df$sensitivity = 
@@ -1178,7 +1184,7 @@ hypothetical_sens_elas.df %>%
 
 fields::image.plot(size_metadata$bin_midpoint,
            size_metadata$bin_midpoint,
-           t(A_hypotheticals[,,2,1]),
+           t(A_hypotheticals[,,2,1000]),
            xlab = 'Size (t)', ylab = 'Size (t+1)')
 
 
