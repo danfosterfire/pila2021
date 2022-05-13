@@ -5,8 +5,8 @@ library(posterior)
 library(bayesplot)
 library(foreach)
 library(doParallel)
-
-registerDoParallel()
+ncores <- as.numeric(Sys.getenv('SLURM_CPUS_ON_NODE'))
+registerDoParallel(ncores)
 
 # load mcmc results
 posterior = readRDS(here::here('02-data',
@@ -391,3 +391,5 @@ saveRDS(A_hypotheticals,
                    '03-results',
                    'real_fits',
                    'hypothetical_As.rds'))
+
+stopImplicitCluster()
