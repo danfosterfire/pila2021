@@ -1,0 +1,2557 @@
+---
+title: "Perry Meeting May 16 2022"
+author: "Danny Foster"
+date: "5/11/2022"
+output: 
+  html_document:
+    code_folding: hide  
+---
+
+# Intro
+
+There are four suites of IPMs considered in this document. The first two are:
+
+  - IPMs built from each of the 4408 observed subplots, using posterior 
+  median parameter values for the vital rate functions, and the full individual 
+  size range, yielding an array of 4408 transition matrices with 
+  20 rows and 20 columns each. These are used to assess the actually-occuring 
+  population dynamics across the range of sugar pine.
+  - IPMs built with 9 hypothetical idealized subplots (representing 
+  no disturbance, fire only, high drought, low drought, etc.) using the 
+  full set of 4000 posterior parameter draws for the vital rate functions, 
+  and the full individual size range, yielding an array of 9x4000=36000 
+  transition matrices, with 20 rows and 20 columns each. These are used to 
+  assess the implications of each stressor (undisturbed, fire, disease, density, 
+  drought, site dryness) on the population dynamics of sugar pine. 
+  
+In an attempt to address some of the wonkyness in the first two suites of IPMs,
+I also have constructed versions of each with the individual size range limited 
+to the 95th percentile of observed sizes. 
+  
+Analysis of the IPMs follows the SI for Merow et al. MEE 2014 "Advancing population ecology 
+with integral projection models: a practical guide" to extract population 
+asymptotic growth rates, stable size distributions, reproductive values, and 
+sensitivity and elasticity matrices.
+
+## Questions for Perry
+
+  - Seen similar results from other work with IPMs? Would be helpful to diagnose 
+  the source of the wonky looking results, and debug if necessary.
+  - How much should infrequent weird behavior (e.g. negative reproductive 
+  values for 5% of sizeclass:subplot combinations) make me distrust the central 
+  tendencies (ie the median behavior looks fine)?
+  - How much should the wonky results viz. reproductive value, elasticitiy, etc. 
+  make me distrust the results for the asymptotic population growth rate, which 
+  look fine?
+  - Advice for how to move forward with a paper?
+    - Full size class distribution vs. restricted (parameter estimation vs. 
+    results IPMs)
+    - Abandon the additional analyses (probably means changing target journal)?
+
+# Real subplots, full size range
+
+IPMs built with the observed subplot data, posterior median parameter values 
+for the vital rate functions, and the full size range. 
+
+## Build transition matrices
+
+Using posterior median parameter values and the full size range:
+
+```{r message = FALSE, warning = FALSE}
+library(here)
+library(tidyverse)
+library(posterior)
+library(bayesplot)
+library(foreach)
+library(doParallel)
+
+knitr::opts_chunk$set(message = FALSE)
+
+#ncores <- 12
+#registerDoParallel(ncores)
+```
+
+Load the posterior distribution for the vital rate function parameters, 
+extract the posteriors for each parameter, and summarise to the median.
+
+```{r message = FALSE, warning = FALSE}
+# load mcmc results
+posterior = readRDS(here::here('02-data',
+                               '03-results',
+                               'real_fits',
+                               'posterior_draws.rds'))
+
+# extract parameters
+beta_s = 
+  posterior %>%
+  select(contains('beta_s')) %>%
+  summarise_all(median) %>%
+  as.data.frame() %>%
+  as.numeric()
+
+beta_g = 
+  posterior %>%
+  select(contains('beta_g')) %>%
+  summarise_all(median) %>%
+  as.data.frame() %>%
+  as.numeric()
+
+beta_f = 
+  posterior %>%
+  select(contains('beta_f')) %>%
+  summarise_all(median) %>%
+  as.data.frame() %>%
+  as.numeric()
+
+plotEffect_s = 
+  posterior %>%
+  select(contains('plotEffect_s')) %>%
+  summarise_all(median) %>%
+  as.data.frame() %>%
+  as.numeric()
+
+plotEffect_g = 
+  posterior %>%
+  select(contains('plotEffect_g')) %>%
+  summarise_all(median) %>%
+  as.data.frame() %>%
+  as.numeric()
+
+plotEffect_f = 
+  posterior %>%
+  select(contains('plotEffect_f')) %>%
+  summarise_all(median) %>%
+  as.data.frame() %>%
+  as.numeric()
+
+ecoEffect_s = 
+  posterior %>%
+  select(contains('ecoEffect_s')) %>%
+  summarise_all(median) %>%
+  as.data.frame() %>%
+  as.numeric()
+
+ecoEffect_g = 
+  posterior %>%
+  select(contains('ecoEffect_g')) %>%
+  summarise_all(median) %>%
+  as.data.frame() %>%
+  as.numeric()
+
+ecoEffect_f = 
+  posterior %>%
+  select(contains('ecoEffect_f')) %>%
+  summarise_all(median) %>%
+  as.data.frame() %>%
+  as.numeric()
+
+sigmaEpsilon_g = 
+  posterior %>%
+  summarise_all(median) %>%
+  pull(sigmaEpsilon_g) %>%
+  as.numeric()
+
+```
+
+Load the size class data, which gives the upper and lower bounds, midpoint, 
+and mean size in each of 20 individual size bins. Size is the diameter 
+at breast height (DBH), with a range of 0 - 2.54 m broken into bins which are 
+0.127m wide. 
+
+The size class data also includes 'r', which is the recruit size kernel 
+used both for estimating the fecundity function in the "fecundity parameter 
+estimation IPM" (in stan) and the "interpreting results" IPM (here).
+
+
+```{r}
+size_metadata = 
+  readRDS(here::here('02-data',
+                     '01-preprocessed',
+                     'size_metadata.rds')) %>%
+  # convert to metric
+  mutate(bin_midpoint = bin_midpoint * 0.0254,
+         bin_lower = bin_lower * 0.0254,
+         bin_upper = bin_upper * 0.0254,
+         dbh_m.mean = dbh_in.mean * 0.0254) 
+
+size_metadata$r = 
+  c(readRDS(here::here('02-data',
+                       '02-for_analysis',
+                       'pila_training.rds'))$r,
+    rep(0, times = 18))
+
+```
+
+
+Here's a histogram of the size of individuals that were used for the 
+survival submodel. It looks weird because of the nested plot design, with 
+different sampling areas for different sizes of trees. 
+The largest individual in the data is 2.46m DBH, but the 99th 
+percentile is only 1.51m DBH and the 95th percentile is only 1.24m DBH. This 
+will become important later.
+
+```{r}
+hist(readRDS(here::here('02-data','02-for_analysis', 'pila_training.rds'))$X_s[,2])
+```
+
+Load the subplots data, which includes other data used for fixed and random 
+effects in the vital rate functions.
+
+```{r}
+subplots = 
+  readRDS(here::here('02-data', '01-preprocessed', 'subplot_data.rds'))%>%
+  mutate(ba_scaled = as.numeric(scale(ba_ft2ac)),
+         cwd_dep90_scaled = as.numeric(scale(cwd_departure90)),
+         cwd_mean_scaled = as.numeric(scale(cwd_mean)),
+         intercept = 1) %>%
+  select(plot_id, subp_id, lat, lon, ecosubcd, intercept, fire, wpbr, ba_scaled, 
+         cwd_dep90_scaled,cwd_mean_scaled)
+
+subplots.pila = 
+  subplots %>%
+  right_join(
+    readRDS(here::here('02-data', '02-for_analysis', 'union_plots.rds'))
+  ) %>%
+  right_join(
+    readRDS(here::here('02-data', '02-for_analysis', 'union_ecosubs.rds'))
+  )
+```
+
+Build a transition matrix for each of the 4408 subplots which were included 
+in the data for the growth, mortality, and recruitment submodels, using the 
+median parameter values for the vital rate functions:
+
+```{r eval = FALSE}
+
+A_median_full = 
+    array(dim = list(nrow(size_metadata),
+                     nrow(size_metadata),
+                     nrow(subplots.pila)),
+          dimnames = list('class_to' = 1:nrow(size_metadata),
+                          'class_from' = 1:nrow(size_metadata),
+                          'subplot' = 1:nrow(subplots.pila)),
+          data = 
+            sapply(X = 1:nrow(subplots.pila),
+                   FUN = function(subplot){
+                     
+                     # construct explanatory variable matrix for vital rate 
+                     # functions for the current subplot
+                     X = 
+                       subplots.pila %>%
+                       slice(subplot) %>%
+                       expand(nesting(intercept, fire, wpbr, ba_scaled,
+                                      cwd_dep90_scaled,cwd_mean_scaled),
+                              dbh = size_metadata$dbh_m.mean) %>%
+                       mutate(dbh_fire = dbh*fire,
+                              dbh_wpbr = dbh*wpbr,
+                              dbh_ba = dbh*ba_scaled,
+                              dbh_cwd_dep90 = dbh*cwd_dep90_scaled,
+                              dbh_cwd_mean = dbh*cwd_mean_scaled) %>%
+                       select(intercept, dbh, fire, wpbr, ba_scaled,
+                              cwd_dep90_scaled, cwd_mean_scaled, 
+                              dbh_fire, dbh_wpbr, dbh_ba,
+                              dbh_cwd_dep90, dbh_cwd_mean) %>%
+                       as.matrix()
+                     
+                     # calculate vector of survival probabilities for each 
+                     # size class on this subplot with this parameter draw
+                     p = 
+                       boot::inv.logit(as.numeric(X %*% beta_s) +
+                                         ecoEffect_s[subplots.pila$ecosub.i[subplot]]+
+                                         plotEffect_s[subplots.pila$plot_id.i][subplot])
+                     
+                     # calculate vector of mean size at time 2 for each size 
+                     # class on this subplot with this parameter draw
+                     mu = as.numeric(X %*% beta_g)+
+                       ecoEffect_g[subplots.pila$ecosub.i[subplot]]+
+                       plotEffect_g[subplots.pila$plot_id.i[subplot]]
+                     
+                     # calculate vector of fecundity for each size class on this 
+                     # subplot with this parameter draw
+                     f = 
+                       exp(as.numeric(X %*% beta_f)+
+                             ecoEffect_f[subplots.pila$ecosub.i[subplot]]+
+                             plotEffect_f[subplots.pila$plot_id.i[subplot]])
+                     
+                     # loop over each "from" size class
+                     sapply(X = 1:nrow(size_metadata),
+                            FUN = function(class_from){
+                              
+                              # growth kernel from this size class into 
+                              # each other size class, using the cumulative 
+                              # density function as recommended by Doak et al. 2021
+                              g = 
+                                ((pnorm(size_metadata$bin_upper,
+                                        mu[class_from],
+                                        sigmaEpsilon_g) - 
+                                    pnorm(size_metadata$bin_lower,
+                                          mu[class_from],
+                                          sigmaEpsilon_g))/
+                                   (1-pnorm(0,
+                                            mu[class_from],
+                                            sigmaEpsilon_g)))
+                              
+                              # loop over every destination size class
+                              sapply(X = 1:nrow(size_metadata),
+                                     FUN = function(class_to){
+                                       
+                                       # for testing, just to make sure 
+                                       # I've constructed the array correctly
+                                       #paste0('to:',class_to,',from:',class_from,
+                                       #       ',subplot:',subplot)
+                                       
+                                       # calculate the transition kernel
+                                       # between the current "from" class and 
+                                       # the current "to" class
+                                       transition_kern = 
+                                         # survival of each from class
+                                         (p[class_from] *
+                                            # prob of growth from to
+                                            g[class_to]) +
+                                         # number of new recruits in this "to"
+                                         # class is the fecundity of the "from" 
+                                         # class times the recruitment size 
+                                         # kernel for this "to" class
+                                         (f[class_from] *
+                                            size_metadata$r[class_to])
+                                       return(transition_kern)
+                                       
+                                     })
+                              
+                            })
+                     
+                   }))
+
+# save this so we don't have to rebuild it every time we knit
+saveRDS(A_median_full,
+        here::here('02-data',
+                   '03-results',
+                   'real_fits',
+                   'A_median_full.rds'))
+
+```
+
+For convenience when knitting, load the prebuilt array of transition matrices:
+
+```{r}
+A_median_full = 
+  readRDS(here::here('02-data',
+                     '03-results',
+                     'real_fits',
+                     'A_median_full.rds'))
+
+```
+
+
+
+## Asymptotic population growth rate
+
+```{r}
+lambda_full = 
+  sapply(X = 1:nrow(subplots.pila),
+         FUN = function(subplot){
+           A_subplot = A_median_full[,,subplot]
+           lambda_subplot = max(as.numeric(Re(eigen(A_subplot)$values)))
+           return(lambda_subplot)
+         })
+
+```
+
+The distribution of lambda across all subplots, using the posterior median 
+parameter values for the vital rate functions, is figure 7 in the paper 
+(after being truncated to the range 0-2.5 for clarity). I was ignoring the 
+long right tail, which is maybe a mistake?
+
+```{r}
+ggplot(data.frame(lambda_full),
+       aes(x = lambda_full))+
+  geom_density()+
+  theme_minimal()
+```
+
+## Stable size distribution
+
+```{r}
+# stable size distribution
+ssd_full = 
+  matrix(nrow = nrow(size_metadata),
+         ncol = nrow(subplots.pila),
+         byrow = FALSE,
+         data = 
+           sapply(X = 1:nrow(subplots.pila),
+                  FUN = function(subplot){
+                    A.subplot = A_median_full[,,subplot]
+                    # from supplamentory materials for merow et al 2014 
+                    # "On using integral projection models..."
+                    w.eigen = Re(eigen(A.subplot)$vectors[,1])
+                    ssd = w.eigen / sum(w.eigen)
+                    return(ssd)
+                  }))
+
+ssd_full.df = 
+  expand.grid('subplot' = 1:nrow(subplots.pila),
+              'sizeclass' = 1:nrow(size_metadata)) %>%
+  left_join(size_metadata %>%
+              mutate(bin_midpoint_cm = bin_midpoint*100) %>%
+              select(sizeclass = bin_id, bin_midpoint_cm))
+
+ssd_full.df$class_proportion = 
+  
+  as.numeric(
+    sapply(X = 1:nrow(size_metadata),
+           FUN = function(sizeclass){
+             
+             return(ssd_full[sizeclass,])
+             
+           })
+  )
+```
+
+The stable size distribution shows a ton of individuals in the smallest size 
+classes. This is totally what you expect for long-live tree species. Points 
+are the median proportion in the sizeclass across all subplots, and error bars 
+are the 5th and 95th percentile proportion in each sizeclass (across all 
+subplots).
+
+```{r}
+# stable size distribution is inverse J not surprising
+ssd_full.df %>%
+  group_by(bin_midpoint_cm, sizeclass) %>%
+  summarise(prop.med = median(class_proportion),
+            prop.05 = quantile(class_proportion, 0.05),
+            prop.95 = quantile(class_proportion, 0.95)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_cm))+
+  geom_point(aes(y = prop.med), size = 3)+
+  geom_errorbar(aes(ymin = prop.05, ymax = prop.95),
+                width = 1)+
+  theme_minimal()
+
+
+```
+
+Log scaled y axis for clarity:
+
+```{r}
+
+# stable size distribution is inverse J not surprising
+ssd_full.df %>%
+  group_by(bin_midpoint_cm, sizeclass) %>%
+  summarise(prop.med = median(class_proportion),
+            prop.05 = quantile(class_proportion, 0.05),
+            prop.95 = quantile(class_proportion, 0.95)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_cm))+
+  geom_point(aes(y = prop.med), size = 3)+
+  geom_errorbar(aes(ymin = prop.05, ymax = prop.95),
+                width = 1)+
+  theme_minimal()+
+  scale_y_log10()
+
+ssd_full.df %>%
+  group_by(bin_midpoint_cm, sizeclass) %>%
+  summarise(prop.med = median(class_proportion),
+            prop.05 = quantile(class_proportion, 0.05),
+            prop.95 = quantile(class_proportion, 0.95)) %>%
+  ungroup()
+
+```
+
+This looks a little weird, with the largest size classes actually being more 
+common in the stable size distribution. There is a hint of a bigger problem, 
+in that the 5th percentile class proportion for the 2nd-largest class is 
+a negative number (-1.73e-20), so `NaN` on a log scale. Some sort of rounding 
+error? But the results look basically reasonable.
+
+
+## Reproductive value
+
+```{r}
+subplot_repro.full = 
+  matrix(nrow = nrow(size_metadata),
+         ncol = nrow(subplots.pila),
+         byrow = FALSE,
+         data = 
+           sapply(X = 1:nrow(subplots.pila),
+                  FUN = function(subplot){
+                    A.subplot = A_median_full[,,subplot]
+                    # from supplementary materials for merow et al 2014 
+                    # "On using integral projection models..."
+                    v.eigen = Re(eigen(t(A.subplot))$vectors[,1])
+                    rv = v.eigen / v.eigen[1]
+                    return(rv)
+                  }))
+
+
+subplot_repro_full.df = 
+  expand.grid('subplot' = 1:nrow(subplots.pila),
+              'sizeclass' = 1:nrow(size_metadata)) %>%
+  left_join(size_metadata %>%
+              mutate(bin_midpoint_cm = bin_midpoint*100) %>%
+              select(sizeclass = bin_id, bin_midpoint_cm))
+
+subplot_repro_full.df$reproductive_value = 
+  
+  as.numeric(
+    sapply(X = 1:nrow(size_metadata),
+           FUN = function(sizeclass){
+             
+             return(subplot_repro.full[sizeclass,])
+             
+           })
+  )
+
+```
+
+Here's where things start getting really wonky; there are 3 NAs, 
+infinite, and -infinite values in the reproductive values.
+
+```{r}
+subplot_repro_full.df  %>% summary()
+```
+
+The NAs look like cases where numerical errors are resulting in a divide by 
+zero when going from `v.eigen` to reproductive value. Ditching the NAs and 
+plotting the median, 5th, and 95th percentile for each size class across 
+all subplots, we get:
+
+```{r}
+subplot_repro_full.df %>%
+  
+  group_by(bin_midpoint_cm, sizeclass) %>%
+  
+  # there's a couple of NA subplots for reproductive value, looks like cases 
+  # where numerical errors are resulting in a divide by zero when going from 
+  # v.eigen to reproductive value? 
+  summarise(repr.med = median(reproductive_value, na.rm = TRUE),
+            
+            # there's a couple of NAs in h
+            repr.05 = quantile(reproductive_value, 0.25, na.rm = TRUE),
+            repr.95 = quantile(reproductive_value, 0.75, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_cm))+
+  geom_point(aes(y = repr.med), size = 3)+
+  geom_errorbar(aes(ymin = repr.05, ymax = repr.95),
+                width = 1)+
+  theme_minimal()
+```
+
+This looks basically reasonable, but there's also a bunch (5708 / 88160) of 
+subplot:sizeclass combinations where we have a have a negative reproductive 
+value, sometimes with large magnitude:
+
+```{r}
+subplot_repro_full.df %>%
+  filter(reproductive_value < 0) %>%
+  head()
+
+
+```
+
+## Sensitivity and elasticity
+
+```{r}
+# sensitivity and elasticity
+v.dot.w_subplot_full = 
+  
+  sapply(X = 1:nrow(subplots.pila),
+         FUN = function(subplot){
+           sum(ssd_full[,subplot] * subplot_repro.full[,subplot])*0.127
+         })
+
+sens_subplot_full = 
+  array(dim = list(nrow(size_metadata),
+                   nrow(size_metadata),
+                   nrow(subplots.pila)),
+        dimnames = 
+          list('size_to' = 1:nrow(size_metadata),
+               'size_from' = 1:nrow(size_metadata),
+               'subplot' = 1:nrow(subplots.pila)),
+        data = 
+          sapply(X = 1:nrow(subplots.pila),
+                 FUN = function(subplot){
+                   outer(subplot_repro.full[,subplot], ssd_full[,subplot])/
+                     v.dot.w_subplot_full[subplot]
+                 }))
+
+
+elas_subplot_full = 
+  
+  array(dim = list(nrow(size_metadata),
+                   nrow(size_metadata),
+                   nrow(subplots.pila)),
+        dimnames = 
+          list('size_to' = 1:nrow(size_metadata),
+               'size_from' = 1:nrow(size_metadata),
+               'subplot' = 1:nrow(subplots.pila)),
+        data = 
+          sapply(X = 1:nrow(subplots.pila),
+                 FUN = function(subplot){
+                   matrix(as.vector(sens_subplot_full[,,subplot])*
+                            as.vector(A_median_full[,,subplot])/
+                            lambda_full[subplot])
+                 }))
+
+```
+
+Following the merow code, and looking at a single subplot I get this:
+
+```{r}
+# looks like its transitions from the biggest classes into the smallest classes
+# that matter most; edit: well now I'm confused, was I swapping the rows and 
+# columns before or am I swapping them now? this doesn't look biologically 
+# reasonable, but it does match the demo sensitivity in the merow paper
+# where its from the small class into the big class that has the highest 
+# sensitivity, now I'm wondering if the merow code has a bug?
+fields::image.plot(size_metadata$bin_midpoint,
+                   size_metadata$bin_midpoint,
+                   t(sens_subplot_full[,,4]),
+                   xlab = 'Size (t)', ylab = 'Size (t+1)')
+
+```
+
+Which looks weird, because its flaggin the biologically-impossible transition 
+from the smallest size class into the largest as the most important? I thought 
+I might have transposed a matrix somewhere, but this does look like the 
+sensitivity matrix shown in figure 1.3 of the SI, except that my high values 
+are **much** higher. Is sensitivity just not that 
+useful, which is why people use elasticity?
+
+I see the same behavior when plotting the median sensitivity value 
+across all subplots:
+
+```{r}
+
+
+sens_elas_subplot_full.df = 
+  expand.grid(size_to = size_metadata$bin_id,
+              size_from = size_metadata$bin_id) %>%
+  left_join(size_metadata %>%
+              select(size_to = bin_id, 
+                     bin_midpoint_to_m = bin_midpoint)) %>%
+  left_join(size_metadata %>%
+              select(size_from = bin_id,
+                     bin_midpoint_from_m = bin_midpoint)) %>%
+  expand(nesting(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m),
+         subplot = 1:nrow(subplots.pila)) %>%
+  
+  arrange(subplot, size_to, size_from)
+
+sens_elas_subplot_full.df$sensitivity = 
+  
+  sapply(X = 1:nrow(subplots.pila),
+         FUN = function(subplot){
+           
+           sapply(X = 1:nrow(size_metadata),
+                  FUN = function(size_to){
+                    
+                    sapply(X = 1:nrow(size_metadata),
+                           FUN = function(size_from){
+                             
+                             sens_subplot_full[size_to, size_from, subplot]
+                             
+                           })
+                    
+                  })
+           
+         }) %>%
+  as.vector()
+
+
+sens_elas_subplot_full.df %>%
+  group_by(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m) %>%
+  summarise(sensitivity = median(sensitivity, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_from_m,
+           y = bin_midpoint_to_m,
+           fill = sensitivity))+
+  geom_tile()+
+  coord_fixed()+
+  theme_minimal()+
+  scale_fill_viridis_c()
+
+```
+
+The weirder thing is that I have a bunch of NA values for sensitivity, from 
+three subplots:
+
+```{r}
+summary(sens_elas_subplot_full.df)
+
+
+sens_elas_subplot_full.df %>%
+  filter(is.na(sensitivity)) %>%
+  pull(subplot) %>%
+  unique()
+```
+
+Looking at the transition matrices for these subplots doesn't show anything 
+obviously weird, except that the model is predicting enormous reproductive 
+output from the largest individuals (hmmm).
+
+```{r}
+A_median_full[,,816]
+
+fields::image.plot(size_metadata$bin_midpoint,
+                   size_metadata$bin_midpoint,
+                   t(A_median_full[,,816]),
+                   xlab = 'Size (t)', ylab = 'Size (t+1)')
+
+
+```
+
+```{r}
+sens_elas_subplot_full.df$elasticity = 
+  
+  sapply(X = 1:nrow(subplots.pila),
+         FUN = function(subplot){
+           
+           sapply(X = 1:nrow(size_metadata),
+                  FUN = function(size_to){
+                    
+                    sapply(X = 1:nrow(size_metadata),
+                           FUN = function(size_from){
+                             
+                             elas_subplot_full[size_to, size_from, subplot]
+                             
+                           })
+                    
+                  })
+           
+         }) %>%
+  as.vector()
+```
+
+Predictably the same plots have NA elasticity. But I also have elasticity 
+values outside the range 0-1, which AFIAK isn't right. Even the median values 
+are outside 0-1 for some transitions:
+
+```{r}
+summary(sens_elas_subplot_full.df)
+
+sens_elas_subplot_full.df %>%
+  group_by(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m) %>%
+  summarise(sensitivity = median(sensitivity, na.rm = TRUE),
+            elasticity = median(elasticity, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_from_m,
+             y = bin_midpoint_to_m,
+             fill = elasticity))+
+  geom_tile()+
+  coord_fixed()+
+  theme_minimal()+
+  scale_fill_viridis_c()
+  
+
+
+
+```
+
+If I truncate the range to 0-1 to get a better view of the other transitions 
+we get:
+
+```{r}
+sens_elas_subplot_full.df %>%
+  group_by(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m) %>%
+  summarise(sensitivity = median(sensitivity, na.rm = TRUE),
+            elasticity = median(elasticity, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_from_m,
+             y = bin_midpoint_to_m,
+             fill = elasticity))+
+  geom_tile()+
+  coord_fixed()+
+  theme_minimal()+
+  scale_fill_viridis_c(limits = c(0, 1))
+```
+
+Which looks plausible, in that it's saying that survival and growth of the 
+smallest size classes are most influential over lambda. However, my understanding 
+is that the usual finding for long-lived tree species is that survival of the 
+largest, reproductively valuable, individuals is usually the most important. 
+Between the NAs, the negative reproductive value numbers, the very high 
+sensitivity and elasticity values, and this surprising elasticity result I'm 
+uneasy. The central tendencies of the IPMs look OK, but there is wonky 
+behavior happening in the margins which I have not seen discussed in any 
+of my (limited) reading about IPMs. 
+
+# Hypothetical subplots, full size range
+
+## Build transition matrices
+
+```{r}
+hypothetical_subplots = 
+  data.frame(intercept = rep(1, times = 9),
+             fire = c(FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),
+             wpbr = c(FALSE, FALSE, T, F, F, F, F, F, F),
+             ba_scaled = c(0, 0, 0, -1, 1, 0, 0, 0, 0),
+             cwd_dep90_scaled = c(0, 0, 0, 0, 0, -1, 1, 0, 0),
+             cwd_mean_scaled = c(0, 0, 0, 0, 0, 0, 0, -1, 1),
+             subp_id = 1:9,
+             name = c('Undisturbed', 'Fire', 'WPBR', 'Low BA', 'High BA',
+                      'Low Drought', 'High Drought', 'Wet Site', 'Dry Site'))
+```
+
+```{r eval = FALSE}
+
+A_hypotheticals_full = 
+  array(dim = c(nrow(size_metadata), # sizeclass to
+                nrow(size_metadata), # sizeclass from
+                nrow(hypothetical_subplots), # subplots
+                nrow(posterior)), # posterior draws
+        dimnames = list('class_to' = 1:nrow(size_metadata),
+                        'class_from' = 1:nrow(size_metadata),
+                        'subplot' = 1:nrow(hypothetical_subplots),
+                        'draw' = 1:nrow(posterior)),
+        data = 
+          sapply(X = 1:nrow(posterior),
+                 FUN = function(draw){
+                   
+                   # get beta_s for the current draw
+                   beta_s = 
+                     posterior %>%
+                     select(contains('beta_s')) %>%
+                     slice(draw) %>%
+                     as.data.frame() %>%
+                     as.numeric()
+                   
+                   beta_g = 
+                     posterior %>%
+                     select(contains('beta_g')) %>%
+                     slice(draw) %>%
+                     as.data.frame() %>%
+                     as.numeric()
+                   
+                   beta_f = 
+                     posterior %>%
+                     select(contains('beta_f')) %>%
+                     slice(draw) %>%
+                     as.data.frame() %>%
+                     as.numeric()
+                   
+                   sigmaEpsilon_g = 
+                     posterior %>%
+                     slice(draw) %>%
+                     pull(sigmaEpsilon_g) %>%
+                     as.numeric()
+                   
+                   sapply(X = 1:nrow(hypothetical_subplots),
+                          FUN = function(subplot){
+                            
+                            # construct explanatory variable matrix for survival 
+                            # for the current subplot
+                            X = 
+                              hypothetical_subplots %>%
+                              slice(subplot) %>%
+                              expand(nesting(intercept, fire, wpbr, ba_scaled,
+                                             cwd_dep90_scaled,cwd_mean_scaled),
+                                     dbh = size_metadata$dbh_m.mean) %>%
+                              mutate(dbh_fire = dbh*fire,
+                                     dbh_wpbr = dbh*wpbr,
+                                     dbh_ba = dbh*ba_scaled,
+                                     dbh_cwd_dep90 = dbh*cwd_dep90_scaled,
+                                     dbh_cwd_mean = dbh*cwd_mean_scaled) %>%
+                              select(intercept, dbh, fire, wpbr, ba_scaled,
+                                     cwd_dep90_scaled, cwd_mean_scaled, 
+                                     dbh_fire, dbh_wpbr, dbh_ba,
+                                     dbh_cwd_dep90, dbh_cwd_mean) %>%
+                              as.matrix()
+                            
+                            # calculate size_from length vector of survival 
+                            # probabilities on this subplot with this parameter draw
+                            p = boot::inv.logit(as.numeric(X %*% beta_s))
+                            
+                            mu = as.numeric(X %*% beta_g)
+                            
+                            f = exp(as.numeric(X %*% beta_f))
+                            
+                            sapply(X = 1:nrow(size_metadata),
+                                   FUN = function(class_from){
+                                     
+                                     g = 
+                                       ((pnorm(size_metadata$bin_upper,
+                                               mu[class_from],
+                                               sigmaEpsilon_g) - 
+                                           pnorm(size_metadata$bin_lower,
+                                                 mu[class_from],
+                                                 sigmaEpsilon_g))/
+                                          (1-pnorm(0,
+                                                mu[class_from],
+                                                sigmaEpsilon_g)))
+                                     
+                                     sapply(X = 1:nrow(size_metadata),
+                                            FUN = function(class_to){
+                                              
+                                              transition_prob = 
+                                                # survival of each from class
+                                                (p[class_from] *
+                                                # prob of growth from to
+                                                g[class_to]) +
+                                                # number of new recruits
+                                                (f[class_from] *
+                                                 size_metadata$r[class_to])
+                                              return(transition_prob)
+                                              
+                                              # for testing
+                                              #paste0('d:',draw,'|s:',subplot,
+                                              #  '|f:',class_from,'|t:',class_to)
+                                            })
+                                   })
+                            })
+                 }))
+
+
+saveRDS(A_hypotheticals_full,
+        here::here('02-data',
+                   '03-results',
+                   'real_fits',
+                   'hypothetical_As_full.rds'))
+
+
+
+```
+
+```{r}
+A_hypotheticals_full = 
+  readRDS(here::here('02-data',
+                     '03-results',
+                     'real_fits',
+                     'hypothetical_As_full.rds'))
+
+
+```
+
+## Asymptotic population growth rate
+
+```{r}
+#### hypothetical lambda #######################################################
+
+hypothetical_lambdas_full.matrix = 
+  matrix(nrow = nrow(hypothetical_subplots),
+         ncol = 4000,
+         data = 
+           sapply(X = 1:nrow(hypothetical_subplots),
+                  FUN = function(subplot){
+                    sapply(X = 1:4000,
+                           FUN = function(draw){
+                             max(Re(eigen(A_hypotheticals_full[,,subplot,draw])$values))
+                           })
+                  }))
+
+hypothetical_lambdas_full = 
+  hypothetical_subplots %>%
+  expand(nesting(subp_id, name, intercept, fire, wpbr, ba_scaled, 
+                 cwd_dep90_scaled, cwd_mean_scaled),
+         data.frame(draw = 1:4000))
+
+
+hypothetical_lambdas_full$lambda = 
+  sapply(X = 1:nrow(hypothetical_subplots),
+         FUN = function(subplot){
+           sapply(X = 1:4000,
+                  FUN = function(draw){
+                    # paste0('s:',subplot,'d:',draw) for testing
+                    max(as.numeric(Re(eigen(A_hypotheticals_full[,,subplot,draw])$values)))
+                  })
+         }) %>%
+  as.numeric()
+
+
+pretty_names = 
+  hypothetical_subplots$name
+names(pretty_names) = hypothetical_subplots$subp_id
+```
+
+This is figure 6 from the paper:
+
+```{r}
+ggplot(data = 
+           hypothetical_lambdas_full,
+         aes(x = lambda))+
+  geom_density(lwd = 1)+
+  geom_vline(xintercept = 1, color = 'grey', lty = 2, lwd = 1)+
+  theme_minimal()+
+  facet_grid(subp_id~., scales = 'free_y',
+             labeller = labeller(subp_id = pretty_names))+
+  scale_x_continuous(limits = c(0.5,3))+
+  coord_cartesian(xlim = c(0.9, 1.5))+
+  theme(axis.text.y = element_blank())+
+  labs(x = 'Lambda', y = 'Posterior Density')
+
+```
+
+## Stable size distribution
+
+```{r}
+hypothetical_ssd_full = 
+  array(dim = c(nrow(size_metadata),
+                nrow(hypothetical_subplots),
+                4000),
+        dimnames = 
+          list('sizeclass' = 1:nrow(size_metadata),
+               'subplot' = 1:nrow(hypothetical_subplots),
+               'draw' = 1:4000),
+        data = 
+          sapply(X = 1:4000,
+                 FUN = function(draw){
+                   sapply(X = 1:nrow(hypothetical_subplots),
+                          FUN = function(subplot){
+                            A = A_hypotheticals_full[,,subplot,draw]
+                            w.eigen = Re(eigen(A)$vectors[,1])
+                            ssd = w.eigen / sum(w.eigen)
+                            return(ssd)
+                          })
+                 }))
+
+
+hypothetical_ssd_full.df = 
+  hypothetical_subplots %>%
+  expand(nesting(intercept, fire, wpbr, ba_scaled, cwd_dep90_scaled,
+                 cwd_mean_scaled, subp_id, name),
+         sizeclass = 1:nrow(size_metadata),
+         draw = 1:4000) %>%
+  left_join(size_metadata %>%
+              mutate(bin_midpoint_cm = bin_midpoint*100) %>%
+              select(sizeclass = bin_id, bin_midpoint_cm)) %>%
+  arrange(subp_id, sizeclass, draw)
+
+hypothetical_ssd_full.df$class_proportion = 
+  
+  as.numeric(
+    sapply(X = 1:nrow(hypothetical_subplots),
+           FUN = function(subplot){
+             
+             as.numeric(
+               sapply(X = 1:nrow(size_metadata),
+                      FUN = function(sizeclass){
+                        
+                        return(hypothetical_ssd_full[sizeclass,subplot,])
+                      })
+             )
+             
+           }))
+```
+
+
+
+```{r}
+# Fire makes the SSD really for the very rare bigger size classes, fewer 
+# mid-to-large trees and more superlarge 
+hypothetical_ssd_full.df %>%
+  group_by(bin_midpoint_cm, sizeclass, name, subp_id) %>%
+  summarise(prop.med = median(class_proportion),
+            prop.05 = quantile(class_proportion, 0.05),
+            prop.95 = quantile(class_proportion, 0.95)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_cm, color = name, fill = name))+
+  #geom_point(aes(y = prop.med), size = 1)+
+  geom_line(aes(y = prop.med))+
+  geom_ribbon(aes(ymin = prop.05, ymax = prop.95), alpha = 0.25)+
+  theme_minimal()+
+  scale_y_log10()+
+  facet_wrap(~name)
+
+
+```
+
+Log transform introduces infinite values when the class proportion is 0. Only 
+fire has the weird stable size distribution. This looks good.
+
+## Reproductive value
+
+```{r}
+
+hypothetical_repro_full = 
+  array(dim = c(nrow(size_metadata),
+                nrow(hypothetical_subplots),
+                4000),
+        dimnames = 
+          list('sizeclass' = 1:nrow(size_metadata),
+               'subplot' = 1:nrow(hypothetical_subplots),
+               'draw' = 1:4000),
+        data = 
+          sapply(X = 1:4000,
+                 FUN = function(draw){
+                   sapply(X = 1:nrow(hypothetical_subplots),
+                          FUN = function(subplot){
+                            A = A_hypotheticals_full[,,subplot,draw]
+                            v.eigen = Re(eigen(t(A))$vectors[,1])
+                            rv = v.eigen / v.eigen[1]
+                            return(rv)
+                          })
+                 }))
+
+
+hypothetical_repro_full.df = 
+  hypothetical_subplots %>%
+  expand(nesting(intercept, fire, wpbr, ba_scaled, cwd_dep90_scaled,
+                 cwd_mean_scaled, subp_id, name),
+         sizeclass = 1:nrow(size_metadata),
+         draw = 1:4000) %>%
+  left_join(size_metadata %>%
+              mutate(bin_midpoint_cm = bin_midpoint*100) %>%
+              select(sizeclass = bin_id, bin_midpoint_cm)) %>%
+  arrange(subp_id, sizeclass, draw)
+
+hypothetical_repro_full.df$repro = 
+  
+  as.numeric(
+    sapply(X = 1:nrow(hypothetical_subplots),
+           FUN = function(subplot){
+             
+             as.numeric(
+               sapply(X = 1:nrow(size_metadata),
+                      FUN = function(sizeclass){
+                        
+                        return(hypothetical_repro_full[sizeclass,subplot,])
+                      })
+             )
+             
+           }))
+
+# Again these reproductive values are wonky, esp for burned subplots. Something 
+# about the transition matrix for burned subplots is weird.
+hypothetical_repro_full.df %>%
+  group_by(bin_midpoint_cm, sizeclass, name, subp_id) %>%
+  #filter(subp_id != 2) %>%
+  summarise(repro.med = median(repro),
+            repro.05 = quantile(repro, 0.05, na.rm = TRUE),
+            repro.95 = quantile(repro, 0.95, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_cm, color = name, fill = name))+
+  #geom_point(aes(y = prop.med), size = 1)+
+  geom_line(aes(y = repro.med))+
+  geom_ribbon(aes(ymin = repro.05, ymax = repro.95), alpha = 0.25)+
+  theme_minimal()+
+  facet_wrap(~name, scales = 'free_y')
+
+# ok this kind of makes sense: under disturbances that really reduce the 
+# survival of small stems (WPBR and esp fire) the reproductive value of 
+# big stems relative to little ones is magnified, because so few little ones 
+# survive to become real contributors to reproduction; still think theres
+# some numerical instability or smth causing the credible interval bounds for 
+# reproductive value to go wonky for fire, all the others look fine
+
+
+```
+
+Not sure what's going on with fire, where sometimes the biggest size classes 
+have strongly negative reproductive values. Both fire and WPBR have 
+some crazy high reproductive values for the largest stems. Some sort of 
+overflow/underflow error? Note that it's only in the biggest size classes - 
+this is what made me start to think about the exponential transform in the 
+fecundity function and whether that's realistic for the biggest size classes. 
+
+## Sensitivity and elasticity
+
+```{r}
+
+# sensitivity and elasticity
+hypothetical_vdotw_full = 
+  matrix(nrow = nrow(hypothetical_subplots),
+         ncol = 4000,
+         data = 
+           sapply(X = 1:nrow(hypothetical_subplots),
+                  FUN = function(subplot){
+                    sapply(X = 1:4000,
+                           FUN = function(draw){
+                             sum(hypothetical_ssd_full[,subplot,draw] *
+                                   hypothetical_repro_full[,subplot,draw])*0.127
+                           })
+                  }))
+
+
+hypothetical_sens_full = 
+  array(dim = list(nrow(size_metadata),
+                   nrow(size_metadata),
+                   nrow(hypothetical_subplots),
+                   4000),
+        dimnames = 
+          list('size_to' = 1:nrow(size_metadata),
+               'size_from' = 1:nrow(size_metadata),
+               'subplot' = 1:nrow(hypothetical_subplots),
+               'draw' = 1:4000),
+        data = 
+          
+          sapply(X = 1:4000,
+                 FUN = function(draw){
+                   sapply(X = 1:nrow(hypothetical_subplots),
+                          FUN = function(subplot){
+                            outer(hypothetical_repro_full[,subplot,draw], 
+                                  hypothetical_ssd_full[,subplot,draw])/
+                              hypothetical_vdotw_full[subplot,draw]
+                          })
+                 })
+  )
+
+hypothetical_elas_full = 
+  array(dim = list(nrow(size_metadata),
+                   nrow(size_metadata),
+                   nrow(hypothetical_subplots),
+                   4000),
+        dimnames = 
+          list('size_to' = 1:nrow(size_metadata),
+               'size_from' = 1:nrow(size_metadata),
+               'subplot' = 1:nrow(hypothetical_subplots),
+               'draw' = 1:4000),
+        data = 
+          
+          sapply(X = 1:4000,
+                 FUN = function(draw){
+                   sapply(X = 1:nrow(hypothetical_subplots),
+                          FUN = function(subplot){
+                            
+                            matrix(as.vector(hypothetical_sens_full[,,subplot,draw])*
+                                     as.vector(A_hypotheticals_full[,,subplot,draw])/
+                                     hypothetical_lambdas_full.matrix[subplot,draw])
+                            
+                            
+                          })
+                 })
+  )
+
+
+
+hypothetical_sens_elas_full.df  = 
+  expand.grid(size_to = size_metadata$bin_id,
+              size_from = size_metadata$bin_id) %>%
+  left_join(size_metadata %>%
+              select(size_to = bin_id, 
+                     bin_midpoint_to_m = bin_midpoint)) %>%
+  left_join(size_metadata %>%
+              select(size_from = bin_id,
+                     bin_midpoint_from_m = bin_midpoint)) %>%
+  expand(nesting(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m),
+         subp_id = 1:9,
+         draw = 1:4000) %>%
+  arrange(subp_id, size_to, size_from, draw)
+
+
+hypothetical_sens_elas_full.df$sensitivity = 
+  sapply(X = 1:nrow(hypothetical_subplots),
+         FUN = function(subplot){
+           sapply(X = 1:nrow(size_metadata),
+                  FUN = function(size_to){
+                    
+                    sapply(X = 1:nrow(size_metadata),
+                           FUN = function(size_from){
+                             hypothetical_sens_full[size_to, size_from, subplot,]
+                           })
+                  })
+         }) %>%
+  as.vector()
+
+
+hypothetical_sens_elas_full.df$elasticity = 
+  sapply(X = 1:nrow(hypothetical_subplots),
+         FUN = function(subplot){
+           sapply(X = 1:nrow(size_metadata),
+                  FUN = function(size_to){
+                    
+                    sapply(X = 1:nrow(size_metadata),
+                           FUN = function(size_from){
+                             hypothetical_elas_full[size_to, size_from, subplot,]
+                           })
+                  })
+         }) %>%
+  as.vector()
+
+```
+
+It's a little hard to see the sensitivities for each of the scenarios, because 
+WPBR has the crazy scale. So looking at them individually:
+
+```{r}
+
+sensitivity_plots = 
+  lapply(X = 1:9,
+         FUN = function(s){
+                       
+              hypothetical_sens_elas_full.df %>%
+              group_by(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m,
+                       subp_id) %>%
+              summarise(sensitivity = median(sensitivity, na.rm = TRUE),
+                        elasticity = median(elasticity, na.rm = TRUE)) %>%
+              ungroup() %>%
+              left_join(hypothetical_subplots %>%
+                          select(subp_id, name)) %>%
+              filter(subp_id==s) %>%
+              ggplot(aes(x = bin_midpoint_from_m,
+                         y = bin_midpoint_to_m,
+                         fill = sensitivity))+
+              geom_tile()+
+              coord_fixed()+
+              theme_minimal()+
+              scale_fill_viridis_c()+
+                labs(title = hypothetical_subplots$name[s])
+         })
+  
+sensitivity_plots  
+
+
+```
+
+This is the 
+Here's where things are getting really weird. I have strongly negative 
+numbers for sensitivity for Fire? That's not right. And these are the 
+median sensitivities across all of the IPMs generated from different 
+posterior draws, so it's not just the edge case behavior here that's weird, it's 
+the central tendency.
+
+```{r}
+
+
+
+elasticity_plots = 
+  lapply(X = 1:9,
+         FUN = function(s){
+                       
+              hypothetical_sens_elas_full.df %>%
+              group_by(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m,
+                       subp_id) %>%
+              summarise(sensitivity = median(sensitivity, na.rm = TRUE),
+                        elasticity = median(elasticity, na.rm = TRUE)) %>%
+              ungroup() %>%
+              left_join(hypothetical_subplots %>%
+                          select(subp_id, name)) %>%
+              filter(subp_id==s) %>%
+              ggplot(aes(x = bin_midpoint_from_m,
+                         y = bin_midpoint_to_m,
+                         fill = elasticity))+
+              geom_tile()+
+              coord_fixed()+
+              theme_minimal()+
+              scale_fill_viridis_c()+
+                labs(title = hypothetical_subplots$name[s])
+         })
+  
+elasticity_plots  
+
+
+
+
+```
+
+For most scenarios, the elasticity matrix shows the same pattern of 
+survival/growth in the smallest size classes being most important. However, 
+for WPBR we see elasticity maximize for survival in larger size classes 
+(though not smoothly, which is weird). And the fire one again looks bonkers.
+
+Looking at the transition matrices for the fire scenarios, we get:
+
+```{r}
+hypothetical_sens_elas_full.df$transition = 
+    sapply(X = 1:nrow(hypothetical_subplots),
+         FUN = function(subplot){
+           sapply(X = 1:nrow(size_metadata),
+                  FUN = function(size_to){
+                    
+                    sapply(X = 1:nrow(size_metadata),
+                           FUN = function(size_from){
+                             A_hypotheticals_full[size_to, size_from, subplot,]
+                           })
+                  })
+         }) %>%
+  as.vector()
+
+transition_plots = 
+  lapply(X = 1:9,
+         FUN = function(s){
+                       
+              hypothetical_sens_elas_full.df %>%
+              group_by(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m,
+                       subp_id) %>%
+              summarise(sensitivity = median(sensitivity, na.rm = TRUE),
+                        elasticity = median(elasticity, na.rm = TRUE),
+                        transition = median(transition, na.rm = TRUE)) %>%
+              ungroup() %>%
+              left_join(hypothetical_subplots %>%
+                          select(subp_id, name)) %>%
+              filter(subp_id==s) %>%
+              ggplot(aes(x = bin_midpoint_from_m,
+                         y = bin_midpoint_to_m,
+                         fill = transition))+
+              geom_tile()+
+              coord_fixed()+
+              theme_minimal()+
+              scale_fill_viridis_c()+
+                labs(title = hypothetical_subplots$name[s])
+         })
+  
+transition_plots
+
+
+```
+
+The transition kernels all look reasonable, with the main transitions being 
+the super high recruitment numbers from the largest size classes. Note that 
+the recruitment numbers are highest for the fire kernels, which was the model 
+where there was a mildly positive interaction between fire and individual 
+size for fecundity:
+
+```{r pressure, echo=FALSE, fig.cap="Fecundity fixed effects", out.width = '100%'}
+knitr::include_graphics(here::here('04-communication',
+                                   'figures',
+                                   'manuscript',
+                                   'fixeff_f.png'))
+```
+
+# Problem is the large size classes?
+
+Looking at all of this, I start to become skeptical of the IPM behavior for 
+those biggest size classes. IMO it's unlikely that the exponential relationship 
+between individual size and fecundity continues from DBH of 1.25m to DBH of 
+2.5m, it probably levels off somewhere for the largest individuals. And I'm 
+thinking that there is some sort of overflow thing happening with those 
+really high transition values from the largest classes into the smallest ones,
+which is causing all the wonky results in the other summary statistics. 
+
+With all that in mind, I reran all of these analyses using a size distribution 
+that only goes from 0-1.25m, which is about the 95th percentile individual 
+size in the data, but ditches fully half of the size classes. I'm more 
+confident in the vital rate predictions for this range of sizes, and it might 
+help with numerical problems to avoid those super high recruitment rates?
+
+# Real subplots, limited size range
+
+## Build transition matrices
+
+```{r}
+
+size_metadata_small = 
+  readRDS(here::here('02-data',
+                     '01-preprocessed',
+                     'size_metadata_small.rds')) %>%
+  # convert to metric
+  mutate(bin_midpoint = bin_midpoint * 0.0254,
+         bin_lower = bin_lower * 0.0254,
+         bin_upper = bin_upper * 0.0254,
+         dbh_m.mean = dbh_in.mean * 0.0254) %>%
+  
+  # for testing, restrict to ~95th percentile observed size class
+  filter(dbh_m.mean < 1.25) 
+# I've played around with only using "smaller" 
+# sizes in the IPM transition kernel, because I don't really believe some 
+# of the transition rates for very large trees (>1.25m dbh), because I doubt 
+# that the relationship between size and fecundity really keeps increasing 
+# exponentially that far into the tail of DBH. The 
+# parameter-medians-all-subplots results are not sensitive to the range of 
+# sizes modeled in the transition matrix. The 
+# posterior-params-hypothetical-subplots are slightly sensitive, in that the 
+# posterior lambda distributions for the different scenarios do shift (in 
+# particular, the posterior lambda distribution for burned subplots shifts 
+# downward slightly), but the core findings (strong negative effect of fire 
+# reducing lambda below 1, weaker negative effects of WPBR and high BA reducing 
+# lambda to ~1, high positive effect of low BA, weak effects of drought and 
+# dryness) remain unchanged. For simplicity and clarity when writing a paper, 
+# i'd like the post-estimation IPM to have the same structure as the IPM used 
+# to estimate fecundity, and the results are not sensitive to the decision 
+# about what sizes to include in the IPM, so I'm leaving in the large size bins 
+# for the final publication analysis.
+
+size_metadata_small$r = 
+  c(readRDS(here::here('02-data',
+                       '02-for_analysis',
+                       'pila_training.rds'))$r,
+    rep(0, times = 8))
+
+
+```
+
+```{r eval = FALSE}
+
+
+A_median_half = 
+    array(dim = list(nrow(size_metadata_small),
+                     nrow(size_metadata_small),
+                     nrow(subplots.pila)),
+          dimnames = list('class_to' = 1:nrow(size_metadata_small),
+                          'class_from' = 1:nrow(size_metadata_small),
+                          'subplot' = 1:nrow(subplots.pila)),
+          data = 
+            sapply(X = 1:nrow(subplots.pila),
+                   FUN = function(subplot){
+                     
+                     # construct explanatory variable matrix for vital rate 
+                     # functions for the current subplot
+                     X = 
+                       subplots.pila %>%
+                       slice(subplot) %>%
+                       expand(nesting(intercept, fire, wpbr, ba_scaled,
+                                      cwd_dep90_scaled,cwd_mean_scaled),
+                              dbh = size_metadata_small$dbh_m.mean) %>%
+                       mutate(dbh_fire = dbh*fire,
+                              dbh_wpbr = dbh*wpbr,
+                              dbh_ba = dbh*ba_scaled,
+                              dbh_cwd_dep90 = dbh*cwd_dep90_scaled,
+                              dbh_cwd_mean = dbh*cwd_mean_scaled) %>%
+                       select(intercept, dbh, fire, wpbr, ba_scaled,
+                              cwd_dep90_scaled, cwd_mean_scaled, 
+                              dbh_fire, dbh_wpbr, dbh_ba,
+                              dbh_cwd_dep90, dbh_cwd_mean) %>%
+                       as.matrix()
+                     
+                     # calculate vector of survival probabilities for each 
+                     # size class on this subplot with this parameter draw
+                     p = 
+                       boot::inv.logit(as.numeric(X %*% beta_s) +
+                                         ecoEffect_s[subplots.pila$ecosub.i[subplot]]+
+                                         plotEffect_s[subplots.pila$plot_id.i][subplot])
+                     
+                     # calculate vector of mean size at time 2 for each size 
+                     # class on this subplot with this parameter draw
+                     mu = as.numeric(X %*% beta_g)+
+                       ecoEffect_g[subplots.pila$ecosub.i[subplot]]+
+                       plotEffect_g[subplots.pila$plot_id.i[subplot]]
+                     
+                     # calculate vector of fecundity for each size class on this 
+                     # subplot with this parameter draw
+                     f = 
+                       exp(as.numeric(X %*% beta_f)+
+                             ecoEffect_f[subplots.pila$ecosub.i[subplot]]+
+                             plotEffect_f[subplots.pila$plot_id.i[subplot]])
+                     
+                     # loop over each "from" size class
+                     sapply(X = 1:nrow(size_metadata_small),
+                            FUN = function(class_from){
+                              
+                              # growth kernel from this size class into 
+                              # each other size class, using the cumulative 
+                              # density function as recommended by Doak et al. 2021
+                              g = 
+                                ((pnorm(size_metadata_small$bin_upper,
+                                        mu[class_from],
+                                        sigmaEpsilon_g) - 
+                                    pnorm(size_metadata_small$bin_lower,
+                                          mu[class_from],
+                                          sigmaEpsilon_g))/
+                                   (1-pnorm(0,
+                                            mu[class_from],
+                                            sigmaEpsilon_g)))
+                              
+                              # loop over every destination size class
+                              sapply(X = 1:nrow(size_metadata_small),
+                                     FUN = function(class_to){
+                                       
+                                       # for testing, just to make sure 
+                                       # I've constructed the array correctly
+                                       #paste0('to:',class_to,',from:',class_from,
+                                       #       ',subplot:',subplot)
+                                       
+                                       # calculate the transition kernel
+                                       # between the current "from" class and 
+                                       # the current "to" class
+                                       transition_kern = 
+                                         # survival of each from class
+                                         (p[class_from] *
+                                            # prob of growth from to
+                                            g[class_to]) +
+                                         # number of new recruits in this "to"
+                                         # class is the fecundity of the "from" 
+                                         # class times the recruitment size 
+                                         # kernel for this "to" class
+                                         (f[class_from] *
+                                            size_metadata_small$r[class_to])
+                                       return(transition_kern)
+                                       
+                                     })
+                              
+                            })
+                     
+                   }))
+
+# save this so we don't have to rebuild it every time we knit
+saveRDS(A_median_half,
+        here::here('02-data',
+                   '03-results',
+                   'real_fits',
+                   'A_median_half.rds'))
+
+
+```
+```{r}
+A_median_half = readRDS(here::here('02-data',
+                                   '03-results',
+                                   'real_fits',
+                                   'A_median_half.rds'))
+
+```
+
+Here's the median transition matrix across all the subplots:
+
+```{r}
+sens_elas_subplot_half.df = 
+  expand.grid(size_to = size_metadata_small$bin_id,
+              size_from = size_metadata_small$bin_id) %>%
+  left_join(size_metadata_small %>%
+              select(size_to = bin_id, 
+                     bin_midpoint_to_m = bin_midpoint)) %>%
+  left_join(size_metadata_small %>%
+              select(size_from = bin_id,
+                     bin_midpoint_from_m = bin_midpoint)) %>%
+  expand(nesting(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m),
+         subplot = 1:nrow(subplots.pila)) %>%
+  
+  arrange(subplot, size_to, size_from)
+
+sens_elas_subplot_half.df$transition = 
+  
+  sapply(X = 1:nrow(subplots.pila),
+         FUN = function(subplot){
+           
+           sapply(X = 1:nrow(size_metadata_small),
+                  FUN = function(size_to){
+                    
+                    sapply(X = 1:nrow(size_metadata_small),
+                           FUN = function(size_from){
+                             
+                             A_median_half[size_to, size_from, subplot]
+                             
+                           })
+                    
+                  })
+           
+         }) %>%
+  as.vector()
+
+sens_elas_subplot_half.df %>%
+  group_by(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m) %>%
+  summarise(transition = median(transition)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_from_m,
+             y = bin_midpoint_to_m,
+             fill = transition))+
+  geom_tile()+
+  coord_fixed()+
+  theme_minimal()+
+  scale_fill_viridis_c()
+  
+
+```
+
+This looks basically right, but look again limiting the scale to transition 
+rates between 0 and 1:
+
+```{r}
+
+sens_elas_subplot_half.df %>%
+  group_by(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m) %>%
+  summarise(transition = median(transition)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_from_m,
+             y = bin_midpoint_to_m,
+             fill = transition))+
+  geom_tile()+
+  coord_fixed()+
+  theme_minimal()+
+  scale_fill_viridis_c(limits = c(0,1))
+
+
+
+```
+
+The diagonal in this matrix is not strictly the survival, which is why the 
+diagonal is highest for the smallest size classes, because in the other classes 
+there are more individuals growing out of their current class and into a bigger 
+one? That makes sense. The various covariates interacting with size to 
+affect growth rates vary across the subplots, which I guess could induce 
+the weird bump in growth rates for the ~0.6m DBH size class.
+
+So it still looks basically right, I guess.
+
+## Asymptotic population growth rate
+
+```{r}
+lambda_half = 
+  sapply(X = 1:nrow(subplots.pila),
+         FUN = function(subplot){
+           A_subplot = A_median_half[,,subplot]
+           lambda_subplot = max(as.numeric(Re(eigen(A_subplot)$values)))
+           return(lambda_subplot)
+         })
+
+```
+
+This is the equivalent to figure 7 in the paper, but with the size-restricted 
+IPMs.
+
+```{r}
+ggplot(data.frame(lambda_half),
+       aes(x = lambda_half))+
+  geom_density()+
+  theme_minimal()+
+  scale_x_continuous(limits = c(0, 2.5))
+```
+
+Results are similar, though here 39% of subplots have a lambda below one 
+rather than 34.5%.
+
+
+## Stable size distribution
+
+```{r}
+# stable size distribution
+ssd_half = 
+  matrix(nrow = nrow(size_metadata_small),
+         ncol = nrow(subplots.pila),
+         byrow = FALSE,
+         data = 
+           sapply(X = 1:nrow(subplots.pila),
+                  FUN = function(subplot){
+                    A.subplot = A_median_half[,,subplot]
+                    # from supplamentory materials for merow et al 2014 
+                    # "On using integral projection models..."
+                    w.eigen = Re(eigen(A.subplot)$vectors[,1])
+                    ssd = w.eigen / sum(w.eigen)
+                    return(ssd)
+                  }))
+
+ssd_half.df = 
+  expand.grid('subplot' = 1:nrow(subplots.pila),
+              'sizeclass' = 1:nrow(size_metadata_small)) %>%
+  left_join(size_metadata_small %>%
+              mutate(bin_midpoint_cm = bin_midpoint*100) %>%
+              select(sizeclass = bin_id, bin_midpoint_cm))
+
+ssd_half.df$class_proportion = 
+  
+  as.numeric(
+    sapply(X = 1:nrow(size_metadata_small),
+           FUN = function(sizeclass){
+             
+             return(ssd_half[sizeclass,])
+             
+           })
+  )
+```
+
+Stable size distribution looks similar:
+
+```{r}
+# stable size distribution is inverse J not surprising
+ssd_half.df %>%
+  group_by(bin_midpoint_cm, sizeclass) %>%
+  summarise(prop.med = median(class_proportion),
+            prop.05 = quantile(class_proportion, 0.05),
+            prop.95 = quantile(class_proportion, 0.95)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_cm))+
+  geom_point(aes(y = prop.med), size = 3)+
+  geom_errorbar(aes(ymin = prop.05, ymax = prop.95),
+                width = 1)+
+  theme_minimal()
+
+
+```
+
+Log scaled y axis for clarity:
+
+```{r}
+
+# stable size distribution is inverse J not surprising
+ssd_half.df %>%
+  group_by(bin_midpoint_cm, sizeclass) %>%
+  summarise(prop.med = median(class_proportion),
+            prop.05 = quantile(class_proportion, 0.05),
+            prop.95 = quantile(class_proportion, 0.95)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_cm))+
+  geom_point(aes(y = prop.med), size = 3)+
+  geom_errorbar(aes(ymin = prop.05, ymax = prop.95),
+                width = 1)+
+  theme_minimal()+
+  scale_y_log10()
+
+ssd_half.df %>%
+  group_by(bin_midpoint_cm, sizeclass) %>%
+  summarise(prop.med = median(class_proportion),
+            prop.05 = quantile(class_proportion, 0.05),
+            prop.95 = quantile(class_proportion, 0.95)) %>%
+  ungroup()
+
+summary(ssd_half.df)
+
+```
+
+Again the largest classes start to get a little more common under the stable 
+size distribution than the middling classes. No problems with NAs or negative 
+numbers here.
+
+
+## Reproductive value
+
+```{r}
+subplot_repro.half = 
+  matrix(nrow = nrow(size_metadata_small),
+         ncol = nrow(subplots.pila),
+         byrow = FALSE,
+         data = 
+           sapply(X = 1:nrow(subplots.pila),
+                  FUN = function(subplot){
+                    A.subplot = A_median_half[,,subplot]
+                    # from supplementary materials for merow et al 2014 
+                    # "On using integral projection models..."
+                    v.eigen = Re(eigen(t(A.subplot))$vectors[,1])
+                    rv = v.eigen / v.eigen[1]
+                    return(rv)
+                  }))
+
+
+subplot_repro_half.df = 
+  expand.grid('subplot' = 1:nrow(subplots.pila),
+              'sizeclass' = 1:nrow(size_metadata_small)) %>%
+  left_join(size_metadata_small %>%
+              mutate(bin_midpoint_cm = bin_midpoint*100) %>%
+              select(sizeclass = bin_id, bin_midpoint_cm))
+
+subplot_repro_half.df$reproductive_value = 
+  
+  as.numeric(
+    sapply(X = 1:nrow(size_metadata_small),
+           FUN = function(sizeclass){
+             
+             return(subplot_repro.half[sizeclass,])
+             
+           })
+  )
+
+```
+
+Still some wonky results, though it looks like fewer of them? 
+
+```{r}
+subplot_repro_half.df  %>% summary()
+```
+
+Ditching the NAs and 
+plotting the median, 5th, and 95th percentile for each size class across 
+all subplots, we get:
+
+```{r}
+subplot_repro_half.df %>%
+  
+  group_by(bin_midpoint_cm, sizeclass) %>%
+  
+  # there's a couple of NA subplots for reproductive value, looks like cases 
+  # where numerical errors are resulting in a divide by zero when going from 
+  # v.eigen to reproductive value? 
+  summarise(repr.med = median(reproductive_value, na.rm = TRUE),
+            
+            # there's a couple of NAs in h
+            repr.05 = quantile(reproductive_value, 0.25, na.rm = TRUE),
+            repr.95 = quantile(reproductive_value, 0.75, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_cm))+
+  geom_point(aes(y = repr.med), size = 3)+
+  geom_errorbar(aes(ymin = repr.05, ymax = repr.95),
+                width = 1)+
+  theme_minimal()
+```
+
+This looks basically reasonable, but there's **still** a bunch (838 / 44080) of 
+subplot:sizeclass combinations where we have a have a negative reproductive 
+value, sometimes with large magnitude.
+
+## Sensitivity and elasticity
+
+```{r}
+# sensitivity and elasticity
+v.dot.w_subplot_half = 
+  
+  sapply(X = 1:nrow(subplots.pila),
+         FUN = function(subplot){
+           sum(ssd_half[,subplot] * subplot_repro.half[,subplot])*0.127
+         })
+
+sens_subplot_half = 
+  array(dim = list(nrow(size_metadata_small),
+                   nrow(size_metadata_small),
+                   nrow(subplots.pila)),
+        dimnames = 
+          list('size_to' = 1:nrow(size_metadata_small),
+               'size_from' = 1:nrow(size_metadata_small),
+               'subplot' = 1:nrow(subplots.pila)),
+        data = 
+          sapply(X = 1:nrow(subplots.pila),
+                 FUN = function(subplot){
+                   outer(subplot_repro.half[,subplot], ssd_half[,subplot])/
+                     v.dot.w_subplot_half[subplot]
+                 }))
+
+
+elas_subplot_half = 
+  
+  array(dim = list(nrow(size_metadata_small),
+                   nrow(size_metadata_small),
+                   nrow(subplots.pila)),
+        dimnames = 
+          list('size_to' = 1:nrow(size_metadata_small),
+               'size_from' = 1:nrow(size_metadata_small),
+               'subplot' = 1:nrow(subplots.pila)),
+        data = 
+          sapply(X = 1:nrow(subplots.pila),
+                 FUN = function(subplot){
+                   matrix(as.vector(sens_subplot_half[,,subplot])*
+                            as.vector(A_median_half[,,subplot])/
+                            lambda_half[subplot])
+                 }))
+
+```
+
+An individual subplot's sensitivity matrix:
+
+```{r}
+# looks like its transitions from the biggest classes into the smallest classes
+# that matter most; edit: well now I'm confused, was I swapping the rows and 
+# columns before or am I swapping them now? this doesn't look biologically 
+# reasonable, but it does match the demo sensitivity in the merow paper
+# where its from the small class into the big class that has the highest 
+# sensitivity, now I'm wondering if the merow code has a bug?
+fields::image.plot(size_metadata_small$bin_midpoint,
+                   size_metadata_small$bin_midpoint,
+                   t(sens_subplot_half[,,4]),
+                   xlab = 'Size (t)', ylab = 'Size (t+1)')
+
+```
+
+I see the same behavior when plotting the median sensitivity value 
+across all subplots:
+
+```{r}
+
+
+sens_elas_subplot_half.df = 
+  expand.grid(size_to = size_metadata_small$bin_id,
+              size_from = size_metadata_small$bin_id) %>%
+  left_join(size_metadata_small %>%
+              select(size_to = bin_id, 
+                     bin_midpoint_to_m = bin_midpoint)) %>%
+  left_join(size_metadata_small %>%
+              select(size_from = bin_id,
+                     bin_midpoint_from_m = bin_midpoint)) %>%
+  expand(nesting(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m),
+         subplot = 1:nrow(subplots.pila)) %>%
+  
+  arrange(subplot, size_to, size_from)
+
+sens_elas_subplot_half.df$sensitivity = 
+  
+  sapply(X = 1:nrow(subplots.pila),
+         FUN = function(subplot){
+           
+           sapply(X = 1:nrow(size_metadata_small),
+                  FUN = function(size_to){
+                    
+                    sapply(X = 1:nrow(size_metadata_small),
+                           FUN = function(size_from){
+                             
+                             sens_subplot_half[size_to, size_from, subplot]
+                             
+                           })
+                    
+                  })
+           
+         }) %>%
+  as.vector()
+
+
+sens_elas_subplot_half.df %>%
+  group_by(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m) %>%
+  summarise(sensitivity = median(sensitivity, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_from_m,
+           y = bin_midpoint_to_m,
+           fill = sensitivity))+
+  geom_tile()+
+  coord_fixed()+
+  theme_minimal()+
+  scale_fill_viridis_c()
+
+```
+
+The weirder thing is that I have a bunch of NA values for sensitivity, now 
+from only a single subplot:
+
+```{r}
+summary(sens_elas_subplot_half.df)
+
+
+sens_elas_subplot_half.df %>%
+  filter(is.na(sensitivity)) %>%
+  pull(subplot) %>%
+  unique()
+```
+
+Looking at the transition matrices for these subplots doesn't show anything 
+obviously weird:
+
+```{r}
+A_median_half[,,4074]
+
+fields::image.plot(size_metadata_small$bin_midpoint,
+                   size_metadata_small$bin_midpoint,
+                   t(A_median_half[,,4074]),
+                   xlab = 'Size (t)', ylab = 'Size (t+1)')
+
+
+```
+
+```{r}
+sens_elas_subplot_half.df$elasticity = 
+  
+  sapply(X = 1:nrow(subplots.pila),
+         FUN = function(subplot){
+           
+           sapply(X = 1:nrow(size_metadata_small),
+                  FUN = function(size_to){
+                    
+                    sapply(X = 1:nrow(size_metadata_small),
+                           FUN = function(size_from){
+                             
+                             elas_subplot_half[size_to, size_from, subplot]
+                             
+                           })
+                    
+                  })
+           
+         }) %>%
+  as.vector()
+```
+
+Again getting elasticity values outside the range 0-1:
+
+```{r}
+summary(sens_elas_subplot_half.df)
+
+sens_elas_subplot_half.df %>%
+  group_by(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m) %>%
+  summarise(sensitivity = median(sensitivity, na.rm = TRUE),
+            elasticity = median(elasticity, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_from_m,
+             y = bin_midpoint_to_m,
+             fill = elasticity))+
+  geom_tile()+
+  coord_fixed()+
+  theme_minimal()+
+  scale_fill_viridis_c()
+  
+
+
+
+```
+
+If I truncate the range to 0-1 to get a better view of the other transitions 
+we get:
+
+```{r}
+sens_elas_subplot_half.df %>%
+  group_by(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m) %>%
+  summarise(sensitivity = median(sensitivity, na.rm = TRUE),
+            elasticity = median(elasticity, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_from_m,
+             y = bin_midpoint_to_m,
+             fill = elasticity))+
+  geom_tile()+
+  coord_fixed()+
+  theme_minimal()+
+  scale_fill_viridis_c(limits = c(0, 1))
+```
+
+So the weird results are less frequent/pronounced with the limited size range, 
+but they dont disappear entirely.
+
+
+# Hypothetical subplots, limited size classes
+
+
+```{r}
+
+
+#### hypothetical transition matrices ##########################################
+A_hypotheticals = 
+  readRDS(here::here('02-data',
+                     '03-results',
+                     'real_fits',
+                     'hypothetical_As.rds'))
+```
+
+## Asymptotic population growth rate
+
+```{r}
+#### hypothetical lambda #######################################################
+
+hypothetical_lambdas.matrix = 
+  matrix(nrow = nrow(hypothetical_subplots),
+         ncol = 4000,
+         data = 
+           sapply(X = 1:nrow(hypothetical_subplots),
+                  FUN = function(subplot){
+                    sapply(X = 1:4000,
+                           FUN = function(draw){
+                             max(Re(eigen(A_hypotheticals[,,subplot,draw])$values))
+                           })
+                  }))
+
+hypothetical_lambdas = 
+  hypothetical_subplots %>%
+  expand(nesting(subp_id, name, intercept, fire, wpbr, ba_scaled, 
+                 cwd_dep90_scaled, cwd_mean_scaled),
+         data.frame(draw = 1:4000))
+
+
+hypothetical_lambdas$lambda = 
+  sapply(X = 1:nrow(hypothetical_subplots),
+         FUN = function(subplot){
+           sapply(X = 1:4000,
+                  FUN = function(draw){
+                    # paste0('s:',subplot,'d:',draw) for testing
+                    max(as.numeric(Re(eigen(A_hypotheticals[,,subplot,draw])$values)))
+                  })
+         }) %>%
+  as.numeric()
+
+
+pretty_names = 
+  hypothetical_subplots$name
+names(pretty_names) = hypothetical_subplots$subp_id
+
+head(hypothetical_lambdas)
+
+hypothetical_lambda_summary = 
+  hypothetical_lambdas %>%
+  group_by(subp_id, name) %>%
+  summarise(lambda.med = median(lambda),
+            lambda.05 = quantile(lambda, probs = 0.05),
+            lambda.95 = quantile(lambda, probs = 0.95))
+
+hypothetical_lambda_summary
+
+
+hypothetical_lambdas_plot = 
+  ggplot(data = 
+           hypothetical_lambdas,
+         aes(x = lambda))+
+  geom_density(lwd = 1)+
+  geom_vline(xintercept = 1, color = 'grey', lty = 2, lwd = 1)+
+  theme_minimal()+
+  facet_grid(subp_id~., scales = 'free_y',
+             labeller = labeller(subp_id = pretty_names))+
+  scale_x_continuous(limits = c(0.5,3))+
+  coord_cartesian(xlim = c(0.9, 1.5))+
+  theme(axis.text.y = element_blank())+
+  labs(x = 'Lambda', y = 'Posterior Density')
+
+hypothetical_lambdas_plot
+```
+
+Results are qualitatively similar to those in the paper, but the negative 
+effect of fire is more pronounced. 
+
+## Stable size distribution
+
+```{r}
+
+#### hypothetical stable size distribution #####################################
+hypothetical_ssd = 
+  array(dim = c(nrow(size_metadata_small),
+                nrow(hypothetical_subplots),
+                4000),
+        dimnames = 
+          list('sizeclass' = 1:nrow(size_metadata_small),
+               'subplot' = 1:nrow(hypothetical_subplots),
+               'draw' = 1:4000),
+        data = 
+          sapply(X = 1:4000,
+                 FUN = function(draw){
+                   sapply(X = 1:nrow(hypothetical_subplots),
+                          FUN = function(subplot){
+                            A = A_hypotheticals[,,subplot,draw]
+                            w.eigen = Re(eigen(A)$vectors[,1])
+                            ssd = w.eigen / sum(w.eigen)
+                            return(ssd)
+                          })
+                 }))
+
+
+hypothetical_ssd.df = 
+  hypothetical_subplots %>%
+  expand(nesting(intercept, fire, wpbr, ba_scaled, cwd_dep90_scaled,
+                 cwd_mean_scaled, subp_id, name),
+         sizeclass = 1:nrow(size_metadata_small),
+         draw = 1:4000) %>%
+  left_join(size_metadata_small %>%
+              mutate(bin_midpoint_cm = bin_midpoint*100) %>%
+              select(sizeclass = bin_id, bin_midpoint_cm)) %>%
+  arrange(subp_id, sizeclass, draw)
+
+head(hypothetical_ssd.df)
+
+hypothetical_ssd.df$class_proportion = 
+  
+  as.numeric(
+    sapply(X = 1:nrow(hypothetical_subplots),
+           FUN = function(subplot){
+             
+             as.numeric(
+               sapply(X = 1:nrow(size_metadata_small),
+                      FUN = function(sizeclass){
+                        
+                        return(hypothetical_ssd[sizeclass,subplot,])
+                      })
+             )
+             
+           }))
+
+# Fire makes the SSD really for the very rare bigger size classes, fewer 
+# mid-to-large trees and more superlarge 
+hypothetical_ssd.df %>%
+  group_by(bin_midpoint_cm, sizeclass, name, subp_id) %>%
+  summarise(prop.med = median(class_proportion),
+            prop.05 = quantile(class_proportion, 0.05),
+            prop.95 = quantile(class_proportion, 0.95)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_cm, color = name, fill = name))+
+  #geom_point(aes(y = prop.med), size = 1)+
+  geom_line(aes(y = prop.med))+
+  geom_ribbon(aes(ymin = prop.05, ymax = prop.95), alpha = 0.25)+
+  theme_minimal()+
+  scale_y_log10()+
+  facet_wrap(~name)
+```
+
+Looks reasonable, no 0s in the size class proportions this time.
+
+## Reproductive value
+
+```{r}
+#### hypothetical reproductive value ###########################################
+
+hypothetical_repro = 
+  array(dim = c(nrow(size_metadata_small),
+                nrow(hypothetical_subplots),
+                4000),
+        dimnames = 
+          list('sizeclass' = 1:nrow(size_metadata_small),
+               'subplot' = 1:nrow(hypothetical_subplots),
+               'draw' = 1:4000),
+        data = 
+          sapply(X = 1:4000,
+                 FUN = function(draw){
+                   sapply(X = 1:nrow(hypothetical_subplots),
+                          FUN = function(subplot){
+                            A = A_hypotheticals[,,subplot,draw]
+                            v.eigen = Re(eigen(t(A))$vectors[,1])
+                            rv = v.eigen / v.eigen[1]
+                            return(rv)
+                          })
+                 }))
+
+
+hypothetical_repro.df = 
+  hypothetical_subplots %>%
+  expand(nesting(intercept, fire, wpbr, ba_scaled, cwd_dep90_scaled,
+                 cwd_mean_scaled, subp_id, name),
+         sizeclass = 1:nrow(size_metadata_small),
+         draw = 1:4000) %>%
+  left_join(size_metadata_small %>%
+              mutate(bin_midpoint_cm = bin_midpoint*100) %>%
+              select(sizeclass = bin_id, bin_midpoint_cm)) %>%
+  arrange(subp_id, sizeclass, draw)
+
+hypothetical_repro.df$repro = 
+  
+  as.numeric(
+    sapply(X = 1:nrow(hypothetical_subplots),
+           FUN = function(subplot){
+             
+             as.numeric(
+               sapply(X = 1:nrow(size_metadata_small),
+                      FUN = function(sizeclass){
+                        
+                        return(hypothetical_repro[sizeclass,subplot,])
+                      })
+             )
+             
+           }))
+
+# Again these reproductive values are wonky, esp for burned subplots. Something 
+# about the transition matrix for burned subplots is weird.
+hypothetical_repro.df %>%
+  group_by(bin_midpoint_cm, sizeclass, name, subp_id) %>%
+  #filter(subp_id != 2) %>%
+  summarise(repro.med = median(repro),
+            repro.05 = quantile(repro, 0.05, na.rm = TRUE),
+            repro.95 = quantile(repro, 0.95, na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_cm, color = name, fill = name))+
+  #geom_point(aes(y = prop.med), size = 1)+
+  geom_line(aes(y = repro.med))+
+  geom_ribbon(aes(ymin = repro.05, ymax = repro.95), alpha = 0.25)+
+  theme_minimal()+
+  facet_wrap(~name, scales = 'free_y')
+
+```
+
+So this looks more reasonable, I'm no longer getting the large negative 
+reproductive values for the burned scenario 5th percentile.
+
+
+Ok this kind of makes sense: under disturbances that really reduce the 
+survival of small stems (WPBR and esp fire) the reproductive value of 
+big stems relative to little ones is magnified, because so few little ones 
+survive to become real contributors to reproduction; still think theres
+some numerical instability or smth causing the credible interval bounds for 
+reproductive value to go wonky for fire, all the others look fine.
+
+I am still getting a few large negative reproductive values:
+
+```{r}
+summary(hypothetical_repro.df)
+```
+
+All of them are from the fire scenario:
+
+```{r}
+hypothetical_repro.df %>%
+  filter(repro<0) %>%
+  pull(name) %>%
+  unique()
+
+```
+
+## Sensitivity and elasticity
+
+```{r}
+
+#### hypothetical sensitivity and elasticity ###################################
+
+# sensitivity and elasticity
+hypothetical_vdotw = 
+  matrix(nrow = nrow(hypothetical_subplots),
+         ncol = 4000,
+         data = 
+           sapply(X = 1:nrow(hypothetical_subplots),
+                  FUN = function(subplot){
+                    sapply(X = 1:4000,
+                           FUN = function(draw){
+                             sum(hypothetical_ssd[,subplot,draw] *
+                                   hypothetical_repro[,subplot,draw])*0.127
+                           })
+                  }))
+
+
+hypothetical_sens = 
+  array(dim = list(nrow(size_metadata_small),
+                   nrow(size_metadata_small),
+                   nrow(hypothetical_subplots),
+                   4000),
+        dimnames = 
+          list('size_to' = 1:nrow(size_metadata_small),
+               'size_from' = 1:nrow(size_metadata_small),
+               'subplot' = 1:nrow(hypothetical_subplots),
+               'draw' = 1:4000),
+        data = 
+          
+          sapply(X = 1:4000,
+                 FUN = function(draw){
+                   sapply(X = 1:nrow(hypothetical_subplots),
+                          FUN = function(subplot){
+                            outer(hypothetical_repro[,subplot,draw], 
+                                  hypothetical_ssd[,subplot,draw])/
+                              hypothetical_vdotw[subplot,draw]
+                          })
+                 })
+  )
+
+hypothetical_elas = 
+  array(dim = list(nrow(size_metadata_small),
+                   nrow(size_metadata_small),
+                   nrow(hypothetical_subplots),
+                   4000),
+        dimnames = 
+          list('size_to' = 1:nrow(size_metadata_small),
+               'size_from' = 1:nrow(size_metadata_small),
+               'subplot' = 1:nrow(hypothetical_subplots),
+               'draw' = 1:4000),
+        data = 
+          
+          sapply(X = 1:4000,
+                 FUN = function(draw){
+                   sapply(X = 1:nrow(hypothetical_subplots),
+                          FUN = function(subplot){
+                            
+                            matrix(as.vector(hypothetical_sens[,,subplot,draw])*
+                                     as.vector(A_hypotheticals[,,subplot,draw])/
+                                     hypothetical_lambdas.matrix[subplot,draw])
+                            
+                            
+                          })
+                 })
+  )
+
+
+
+hypothetical_sens_elas.df  = 
+  expand.grid(size_to = size_metadata_small$bin_id,
+              size_from = size_metadata_small$bin_id) %>%
+  left_join(size_metadata_small %>%
+              select(size_to = bin_id, 
+                     bin_midpoint_to_m = bin_midpoint)) %>%
+  left_join(size_metadata_small %>%
+              select(size_from = bin_id,
+                     bin_midpoint_from_m = bin_midpoint)) %>%
+  expand(nesting(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m),
+         subp_id = 1:9,
+         draw = 1:4000) %>%
+  arrange(subp_id, size_to, size_from, draw)
+
+
+hypothetical_sens_elas.df$sensitivity = 
+  sapply(X = 1:nrow(hypothetical_subplots),
+         FUN = function(subplot){
+           sapply(X = 1:nrow(size_metadata_small),
+                  FUN = function(size_to){
+                    
+                    sapply(X = 1:nrow(size_metadata_small),
+                           FUN = function(size_from){
+                             hypothetical_sens[size_to, size_from, subplot,]
+                           })
+                  })
+         }) %>%
+  as.vector()
+
+
+hypothetical_sens_elas.df$elasticity = 
+  sapply(X = 1:nrow(hypothetical_subplots),
+         FUN = function(subplot){
+           sapply(X = 1:nrow(size_metadata_small),
+                  FUN = function(size_to){
+                    
+                    sapply(X = 1:nrow(size_metadata_small),
+                           FUN = function(size_from){
+                             hypothetical_elas[size_to, size_from, subplot,]
+                           })
+                  })
+         }) %>%
+  as.vector()
+
+```
+
+```{r}
+
+sensitivity_plots = 
+  lapply(X = 1:9,
+         FUN = function(s){
+                       
+              hypothetical_sens_elas.df %>%
+              group_by(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m,
+                       subp_id) %>%
+              summarise(sensitivity = median(sensitivity, na.rm = TRUE),
+                        elasticity = median(elasticity, na.rm = TRUE)) %>%
+              ungroup() %>%
+              left_join(hypothetical_subplots %>%
+                          select(subp_id, name)) %>%
+              filter(subp_id==s) %>%
+              ggplot(aes(x = bin_midpoint_from_m,
+                         y = bin_midpoint_to_m,
+                         fill = sensitivity))+
+              geom_tile()+
+              coord_fixed()+
+              theme_minimal()+
+              scale_fill_viridis_c()+
+                labs(title = hypothetical_subplots$name[s])
+         })
+  
+sensitivity_plots  
+
+
+```
+
+This looks much more sane than it did for the full size distribution.
+
+```{r}
+
+
+
+elasticity_plots = 
+  lapply(X = 1:9,
+         FUN = function(s){
+                       
+              hypothetical_sens_elas.df %>%
+              group_by(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m,
+                       subp_id) %>%
+              summarise(sensitivity = median(sensitivity, na.rm = TRUE),
+                        elasticity = median(elasticity, na.rm = TRUE)) %>%
+              ungroup() %>%
+              left_join(hypothetical_subplots %>%
+                          select(subp_id, name)) %>%
+              filter(subp_id==s) %>%
+              ggplot(aes(x = bin_midpoint_from_m,
+                         y = bin_midpoint_to_m,
+                         fill = elasticity))+
+              geom_tile()+
+              coord_fixed()+
+              theme_minimal()+
+              scale_fill_viridis_c()+
+                labs(title = hypothetical_subplots$name[s])
+         })
+  
+elasticity_plots  
+
+
+
+
+```
+
+Again the fire result looks weird, though less obviously broken.
+
+
+Looking at the transition matrices for the fire scenarios, we get:
+
+```{r}
+hypothetical_sens_elas.df$transition = 
+    sapply(X = 1:nrow(hypothetical_subplots),
+         FUN = function(subplot){
+           sapply(X = 1:nrow(size_metadata_small),
+                  FUN = function(size_to){
+                    
+                    sapply(X = 1:nrow(size_metadata_small),
+                           FUN = function(size_from){
+                             A_hypotheticals[size_to, size_from, subplot,]
+                           })
+                  })
+         }) %>%
+  as.vector()
+
+transition_plots = 
+  lapply(X = 1:9,
+         FUN = function(s){
+                       
+              hypothetical_sens_elas.df %>%
+              group_by(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m,
+                       subp_id) %>%
+              summarise(sensitivity = median(sensitivity, na.rm = TRUE),
+                        elasticity = median(elasticity, na.rm = TRUE),
+                        transition = median(transition, na.rm = TRUE)) %>%
+              ungroup() %>%
+              left_join(hypothetical_subplots %>%
+                          select(subp_id, name)) %>%
+              filter(subp_id==s) %>%
+              ggplot(aes(x = bin_midpoint_from_m,
+                         y = bin_midpoint_to_m,
+                         fill = transition))+
+              geom_tile()+
+              coord_fixed()+
+              theme_minimal()+
+              scale_fill_viridis_c()+
+                labs(title = hypothetical_subplots$name[s])
+         })
+  
+transition_plots
+
+
+```
+
+The median transition matrices look fine.
