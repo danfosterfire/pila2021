@@ -1,4 +1,5 @@
-
+library(here)
+library(tidyverse)
 
 
 
@@ -6,71 +7,289 @@
 
 
 
-subplot_transitions.med = 
+subplot_As = 
   readRDS(here::here('02-data',
                      '03-results',
                      'real_fits',
                      'subplot_As.rds'))
 
 #### subplot lambda ############################################################
-subplot_lambdas.med = 
-  sapply(X = 1:nrow(subplots.pila),
-         FUN = function(subplot){
-           
-           A.subplot = subplot_transitions.med[,,subplot]
-           
-           lambda.subplot = max(as.numeric(Re(eigen(A.subplot)$values)))
-           return(lambda.subplot)
-         })
 
 
-# lambda: asymptotic population growth rate
-subplots.pila$lambda_postmed = 
-  subplot_lambdas.med
+subplot_df = 
+  expand.grid(draw = 1:100,
+         subplot = 1:dim(subplot_As)[3]) %>%
+  as_tibble() %>%
+  arrange(draw, subplot)
+
+subplot_df$lambda = 
+  sapply(X = 1:100,
+         FUN = function(draw){
+           sapply(X = 1:dim(subplot_As)[3],
+                  FUN = function(subplot){
+                    A.subplot = subplot_As[,,subplot,draw]
+                    lambda.subplot = max(as.numeric(Re(eigen(A.subplot)$values)))
+                    return(lambda.subplot)
+                  })
+         }) %>%
+  as.vector()
 
 postmed_lambda_distribution = 
-  ggplot(data = subplots.pila,
-         aes(x = lambda_postmed))+
-  geom_density()+
+  ggplot(data = subplot_df,
+         aes(x = log(lambda), group = draw))+
+  geom_line(stat = 'density', alpha = 0.1)+
   theme_minimal()+
-  scale_x_continuous(limits = c(0, 2.5))+
-  geom_vline(xintercept = 1, color = 'grey', lty = 2, lwd = 1)+
+  #scale_x_continuous(limits = c(-1, 1))+
+  geom_vline(xintercept = 0, color = 'grey', lty = 2, lwd = 1)+
   labs(y = 'Density', x = 'Lambda')
 
 postmed_lambda_distribution
 
-postmed_lambda_distribution_ppt = 
-  ggplot(data = subplots.pila,
-         aes(x = lambda_postmed))+
-  geom_histogram()+
-  theme_minimal()+
-  scale_x_continuous(limits = c(0, 2.5))+
-  geom_vline(xintercept = 1, color = 'grey', lty = 2, lwd = 1)+
-  labs(y = 'N subplots', x = 'Lambda')+
-  theme(text = element_text(size = 18))
-
-ggsave(postmed_lambda_distribution_ppt,
-       filename = here::here('04-communication',
-                             'figures',
-                             'powerpoint',
-                             'subplot_lambdas.png'),
-       height = 4, width = 6.5, units = 'in')
-
-summary(subplots.pila$lambda_postmed)
+subplot_df %>%
+  group_by(draw) %>%
+  summarise(lambda.med = median(lambda, na.rm = TRUE),
+            lambda.05 = quantile(lambda, probs = 0.05),
+            lambda.95 = quantile(lambda, probs = 0.95)) %>%
+  ungroup() %>%
+  ggplot(aes(x = lambda.med))+
+  geom_density()
 
 
-# what proportion of plots is the pop predicted to decline on
-length(subplots.pila$lambda_postmed[subplots.pila$lambda_postmed<1])/
-  length(subplots.pila$lambda_postmed)
+#### parameter sensitivities ###################################################
 
-ggsave(postmed_lambda_distribution,
-       filename = here::here('04-communication',
-                             'figures',
-                             'manuscript',
-                             'postmed_lambda_distribution.png'),
-       height = 4, width = 6.5, units = 'in')
+head(subplot_df)
 
-postmed_lambda_distribution
+posterior = readRDS(here::here('02-data',
+                               '03-results',
+                               'real_fits',
+                               'posterior_draws.rds'))
+
+posterior %>%
+  select(contains(match = c('beta', 'sigma')))
+
+ipm_results = 
+  subplot_df %>%
+  left_join(posterior %>%
+              select(contains(match = c('beta', 'sigma'))) %>%
+              mutate(draw = posterior$.draw),
+            by = c('draw' = 'draw'))
+
+saveRDS(ipm_results,
+        here::here('02-data',
+                   '03-results',
+                   'real_fits',
+                   'real_subplot_lambda_all_draws.rds'))
+
+ipm_results = 
+  readRDS(here::here('02-data',
+                     '03-results',
+                     'real_fits',
+                     'real_subplot_lambda_all_draws.rds'))
+
+head(ipm_results)
+
+
+beta_s_sensitivities = 
+  lapply(X = 1:12,
+         FUN = function(p){
+           
+           param_name = paste0('beta_s[',p,']')
+           
+           ipm_results %>%
+              mutate(log_lambda = log(lambda)) %>%
+              group_by(draw) %>%
+              summarise(llambda05 = quantile(log_lambda, 0.05),
+                        llambda25 = quantile(log_lambda, 0.25),
+                        llambdamed = median(log_lambda),
+                        llambda75 = quantile(log_lambda, 0.75),
+                        llambda95 = quantile(log_lambda, 0.95)) %>%
+              ungroup() %>%
+              left_join(posterior %>%
+                          select(contains(match = c('beta', 'sigma'))) %>%
+                          mutate(draw = posterior$.draw),
+                        by = c('draw' = 'draw')) %>%
+              ggplot(aes(x = .data[[param_name]]))+
+              geom_ribbon(aes(ymin = llambda05, ymax = llambda95), alpha = 0.25)+
+              geom_ribbon(aes(ymin = llambda25, ymax = llambda75), alpha = 0.5)+
+              geom_line(aes(y = llambdamed))+
+              geom_smooth(data = 
+                            ipm_results %>%
+                            mutate(log_lambda = log(lambda)),
+                          aes(x = .data[[param_name]], y = log_lambda),
+                          method = 'lm')+
+              theme_minimal()
+         })
+
+beta_s_sensitivities
+
+beta_g_sensitivities = 
+  lapply(X = 1:12,
+         FUN = function(p){
+           
+           param_name = paste0('beta_g[',p,']')
+           
+           ipm_results %>%
+              mutate(log_lambda = log(lambda)) %>%
+              group_by(draw) %>%
+              summarise(llambda05 = quantile(log_lambda, 0.05),
+                        llambda25 = quantile(log_lambda, 0.25),
+                        llambdamed = median(log_lambda),
+                        llambda75 = quantile(log_lambda, 0.75),
+                        llambda95 = quantile(log_lambda, 0.95)) %>%
+              ungroup() %>%
+              left_join(posterior %>%
+                          select(contains(match = c('beta', 'sigma'))) %>%
+                          mutate(draw = posterior$.draw),
+                        by = c('draw' = 'draw')) %>%
+              ggplot(aes(x = .data[[param_name]]))+
+              geom_ribbon(aes(ymin = llambda05, ymax = llambda95), alpha = 0.25)+
+              geom_ribbon(aes(ymin = llambda25, ymax = llambda75), alpha = 0.5)+
+              geom_line(aes(y = llambdamed))+
+              geom_smooth(data = 
+                            ipm_results %>%
+                            mutate(log_lambda = log(lambda)),
+                          aes(x = .data[[param_name]], y = log_lambda),
+                          method = 'lm')+
+              theme_minimal()
+         })
+
+beta_g_sensitivities
+
+beta_f_sensitivities = 
+  lapply(X = 1:12,
+         FUN = function(p){
+           
+           param_name = paste0('beta_f[',p,']')
+           
+           ipm_results %>%
+              mutate(log_lambda = log(lambda)) %>%
+              group_by(draw) %>%
+              summarise(llambda05 = quantile(log_lambda, 0.05),
+                        llambda25 = quantile(log_lambda, 0.25),
+                        llambdamed = median(log_lambda),
+                        llambda75 = quantile(log_lambda, 0.75),
+                        llambda95 = quantile(log_lambda, 0.95)) %>%
+              ungroup() %>%
+              left_join(posterior %>%
+                          select(contains(match = c('beta', 'sigma'))) %>%
+                          mutate(draw = posterior$.draw),
+                        by = c('draw' = 'draw')) %>%
+              ggplot(aes(x = .data[[param_name]]))+
+              geom_ribbon(aes(ymin = llambda05, ymax = llambda95), alpha = 0.25)+
+              geom_ribbon(aes(ymin = llambda25, ymax = llambda75), alpha = 0.5)+
+              geom_line(aes(y = llambdamed))+
+              geom_smooth(data = 
+                            ipm_results %>%
+                            mutate(log_lambda = log(lambda)),
+                          aes(x = .data[[param_name]], y = log_lambda),
+                          method = 'lm')+
+              theme_minimal()
+         })
+
+beta_f_sensitivities
+
+head(ipm_results)
+
+ipm_results_long = 
+  ipm_results %>%
+  mutate(log_lambda = log(lambda)) %>%
+  pivot_longer(cols = c('beta_s[1]', 'beta_s[2]', 'beta_s[3]', 'beta_s[4]',
+                        'beta_s[5]', 'beta_s[6]', 'beta_s[7]', 'beta_s[8]',
+                        'beta_s[9]', 'beta_s[10]', 'beta_s[11]', 'beta_s[12]',
+                        'beta_g[1]', 'beta_g[2]', 'beta_g[3]', 'beta_g[4]',
+                        'beta_g[5]', 'beta_g[6]', 'beta_g[7]', 'beta_g[8]',
+                        'beta_g[9]', 'beta_g[10]', 'beta_g[11]', 'beta_g[12]',
+                        'beta_f[1]', 'beta_f[2]', 'beta_f[3]', 'beta_f[4]',
+                        'beta_f[5]', 'beta_f[6]', 'beta_f[7]', 'beta_f[8]',
+                        'beta_f[9]', 'beta_f[10]', 'beta_f[11]', 'beta_f[12]'),
+               names_to = 'parameter',
+               values_to = 'parameter_value') %>%
+  select(draw, subplot, log_lambda, parameter, parameter_value)
+
+head(ipm_results_long)
+
+fixeff_sensitivities = 
+  ipm_results_long %>%
+  group_by(parameter) %>%
+  summarise() %>%
+  ungroup()
+
+library(lme4)
+fixeff_sensitivity_fits = 
+  
+  lapply(X = fixeff_sensitivities$parameter,
+         FUN = function(p){
+           lm_data = 
+             ipm_results_long %>%
+             filter(parameter==p) %>%
+             mutate(parameter_value_s = scale(parameter_value))
+           
+           lm_fit = lme4::lmer(data = lm_data,
+                               log_lambda ~ parameter_value_s + (1|subplot))
+           
+           return(lm_fit)
+         })
+
+fixeff_sensitivities$beta0 = 
+  sapply(X = fixeff_sensitivity_fits,
+         FUN = function(fit){
+           fit@beta[1]
+         })
+
+fixeff_sensitivities$beta1 = 
+  sapply(X = fixeff_sensitivity_fits,
+         FUN = function(fit){
+           fit@beta[2]
+         })
+
+fixeff_sensitivities$beta1_se = 
+  sapply(X = fixeff_sensitivity_fits,
+         FUN = function(fit){
+           summary(fit)$coefficients[2,2]
+         })
+
+
+beta_names =   
+  data.frame(
+      param = c('beta_s[1]', 'beta_s[2]', 'beta_s[3]', 'beta_s[4]', 'beta_s[5]',
+                'beta_s[6]', 'beta_s[7]', 'beta_s[8]', 'beta_s[9]', 'beta_s[10]',
+                'beta_s[11]', 'beta_s[12]',
+                'beta_g[1]', 'beta_g[2]', 'beta_g[3]', 'beta_g[4]', 'beta_g[5]',
+                'beta_g[6]', 'beta_g[7]', 'beta_g[8]', 'beta_g[9]', 'beta_g[10]',
+                'beta_g[11]', 'beta_g[12]',
+                'beta_f[1]', 'beta_f[2]', 'beta_f[3]', 'beta_f[4]', 'beta_f[5]',
+                'beta_f[6]', 'beta_f[7]', 'beta_f[8]', 'beta_f[9]', 'beta_f[10]',
+                'beta_f[11]', 'beta_f[12]'),
+      pretty_name = 
+          c('Surv-Intercept','Surv-DBH (m)','Surv-Fire','Surv-WPBR','Surv-Basal Area',
+            'Surv-Drought','Surv-Site Dryness','Surv-DBH x Fire','Surv-DBH x WPBR',
+            'Surv-DBH x BA','Surv-DBH x Drought','Surv-DBH x Dryness',
+            'Grow-Intercept','Grow-DBH (m)','Grow-Fire','Grow-WPBR','Grow-Basal Area',
+            'Grow-Drought','Grow-Site Dryness','Grow-DBH x Fire','Grow-DBH x WPBR',
+            'Grow-DBH x BA','Grow-DBH x Drought','Grow-DBH x Dryness',
+            'Fec-Intercept','Fec-DBH (m)','Fec-Fire','Fec-WPBR','Fec-Basal Area',
+            'Fec-Drought','Fec-Site Dryness','Fec-DBH x Fire','Fec-DBH x WPBR',
+            'Fec-DBH x BA','Fec-DBH x Drought','Fec-DBH x Dryness'))
+
+
+fixeff_sensitivities %>%
+  left_join(beta_names, by = c('parameter' = 'param')) %>%
+  ggplot(aes(y = reorder(pretty_name, abs(beta1))))+
+  geom_point(aes(x = beta1))+
+  geom_errorbarh(aes(xmin = beta1-(2*beta1_se),
+                    xmax = beta1+(2*beta1_se)))
+
+
+# this is interesting; 
+# x axis shows the change in lambda associated with increasing the value of 
+# some parameter by 1 SD of the posterior distribution
+# so parameters which are highly influential *and/or highly uncertain* have 
+# large values
+# largest values are for fecundity intercept and fecundity size effect,
+# then interaction of size and dryness on fecundity, effect of dryness on 
+# growth, interaction of size and BA on survival
+
+
 
 #### subplot stable size distribution ##########################################
 
@@ -82,7 +301,7 @@ subplot_ssd.med =
          data = 
            sapply(X = 1:nrow(subplots.pila),
                   FUN = function(subplot){
-                    A.subplot = subplot_transitions.med[,,subplot]
+                    A.subplot = subplot_As[,,subplot]
                     # from supplamentory materials for merow et al 2014 
                     # "On using integral projection models..."
                     w.eigen = Re(eigen(A.subplot)$vectors[,1])
@@ -130,7 +349,7 @@ subplot_repro.med =
          data = 
            sapply(X = 1:nrow(subplots.pila),
                   FUN = function(subplot){
-                    A.subplot = subplot_transitions.med[,,subplot]
+                    A.subplot = subplot_As[,,subplot]
                     # from supplementary materials for merow et al 2014 
                     # "On using integral projection models..."
                     v.eigen = Re(eigen(t(A.subplot))$vectors[,1])
@@ -296,7 +515,7 @@ elas =
           sapply(X = 1:nrow(subplots.pila),
                  FUN = function(subplot){
                    matrix(as.vector(sens[,,subplot])*
-                            as.vector(subplot_transitions.med[,,subplot])/
+                            as.vector(subplot_As[,,subplot])/
                             subplot_lambdas.med[subplot])
                  }))
 
@@ -354,7 +573,7 @@ ggplot(elas.df,
 
 
 
-v = Re(eigen(t(subplot_transitions.med[,,49]))$vectors[,1])
+v = Re(eigen(t(subplot_As[,,49]))$vectors[,1])
 
 
 
@@ -671,9 +890,9 @@ hypothetical_repro.df %>%
   facet_wrap(~name, scales = 'free_y')
 
 # ok this kind of makes sense: under disturbances that really reduce the 
-# survival of small stems (WPBR and esp fire) the reproductive value of 
+# Fecival of small stems (WPBR and esp fire) the reproductive value of 
 # big stems relative to little ones is magnified, because so few little ones 
-# survive to become real contributors to reproduction; still think theres
+# Fecive to become real contributors to reproduction; still think theres
 # some numerical instability or smth causing the credible interval bounds for 
 # reproductive value to go wonky for fire, all the others look fine
 
