@@ -1421,7 +1421,7 @@ help with numerical problems to avoid those super high recruitment rates?
 size_metadata_small = 
   readRDS(here::here('02-data',
                      '01-preprocessed',
-                     'size_metadata_small.rds')) %>%
+                     'size_metadata.rds')) %>%
   # convert to metric
   mutate(bin_midpoint = bin_midpoint * 0.0254,
          bin_lower = bin_lower * 0.0254,

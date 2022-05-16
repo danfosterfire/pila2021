@@ -201,6 +201,7 @@ pre code {
 <ul>
 <li>Seen similar results from other work with IPMs? Would be helpful to diagnose the source of the wonky looking results, and debug if necessary.</li>
 <li>How much should infrequent weird behavior (e.g. negative reproductive values for 5% of sizeclass:subplot combinations) make me distrust the central tendencies (ie the median behavior looks fine)?</li>
+<li>How much should the wonky results viz. reproductive value, elasticitiy, etc. make me distrust the results for the asymptotic population growth rate, which look fine?</li>
 <li>Advice for how to move forward with a paper?
 <ul>
 <li>Full size class distribution vs. restricted (parameter estimation vs.  results IPMs)</li>
@@ -1558,7 +1559,7 @@ Fecundity fixed effects
 <h1>Real subplots, limited size range</h1>
 <div id="build-transition-matrices-2" class="section level2">
 <h2>Build transition matrices</h2>
-<pre class="r"><code>size_metadata = 
+<pre class="r"><code>size_metadata_small = 
   readRDS(here::here(&#39;02-data&#39;,
                      &#39;01-preprocessed&#39;,
                      &#39;size_metadata.rds&#39;)) %&gt;%
@@ -1589,17 +1590,17 @@ Fecundity fixed effects
 # about what sizes to include in the IPM, so I&#39;m leaving in the large size bins 
 # for the final publication analysis.
 
-size_metadata$r = 
+size_metadata_small$r = 
   c(readRDS(here::here(&#39;02-data&#39;,
                        &#39;02-for_analysis&#39;,
                        &#39;pila_training.rds&#39;))$r,
     rep(0, times = 8))</code></pre>
 <pre class="r"><code>A_median_half = 
-    array(dim = list(nrow(size_metadata),
-                     nrow(size_metadata),
+    array(dim = list(nrow(size_metadata_small),
+                     nrow(size_metadata_small),
                      nrow(subplots.pila)),
-          dimnames = list(&#39;class_to&#39; = 1:nrow(size_metadata),
-                          &#39;class_from&#39; = 1:nrow(size_metadata),
+          dimnames = list(&#39;class_to&#39; = 1:nrow(size_metadata_small),
+                          &#39;class_from&#39; = 1:nrow(size_metadata_small),
                           &#39;subplot&#39; = 1:nrow(subplots.pila)),
           data = 
             sapply(X = 1:nrow(subplots.pila),
@@ -1612,7 +1613,7 @@ size_metadata$r =
                        slice(subplot) %&gt;%
                        expand(nesting(intercept, fire, wpbr, ba_scaled,
                                       cwd_dep90_scaled,cwd_mean_scaled),
-                              dbh = size_metadata$dbh_m.mean) %&gt;%
+                              dbh = size_metadata_small$dbh_m.mean) %&gt;%
                        mutate(dbh_fire = dbh*fire,
                               dbh_wpbr = dbh*wpbr,
                               dbh_ba = dbh*ba_scaled,
@@ -1645,17 +1646,17 @@ size_metadata$r =
                              plotEffect_f[subplots.pila$plot_id.i[subplot]])
                      
                      # loop over each &quot;from&quot; size class
-                     sapply(X = 1:nrow(size_metadata),
+                     sapply(X = 1:nrow(size_metadata_small),
                             FUN = function(class_from){
                               
                               # growth kernel from this size class into 
                               # each other size class, using the cumulative 
                               # density function as recommended by Doak et al. 2021
                               g = 
-                                ((pnorm(size_metadata$bin_upper,
+                                ((pnorm(size_metadata_small$bin_upper,
                                         mu[class_from],
                                         sigmaEpsilon_g) - 
-                                    pnorm(size_metadata$bin_lower,
+                                    pnorm(size_metadata_small$bin_lower,
                                           mu[class_from],
                                           sigmaEpsilon_g))/
                                    (1-pnorm(0,
@@ -1663,7 +1664,7 @@ size_metadata$r =
                                             sigmaEpsilon_g)))
                               
                               # loop over every destination size class
-                              sapply(X = 1:nrow(size_metadata),
+                              sapply(X = 1:nrow(size_metadata_small),
                                      FUN = function(class_to){
                                        
                                        # for testing, just to make sure 
@@ -1684,7 +1685,7 @@ size_metadata$r =
                                          # class times the recruitment size 
                                          # kernel for this &quot;to&quot; class
                                          (f[class_from] *
-                                            size_metadata$r[class_to])
+                                            size_metadata_small$r[class_to])
                                        return(transition_kern)
                                        
                                      })
@@ -1705,12 +1706,12 @@ saveRDS(A_median_half,
                                    &#39;A_median_half.rds&#39;))</code></pre>
 <p>Here’s the median transition matrix across all the subplots:</p>
 <pre class="r"><code>sens_elas_subplot_half.df = 
-  expand.grid(size_to = size_metadata$bin_id,
-              size_from = size_metadata$bin_id) %&gt;%
-  left_join(size_metadata %&gt;%
+  expand.grid(size_to = size_metadata_small$bin_id,
+              size_from = size_metadata_small$bin_id) %&gt;%
+  left_join(size_metadata_small %&gt;%
               select(size_to = bin_id, 
                      bin_midpoint_to_m = bin_midpoint)) %&gt;%
-  left_join(size_metadata %&gt;%
+  left_join(size_metadata_small %&gt;%
               select(size_from = bin_id,
                      bin_midpoint_from_m = bin_midpoint)) %&gt;%
   expand(nesting(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m),
@@ -1723,10 +1724,10 @@ sens_elas_subplot_half.df$transition =
   sapply(X = 1:nrow(subplots.pila),
          FUN = function(subplot){
            
-           sapply(X = 1:nrow(size_metadata),
+           sapply(X = 1:nrow(size_metadata_small),
                   FUN = function(size_to){
                     
-                    sapply(X = 1:nrow(size_metadata),
+                    sapply(X = 1:nrow(size_metadata_small),
                            FUN = function(size_from){
                              
                              A_median_half[size_to, size_from, subplot]
@@ -1789,7 +1790,7 @@ sens_elas_subplot_half.df %&gt;%
 <h2>Stable size distribution</h2>
 <pre class="r"><code># stable size distribution
 ssd_half = 
-  matrix(nrow = nrow(size_metadata),
+  matrix(nrow = nrow(size_metadata_small),
          ncol = nrow(subplots.pila),
          byrow = FALSE,
          data = 
@@ -1805,15 +1806,15 @@ ssd_half =
 
 ssd_half.df = 
   expand.grid(&#39;subplot&#39; = 1:nrow(subplots.pila),
-              &#39;sizeclass&#39; = 1:nrow(size_metadata)) %&gt;%
-  left_join(size_metadata %&gt;%
+              &#39;sizeclass&#39; = 1:nrow(size_metadata_small)) %&gt;%
+  left_join(size_metadata_small %&gt;%
               mutate(bin_midpoint_cm = bin_midpoint*100) %&gt;%
               select(sizeclass = bin_id, bin_midpoint_cm))
 
 ssd_half.df$class_proportion = 
   
   as.numeric(
-    sapply(X = 1:nrow(size_metadata),
+    sapply(X = 1:nrow(size_metadata_small),
            FUN = function(sizeclass){
              
              return(ssd_half[sizeclass,])
@@ -1881,7 +1882,7 @@ ssd_half.df %&gt;%
 <div id="reproductive-value-2" class="section level2">
 <h2>Reproductive value</h2>
 <pre class="r"><code>subplot_repro.half = 
-  matrix(nrow = nrow(size_metadata),
+  matrix(nrow = nrow(size_metadata_small),
          ncol = nrow(subplots.pila),
          byrow = FALSE,
          data = 
@@ -1898,15 +1899,15 @@ ssd_half.df %&gt;%
 
 subplot_repro_half.df = 
   expand.grid(&#39;subplot&#39; = 1:nrow(subplots.pila),
-              &#39;sizeclass&#39; = 1:nrow(size_metadata)) %&gt;%
-  left_join(size_metadata %&gt;%
+              &#39;sizeclass&#39; = 1:nrow(size_metadata_small)) %&gt;%
+  left_join(size_metadata_small %&gt;%
               mutate(bin_midpoint_cm = bin_midpoint*100) %&gt;%
               select(sizeclass = bin_id, bin_midpoint_cm))
 
 subplot_repro_half.df$reproductive_value = 
   
   as.numeric(
-    sapply(X = 1:nrow(size_metadata),
+    sapply(X = 1:nrow(size_metadata_small),
            FUN = function(sizeclass){
              
              return(subplot_repro.half[sizeclass,])
@@ -1956,12 +1957,12 @@ v.dot.w_subplot_half =
          })
 
 sens_subplot_half = 
-  array(dim = list(nrow(size_metadata),
-                   nrow(size_metadata),
+  array(dim = list(nrow(size_metadata_small),
+                   nrow(size_metadata_small),
                    nrow(subplots.pila)),
         dimnames = 
-          list(&#39;size_to&#39; = 1:nrow(size_metadata),
-               &#39;size_from&#39; = 1:nrow(size_metadata),
+          list(&#39;size_to&#39; = 1:nrow(size_metadata_small),
+               &#39;size_from&#39; = 1:nrow(size_metadata_small),
                &#39;subplot&#39; = 1:nrow(subplots.pila)),
         data = 
           sapply(X = 1:nrow(subplots.pila),
@@ -1973,12 +1974,12 @@ sens_subplot_half =
 
 elas_subplot_half = 
   
-  array(dim = list(nrow(size_metadata),
-                   nrow(size_metadata),
+  array(dim = list(nrow(size_metadata_small),
+                   nrow(size_metadata_small),
                    nrow(subplots.pila)),
         dimnames = 
-          list(&#39;size_to&#39; = 1:nrow(size_metadata),
-               &#39;size_from&#39; = 1:nrow(size_metadata),
+          list(&#39;size_to&#39; = 1:nrow(size_metadata_small),
+               &#39;size_from&#39; = 1:nrow(size_metadata_small),
                &#39;subplot&#39; = 1:nrow(subplots.pila)),
         data = 
           sapply(X = 1:nrow(subplots.pila),
@@ -1994,19 +1995,19 @@ elas_subplot_half =
 # reasonable, but it does match the demo sensitivity in the merow paper
 # where its from the small class into the big class that has the highest 
 # sensitivity, now I&#39;m wondering if the merow code has a bug?
-fields::image.plot(size_metadata$bin_midpoint,
-                   size_metadata$bin_midpoint,
+fields::image.plot(size_metadata_small$bin_midpoint,
+                   size_metadata_small$bin_midpoint,
                    t(sens_subplot_half[,,4]),
                    xlab = &#39;Size (t)&#39;, ylab = &#39;Size (t+1)&#39;)</code></pre>
 <p><img src="data:image/png;base64,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" width="672" /></p>
 <p>I see the same behavior when plotting the median sensitivity value across all subplots:</p>
 <pre class="r"><code>sens_elas_subplot_half.df = 
-  expand.grid(size_to = size_metadata$bin_id,
-              size_from = size_metadata$bin_id) %&gt;%
-  left_join(size_metadata %&gt;%
+  expand.grid(size_to = size_metadata_small$bin_id,
+              size_from = size_metadata_small$bin_id) %&gt;%
+  left_join(size_metadata_small %&gt;%
               select(size_to = bin_id, 
                      bin_midpoint_to_m = bin_midpoint)) %&gt;%
-  left_join(size_metadata %&gt;%
+  left_join(size_metadata_small %&gt;%
               select(size_from = bin_id,
                      bin_midpoint_from_m = bin_midpoint)) %&gt;%
   expand(nesting(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m),
@@ -2019,10 +2020,10 @@ sens_elas_subplot_half.df$sensitivity =
   sapply(X = 1:nrow(subplots.pila),
          FUN = function(subplot){
            
-           sapply(X = 1:nrow(size_metadata),
+           sapply(X = 1:nrow(size_metadata_small),
                   FUN = function(size_to){
                     
-                    sapply(X = 1:nrow(size_metadata),
+                    sapply(X = 1:nrow(size_metadata_small),
                            FUN = function(size_from){
                              
                              sens_subplot_half[size_to, size_from, subplot]
@@ -2096,8 +2097,8 @@ sens_elas_subplot_half.df %&gt;%
 ##       8  0.000000e+00  2.441770e-03  7.281367e-01  7.972123e-04  8.487488e-20
 ##       9  0.000000e+00  0.000000e+00  1.764892e-03  7.695046e-01  1.336558e-03
 ##       10 0.000000e+00  0.000000e+00  0.000000e+00  1.076324e-03  8.059626e-01</code></pre>
-<pre class="r"><code>fields::image.plot(size_metadata$bin_midpoint,
-                   size_metadata$bin_midpoint,
+<pre class="r"><code>fields::image.plot(size_metadata_small$bin_midpoint,
+                   size_metadata_small$bin_midpoint,
                    t(A_median_half[,,4074]),
                    xlab = &#39;Size (t)&#39;, ylab = &#39;Size (t+1)&#39;)</code></pre>
 <p><img src="data:image/png;base64,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" width="672" /></p>
@@ -2106,10 +2107,10 @@ sens_elas_subplot_half.df %&gt;%
   sapply(X = 1:nrow(subplots.pila),
          FUN = function(subplot){
            
-           sapply(X = 1:nrow(size_metadata),
+           sapply(X = 1:nrow(size_metadata_small),
                   FUN = function(size_to){
                     
-                    sapply(X = 1:nrow(size_metadata),
+                    sapply(X = 1:nrow(size_metadata_small),
                            FUN = function(size_from){
                              
                              elas_subplot_half[size_to, size_from, subplot]
@@ -2269,11 +2270,11 @@ hypothetical_lambdas_plot</code></pre>
 <h2>Stable size distribution</h2>
 <pre class="r"><code>#### hypothetical stable size distribution #####################################
 hypothetical_ssd = 
-  array(dim = c(nrow(size_metadata),
+  array(dim = c(nrow(size_metadata_small),
                 nrow(hypothetical_subplots),
                 4000),
         dimnames = 
-          list(&#39;sizeclass&#39; = 1:nrow(size_metadata),
+          list(&#39;sizeclass&#39; = 1:nrow(size_metadata_small),
                &#39;subplot&#39; = 1:nrow(hypothetical_subplots),
                &#39;draw&#39; = 1:4000),
         data = 
@@ -2293,9 +2294,9 @@ hypothetical_ssd.df =
   hypothetical_subplots %&gt;%
   expand(nesting(intercept, fire, wpbr, ba_scaled, cwd_dep90_scaled,
                  cwd_mean_scaled, subp_id, name),
-         sizeclass = 1:nrow(size_metadata),
+         sizeclass = 1:nrow(size_metadata_small),
          draw = 1:4000) %&gt;%
-  left_join(size_metadata %&gt;%
+  left_join(size_metadata_small %&gt;%
               mutate(bin_midpoint_cm = bin_midpoint*100) %&gt;%
               select(sizeclass = bin_id, bin_midpoint_cm)) %&gt;%
   arrange(subp_id, sizeclass, draw)
@@ -2318,7 +2319,7 @@ head(hypothetical_ssd.df)</code></pre>
            FUN = function(subplot){
              
              as.numeric(
-               sapply(X = 1:nrow(size_metadata),
+               sapply(X = 1:nrow(size_metadata_small),
                       FUN = function(sizeclass){
                         
                         return(hypothetical_ssd[sizeclass,subplot,])
@@ -2350,11 +2351,11 @@ hypothetical_ssd.df %&gt;%
 <pre class="r"><code>#### hypothetical reproductive value ###########################################
 
 hypothetical_repro = 
-  array(dim = c(nrow(size_metadata),
+  array(dim = c(nrow(size_metadata_small),
                 nrow(hypothetical_subplots),
                 4000),
         dimnames = 
-          list(&#39;sizeclass&#39; = 1:nrow(size_metadata),
+          list(&#39;sizeclass&#39; = 1:nrow(size_metadata_small),
                &#39;subplot&#39; = 1:nrow(hypothetical_subplots),
                &#39;draw&#39; = 1:4000),
         data = 
@@ -2374,9 +2375,9 @@ hypothetical_repro.df =
   hypothetical_subplots %&gt;%
   expand(nesting(intercept, fire, wpbr, ba_scaled, cwd_dep90_scaled,
                  cwd_mean_scaled, subp_id, name),
-         sizeclass = 1:nrow(size_metadata),
+         sizeclass = 1:nrow(size_metadata_small),
          draw = 1:4000) %&gt;%
-  left_join(size_metadata %&gt;%
+  left_join(size_metadata_small %&gt;%
               mutate(bin_midpoint_cm = bin_midpoint*100) %&gt;%
               select(sizeclass = bin_id, bin_midpoint_cm)) %&gt;%
   arrange(subp_id, sizeclass, draw)
@@ -2388,7 +2389,7 @@ hypothetical_repro.df$repro =
            FUN = function(subplot){
              
              as.numeric(
-               sapply(X = 1:nrow(size_metadata),
+               sapply(X = 1:nrow(size_metadata_small),
                       FUN = function(sizeclass){
                         
                         return(hypothetical_repro[sizeclass,subplot,])
@@ -2465,13 +2466,13 @@ hypothetical_vdotw =
 
 
 hypothetical_sens = 
-  array(dim = list(nrow(size_metadata),
-                   nrow(size_metadata),
+  array(dim = list(nrow(size_metadata_small),
+                   nrow(size_metadata_small),
                    nrow(hypothetical_subplots),
                    4000),
         dimnames = 
-          list(&#39;size_to&#39; = 1:nrow(size_metadata),
-               &#39;size_from&#39; = 1:nrow(size_metadata),
+          list(&#39;size_to&#39; = 1:nrow(size_metadata_small),
+               &#39;size_from&#39; = 1:nrow(size_metadata_small),
                &#39;subplot&#39; = 1:nrow(hypothetical_subplots),
                &#39;draw&#39; = 1:4000),
         data = 
@@ -2488,13 +2489,13 @@ hypothetical_sens =
   )
 
 hypothetical_elas = 
-  array(dim = list(nrow(size_metadata),
-                   nrow(size_metadata),
+  array(dim = list(nrow(size_metadata_small),
+                   nrow(size_metadata_small),
                    nrow(hypothetical_subplots),
                    4000),
         dimnames = 
-          list(&#39;size_to&#39; = 1:nrow(size_metadata),
-               &#39;size_from&#39; = 1:nrow(size_metadata),
+          list(&#39;size_to&#39; = 1:nrow(size_metadata_small),
+               &#39;size_from&#39; = 1:nrow(size_metadata_small),
                &#39;subplot&#39; = 1:nrow(hypothetical_subplots),
                &#39;draw&#39; = 1:4000),
         data = 
@@ -2516,12 +2517,12 @@ hypothetical_elas =
 
 
 hypothetical_sens_elas.df  = 
-  expand.grid(size_to = size_metadata$bin_id,
-              size_from = size_metadata$bin_id) %&gt;%
-  left_join(size_metadata %&gt;%
+  expand.grid(size_to = size_metadata_small$bin_id,
+              size_from = size_metadata_small$bin_id) %&gt;%
+  left_join(size_metadata_small %&gt;%
               select(size_to = bin_id, 
                      bin_midpoint_to_m = bin_midpoint)) %&gt;%
-  left_join(size_metadata %&gt;%
+  left_join(size_metadata_small %&gt;%
               select(size_from = bin_id,
                      bin_midpoint_from_m = bin_midpoint)) %&gt;%
   expand(nesting(size_to, size_from, bin_midpoint_to_m, bin_midpoint_from_m),
@@ -2533,10 +2534,10 @@ hypothetical_sens_elas.df  =
 hypothetical_sens_elas.df$sensitivity = 
   sapply(X = 1:nrow(hypothetical_subplots),
          FUN = function(subplot){
-           sapply(X = 1:nrow(size_metadata),
+           sapply(X = 1:nrow(size_metadata_small),
                   FUN = function(size_to){
                     
-                    sapply(X = 1:nrow(size_metadata),
+                    sapply(X = 1:nrow(size_metadata_small),
                            FUN = function(size_from){
                              hypothetical_sens[size_to, size_from, subplot,]
                            })
@@ -2548,10 +2549,10 @@ hypothetical_sens_elas.df$sensitivity =
 hypothetical_sens_elas.df$elasticity = 
   sapply(X = 1:nrow(hypothetical_subplots),
          FUN = function(subplot){
-           sapply(X = 1:nrow(size_metadata),
+           sapply(X = 1:nrow(size_metadata_small),
                   FUN = function(size_to){
                     
-                    sapply(X = 1:nrow(size_metadata),
+                    sapply(X = 1:nrow(size_metadata_small),
                            FUN = function(size_from){
                              hypothetical_elas[size_to, size_from, subplot,]
                            })
@@ -2664,10 +2665,10 @@ elasticity_plots  </code></pre>
 <pre class="r"><code>hypothetical_sens_elas.df$transition = 
     sapply(X = 1:nrow(hypothetical_subplots),
          FUN = function(subplot){
-           sapply(X = 1:nrow(size_metadata),
+           sapply(X = 1:nrow(size_metadata_small),
                   FUN = function(size_to){
                     
-                    sapply(X = 1:nrow(size_metadata),
+                    sapply(X = 1:nrow(size_metadata_small),
                            FUN = function(size_from){
                              A_hypotheticals[size_to, size_from, subplot,]
                            })
