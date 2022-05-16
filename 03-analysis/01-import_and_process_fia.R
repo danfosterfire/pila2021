@@ -638,7 +638,13 @@ seedlings =
                   species,
                   'OTHER')) %>%
   group_by(plt_cn, plot_id, subp_id, species) %>%
-  summarise(tpa_unadj = sum(tpa_unadj, na.rm = TRUE),
+           # this is super confusing but by default the FIA program counts 
+         # each seedling as representing ~75 per acre, even though they are 
+         # sampled at the subplot level and the area of an individual subplot 
+         # is only 1/(75*4) ac; they must sum the TPA to get to the plot level,
+         # rather than average them. The upshot is that here I need to multiply 
+         # by four to get the TPA represented by a single subplot
+  summarise(tpa_unadj = sum(tpa_unadj*4, na.rm = TRUE),
             count = sum(count, na.rm = TRUE)) %>%
   ungroup()
 
@@ -704,6 +710,8 @@ seedlings =
   filter(is.element(plt_cn, subplots$plt_cn))
 
 
+
+
 #### build subplot covariates data frame #######################################
 
 
@@ -755,6 +763,17 @@ subplot_data =
            ifelse(is.na(wpbr), FALSE, wpbr))
 
 summary(subplot_data$wpbr)
+
+#### get timestep distribution #################################################
+
+head(subplot_data)
+
+invdate_diffs = 
+  as.numeric(subplot_data$invdate.re-subplot_data$invdate.init) / 365
+
+summary(invdate_diffs)
+
+quantile(invdate_diffs, c(0, .05, 0.5, 0.95, 1))
 
 #### pull in CWD data ##########################################################
 
@@ -962,7 +981,9 @@ sizedist_data =
                                     right = FALSE)) %>%
               select(plt_cn, subp_id, species, dbh_class, tpa_unadj) %>%
               group_by(plt_cn, subp_id, species, dbh_class) %>%
-              summarise(tpa_unadj_big = sum(tpa_unadj, na.rm = TRUE)) %>%
+              # note that TPA-unadj is for summed subplots; to get tpa for 
+              # an individual subplot need to multiply by four
+              summarise(tpa_unadj_big = sum(tpa_unadj*4, na.rm = TRUE)) %>%
               ungroup(),
             by = c('plt_cn' = 'plt_cn',
                    'subp_id' = 'subp_id',
@@ -978,7 +999,7 @@ sizedist_data =
                                      right = FALSE)) %>%
               select(plt_cn, subp_id, species, dbh_class, tpa_unadj) %>%
               group_by(plt_cn, subp_id, species, dbh_class) %>%
-              summarise(tpa_unadj_big = sum(tpa_unadj, na.rm = TRUE)) %>%
+              summarise(tpa_unadj_big = sum(tpa_unadj*4, na.rm = TRUE)) %>%
               ungroup(),
             by = c('prev_plt_cn' = 'plt_cn',
                    'subp_id' = 'subp_id',
