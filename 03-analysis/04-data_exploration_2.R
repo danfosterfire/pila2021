@@ -342,11 +342,6 @@ lapply(X = c('fire', 'wpbr'),
 
 #### recr data ################################################################
 
-# not bothering here, becuase for recruitment there's a row for each size 
-# class rather than each individual, so plotting it is less useful. 
-# The recr subplots are the intersection of the subplots included in 
-# the growth and survival datasets so I expect them to be similar.
-
 # plot y distribution
 pila_data$cprime
 
@@ -369,4 +364,36 @@ ggsave(response_untagged,
                              'powerpoint',
                              'response_untagged.png'),
        height = 2.5, width = 5.5, units = 'in')
+
+# check total TPA on each subplot looks OK
+recr_tpa = 
+  sapply(X = 1:nrow(pila_data$n),
+         FUN = function(subplot){
+           subplot_tpa = sum(pila_data$n[subplot,])
+           return(subplot_tpa)
+         })
+
+hist(recr_tpa)
+summary(recr_tpa)
+
+# check TPA of bigger trees on each subplots
+sapply(X = 1:nrow(pila_data$n),
+       FUN = function(subplot){
+         sum(pila_data$n[subplot,3:20])
+       }) %>%
+  summary()
+
+pila_data$r
+
+pila_data$a
+
+pila_data$M_r
+
+lapply(X = colnames(pila_data$X_r),
+       FUN = function(n){
+         pila_data$X_r %>%
+           as.data.frame() %>%
+           ggplot(aes(x = .data[[n]]))+
+           geom_histogram()
+       })
 
