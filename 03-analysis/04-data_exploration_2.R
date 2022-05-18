@@ -358,6 +358,8 @@ response_untagged =
   facet_wrap(~class, scales = 'free')+
   labs(y = 'N subplots', x = 'N untagged trees')
 
+response_untagged
+
 ggsave(response_untagged,
        filename = here::here('04-communication',
                              'figures',

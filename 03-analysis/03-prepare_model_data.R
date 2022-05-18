@@ -7,10 +7,10 @@ set.seed(110819)
 
 # a row for every subplot, columns for the subplot-level covariates like 
 # disturbance data, basal area, and drought
-subplot_data = 
+plot_data = 
   readRDS(here::here('02-data',
                      '01-preprocessed',
-                     'subplot_data.rds')) %>%
+                     'plot_data.rds')) %>%
   mutate(ba_scaled = as.numeric(scale(ba_ft2ac)),
          cwd_dep90_scaled = as.numeric(scale(cwd_departure90)),
          cwd_mean_scaled = as.numeric(scale(cwd_mean)),
@@ -28,8 +28,8 @@ growth_data.pila =
                      '01-preprocessed',
                      'growth_data.rds')) %>%
   filter(species=='PILA')%>%
-  left_join(subplot_data %>%
-              select(plot_id, subp_id, ecosubcd, 
+  left_join(plot_data %>%
+              select(plot_id, plot_id, ecosubcd, 
                      intercept,
                      fire, insects, disease, wpbr,
                      ba_scaled, cwd_dep90_scaled, cwd_mean_scaled)) %>%
@@ -50,14 +50,14 @@ growth_data.pila =
 
 # a row for every individual tagged tree which was alive at the initial 
 # measurement, and columns indicating its survival status at remeasurement, 
-# plus covariate columns for subplot-level data and interactions with size
+# plus covariate columns for plot-level data and interactions with size
 mort_data.pila = 
   readRDS(here::here('02-data',
                      '01-preprocessed',
                      'mort_data.rds')) %>%
   filter(species=='PILA')%>%
-  left_join(subplot_data %>%
-              select(plot_id, subp_id, ecosubcd,
+  left_join(plot_data %>%
+              select(plot_id, plot_id, ecosubcd,
                      intercept,
                      fire, insects, disease, wpbr,
                      ba_scaled, cwd_dep90_scaled, cwd_mean_scaled)) %>%
@@ -73,10 +73,10 @@ mort_data.pila =
          dbh_cwdmean = dbh_m.init*cwd_mean_scaled,
          dbh_wpbr = dbh_m.init*wpbr)
 
-# a row for each unique combination of subplot:species:size class, for 
+# a row for each unique combination of plot:species:size class, for 
 # 1 inch size bins from 0.5-99.5"; "tpa_unadj.init" and "tpa_unadj.re" give 
 # the area-adjusted density of stems in each species:size 
-# bin for each subplot at the initial and remeasurement. dbh_class gives the 
+# bin for each plot at the initial and remeasurement. dbh_class gives the 
 # ID of each size bin (integer equal to the closed upper bound of the bin, so 
 # stems 0"<=dbh<1" go in class 1, stems with dbh = 1.5" go in bin 2, etc.)
 sizedist_data.pila = 
@@ -93,19 +93,19 @@ size_metadata =
                      '01-preprocessed',
                      'size_metadata.rds'))
 
-mort_data.pila %>% filter(subp_id =='41-1-39-79537-2') %>% print(width = Inf)
-growth_data.pila %>% filter(subp_id == '41-1-39-79537-2') %>% print(width = Inf)
-sizedist_data.pila %>% filter(subp_id == '41-1-39-79537-2')
-# a row for each size class and subplot, with only subplots which are in 
+mort_data.pila %>% filter(plot_id =='41-1-39-79537') %>% print(width = Inf)
+growth_data.pila %>% filter(plot_id == '41-1-39-79537') %>% print(width = Inf)
+sizedist_data.pila %>% filter(plot_id == '41-1-39-79537')
+# a row for each size class and plot, with only plots which are in 
 # BOTH the growth and mortality datasets
 recr_data.pila = 
-  subplot_data %>%
-  filter(is.element(subp_id, mort_data.pila$subp_id)&
-           is.element(subp_id, growth_data.pila$subp_id)) %>%  
+  plot_data %>%
+  filter(is.element(plot_id, mort_data.pila$plot_id)&
+           is.element(plot_id, growth_data.pila$plot_id)) %>%  
   # filter to only subplots where both initial and remeasurement had manual 
   # greater than or equal to 2
   filter(inv_manual.init >= 2.0 & inv_manual.re >= 2.0) %>%
-  expand(nesting(plt_cn, prev_plt_cn, plot_id, subp_id, elev_ft, lat, lon,
+  expand(nesting(plt_cn, prev_plt_cn, plot_id, elev_ft, lat, lon,
                  ecosubcd, invdate.re, inv_manual.re, macro_break, fire,
                  insects, disease, cutting, invdate.init, inv_manual.init, 
                  ba_ft2ac, cwd_departure90, cwd_mean, ba_scaled, cwd_dep90_scaled,
@@ -130,7 +130,7 @@ recr_data.pila =
               filter(species=='PILA')) %>%
   
   left_join(sizedist_data.pila %>%
-              select(subp_id, species, dbh_class, tpa_unadj.init)) %>%
+              select(plot_id, species, dbh_class, tpa_unadj.init)) %>%
   
   # there are 22 subplots which, despite being included in the mortality and 
   # growth data (ie, have PILA which are alive at initial and remeasurement), 
@@ -142,15 +142,15 @@ recr_data.pila =
   # in PILA size bins at initial measurement. solution is to just drop the 
   # offending subplots from the recruitment dataset, where the all 0s 
   # were screwing up the IPM model estimates for seedling density.
-  filter(!is.element(subp_id,
-                       group_by(., subp_id) %>%
+  filter(!is.element(plot_id,
+                       group_by(., plot_id) %>%
                        summarise(tpa_unadj.init = sum(tpa_unadj.init)) %>%
                        ungroup() %>%
                        filter(tpa_unadj.init==0) %>%
-                       pull(subp_id))) %>%
+                       pull(plot_id))) %>%
   
   # order by size and subplot
-  arrange(subp_id, dbh_in.init) %>%
+  arrange(plot_id, dbh_in.init) %>%
   rename(untagged_count = count)
 
 
@@ -170,7 +170,7 @@ r =
   readRDS(here::here('02-data',
                      '01-preprocessed',
                      'untagged_data.rds')) %>%
-  filter(species=='PILA'&is.element(subp_id, recr_data.pila$subp_id)) %>%
+  filter(species=='PILA'&is.element(plot_id, recr_data.pila$plot_id)) %>%
   
   # bring in the plot size for weighting
   left_join(size_metadata %>%
@@ -190,13 +190,13 @@ r =
     readRDS(here::here('02-data',
                        '01-preprocessed',
                        'untagged_data.rds')) %>%
-      filter(species=='PILA'&is.element(subp_id, recr_data.pila$subp_id))  %>%
+      filter(species=='PILA'&is.element(plot_id, recr_data.pila$plot_id))  %>%
       filter(dbh_class <= 2) %>%
       left_join(size_metadata %>%
                   select(dbh_class = bin_id,
                          plot_area_ac)) %>%
       mutate(tpa = count / plot_area_ac) %>%
-      group_by(subp_id) %>% 
+      group_by(plot_id) %>% 
       summarise(total_tpa = sum(tpa)) %>%
       ungroup() %>%
       # keep only subplots with at least 1 new recruit
@@ -298,20 +298,20 @@ recr_data.pila_validation =
   recr_data.pila %>%
   filter(is.element(plot_id, validation_plots))
 
-# a row for each unique combination of subplot:species:size class, for 1 
+# a row for each unique combination of plot:species:size class, for 1 
 # inch size bins from 0.5-9.5"; "count" gives the number of untagged 
-# trees on the subplot in the species:size bin at the remeasurement (ie 
+# trees on the plot in the species:size bin at the remeasurement (ie 
 # ingrowth)
 
 untagged_data.pila_training = 
   recr_data.pila_training %>%
   filter(dbh_class <= 2) %>%
-  arrange(subp_id, dbh_in.init)
+  arrange(plot_id, dbh_in.init)
 
 untagged_data.pila_validation = 
   recr_data.pila_validation %>%
   filter(dbh_class <= 2) %>%
-  arrange(subp_id, dbh_in.init)
+  arrange(plot_id, dbh_in.init)
 
 #### prepare training and validation data ######################################
 
@@ -349,7 +349,7 @@ pila_training =
     
     # recruitment data
     N_r = nrow(recr_data.pila_training),
-    S_r = length(unique(recr_data.pila_training$subp_id)),
+    P_r = length(unique(recr_data.pila_training$plot_id)),
     X_r = 
       as.matrix(recr_data.pila_training[,c('intercept', 'dbh_m.init', 'fire', 
                                      'wpbr','ba_scaled', 'cwd_dep90_scaled', 
@@ -361,11 +361,11 @@ pila_training =
     u_bounds = size_metadata$bin_upper*0.0254,
     l_bounds = size_metadata$bin_lower*0.0254,
     a = size_metadata$plot_area_ac[1:2],
-    cprime = matrix(ncol = length(unique(recr_data.pila_training$subp_id)),
+    cprime = matrix(ncol = length(unique(recr_data.pila_training$plot_id)),
                     nrow = 2,
                     data = untagged_data.pila_training$untagged_count,
                     byrow = FALSE),
-    n = matrix(nrow = length(unique(recr_data.pila_training$subp_id)),
+    n = matrix(nrow = length(unique(recr_data.pila_training$plot_id)),
                ncol = nrow(size_metadata),
                data = recr_data.pila_training$tpa_unadj.init,
                byrow = TRUE),
@@ -403,7 +403,7 @@ pila_validation =
     
     # recruitment data
     N_r = nrow(recr_data.pila_validation),
-    S_r = length(unique(recr_data.pila_validation$subp_id)),
+    P_r = length(unique(recr_data.pila_validation$plot_id)),
     X_r = 
       as.matrix(recr_data.pila_validation[,c('intercept', 'dbh_m.init', 'fire', 
                                      'wpbr','ba_scaled', 'cwd_dep90_scaled', 
@@ -415,11 +415,11 @@ pila_validation =
     u_bounds = size_metadata$bin_upper*0.0254,
     l_bounds = size_metadata$bin_lower*0.0254,
     a = size_metadata$plot_area_ac[1:2],
-    cprime = matrix(ncol = length(unique(recr_data.pila_validation$subp_id)),
+    cprime = matrix(ncol = length(unique(recr_data.pila_validation$plot_id)),
                     nrow = 2,
                     data = untagged_data.pila_validation$untagged_count,
                     byrow = FALSE),
-    n = matrix(nrow = length(unique(recr_data.pila_validation$subp_id)),
+    n = matrix(nrow = length(unique(recr_data.pila_validation$plot_id)),
                ncol = nrow(size_metadata),
                data = recr_data.pila_validation$tpa_unadj.init,
                byrow = TRUE),

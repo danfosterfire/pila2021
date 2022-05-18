@@ -19,10 +19,10 @@ sizedist_data =
                      '01-preprocessed',
                      'sizedist_data.rds'))
 
-subplot_data = 
+plot_data = 
   readRDS(here::here('02-data',
                      '01-preprocessed',
-                     'subplot_data.rds')) 
+                     'plot_data.rds')) 
 
 #### growth data ###############################################################
 
@@ -109,7 +109,7 @@ summary(sizedist_data)
 
 ggplot(data = 
          sizedist_data %>%
-         group_by(subp_id, dbh_class) %>%
+         group_by(plot_id, dbh_class) %>%
          summarise(tpa_unadj.init = sum(tpa_unadj.init)) %>%
          ungroup(),
        aes(x = factor(dbh_class), y = tpa_unadj.init))+
@@ -120,24 +120,45 @@ ggplot(data =
 # are empty the vast majority of the time. spot-checking individual plots confirms 
 # that trees are indeed showing up in the size distribution bins correctly
 
+sizedist_data %>%
+  group_by(plot_id) %>%
+  summarise(tpa_unadj.init = sum(tpa_unadj.init)) %>%
+  ungroup() %>%
+  ggplot(aes(x = tpa_unadj.init))+
+  geom_histogram()
 
-#### subplot data ##############################################################
+sizedist_data %>%
+  filter(dbh_class >= 2) %>%
+  group_by(plot_id) %>%
+  summarise(tpa_unadj.init = sum(tpa_unadj.init)) %>%
+  ungroup() %>%
+  ggplot(aes(x = tpa_unadj.init*2.47))+
+  geom_histogram()
+# looks right in comparison to safford & stevens 2017 modern era data
 
-head(subplot_data)
+
+#### plot data #################################################################
+
+head(plot_data)
 
 lapply(X = 
          c('elev_ft', 'lat', 'lon', 'ba_ft2ac', 'cwd_departure90', 'cwd_mean'),
        FUN = function(v){
-         ggplot(data = subplot_data,
+         ggplot(data = plot_data,
                 aes(x = .data[[v]]))+
            geom_histogram()
        })
 
 
+ggplot(data = plot_data,
+       aes(x = ba_ft2ac*0.229568))+
+  geom_histogram()
+# looks good compared to safford & stevens 2017 modern era data
+
 lapply(X = 
          c('fire', 'insects', 'disease', 'cutting', 'wpbr'),
        FUN = function(v){
-         ggplot(data = subplot_data,
+         ggplot(data = plot_data,
                 aes(x = .data[[v]]))+
            geom_bar()
        })
@@ -146,7 +167,7 @@ lapply(X =
 lapply(X = 
          c('fire', 'insects', 'disease','wpbr', 'ba_ft2ac', 'cwd_departure90', 'cwd_mean'),
        FUN = function(v){
-         ggplot(data = subplot_data,
+         ggplot(data = plot_data,
                 aes(x = lon, y = lat, color = .data[[v]]))+
            geom_point(alpha = 0.25)+
            coord_sf()+
@@ -157,7 +178,7 @@ lapply(X =
 lapply(X = 
          c('fire', 'insects', 'disease', 'wpbr'),
        FUN = function(v){
-         ggplot(data = subplot_data,
+         ggplot(data = plot_data,
                 aes(x = factor(lubridate::year(invdate.re)),
                     fill = .data[[v]]))+
            geom_bar()
@@ -166,7 +187,7 @@ lapply(X =
 lapply(X = 
          c('ba_ft2ac', 'cwd_departure90'),
        FUN = function(v){
-         ggplot(data = subplot_data,
+         ggplot(data = plot_data,
                 aes(x = factor(lubridate::year(invdate.re)),
                     y = .data[[v]]))+
            geom_boxplot()
@@ -179,71 +200,71 @@ lapply(X =
 
 
 # plot them across eachother
-ggplot(data = subplot_data,
+ggplot(data = plot_data,
        aes(x = fire, y = ba_ft2ac))+
   geom_boxplot() # huh interesting looks like higher BA plots were more likely to burn
 
-ggplot(data = subplot_data,
+ggplot(data = plot_data,
        aes(x = fire, y = cwd_departure90))+
   geom_boxplot() # fire more likely with drought
 
-ggplot(data = subplot_data,
+ggplot(data = plot_data,
        aes(x = insects, y = ba_ft2ac))+
   geom_boxplot() # higher ba more likely to have insects?
 
-ggplot(data = subplot_data,
+ggplot(data = plot_data,
        aes(x = insects, y = cwd_departure90))+
   geom_boxplot() # not much effect of drought on insects 
 # (there was with max departure instead of 90th)
 
-ggplot(data = subplot_data,
+ggplot(data = plot_data,
        aes(x = disease, y = ba_ft2ac))+
   geom_boxplot() # higher BA more likley to have disease
 
-ggplot(data = subplot_data,
+ggplot(data = plot_data,
        aes(x = disease, y = cwd_departure90))+
   geom_boxplot() # drought decreases probability of disease 
 # (detection? or diseases actually spread more under damp conditions?)
 
-ggplot(data = subplot_data,
+ggplot(data = plot_data,
        aes(x = ba_ft2ac, y = cwd_departure90))+
   geom_point()+
   geom_smooth(method = 'lm') # none
 
-ggplot(data = subplot_data,
+ggplot(data = plot_data,
        aes(y = ba_ft2ac, x = cwd_mean))+
   geom_point()+
   geom_smooth(method = 'lm') # ba is lower at drier sites
 
-ggplot(data = subplot_data,
+ggplot(data = plot_data,
        aes(x = fire, y = cwd_mean))+
   geom_boxplot() # not much relationship between dryness and fire
 
-ggplot(data = subplot_data,
+ggplot(data = plot_data,
        aes(x = insects, y = cwd_mean))+
   geom_boxplot() # more insects at drier sites
 
-ggplot(data = subplot_data,
+ggplot(data = plot_data,
        aes(x = disease, y= cwd_mean))+
   geom_boxplot() # more disease at drier sites
 
-ggplot(data = subplot_data,
+ggplot(data = plot_data,
        aes(x = fire, fill = insects))+
   geom_bar(position = position_fill()) # fire doesnt affect the p(insects)
 
-ggplot(data = subplot_data,
+ggplot(data = plot_data,
        aes(x = insects, fill = fire))+
   geom_bar(position = position_fill()) # insects dont affect p(fire)
 
-ggplot(data = subplot_data,
+ggplot(data = plot_data,
        aes(x = fire, fill = disease))+
   geom_bar(position = position_fill()) # disease more likely when fire = false
 
-ggplot(data = subplot_data,
+ggplot(data = plot_data,
        aes(x = disease, fill = fire))+
   geom_bar(position = position_fill()) # fire less likely when diease = TRUE
 
-ggplot(data = subplot_data,
+ggplot(data = plot_data,
        aes(x = insects, fill = disease))+
   geom_bar(position = position_fill()) # disease way more likely when insects true
 
@@ -259,3 +280,4 @@ ggplot(data = subplot_data,
 #    (leave it in, ditch from model)
 #   - consider a better measure of CWD than max; maybe 90th percentile? or max 
 #     of a moving window? (90th percentile departure + mean cwd as separate variables)
+

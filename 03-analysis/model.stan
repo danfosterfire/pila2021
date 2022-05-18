@@ -18,13 +18,13 @@ data {
   matrix[N_g,K] X_g; // design matrix for fixed effects, including intercept
   
   // recruitment data
-  int<lower=0> N_r; // M_r (20) times the number of unique subplots for the 
+  int<lower=0> N_r; // M_r (20) times the number of unique plots for the 
   // recruitment submodel
-  int<lower=0> S_r; // number of unique subplots for the recruitment submodel
-  matrix[N_r, K] X_r; // fixeff explanatory variables for each sizeclass:subplot 
+  int<lower=0> P_r; // number of unique plots for the recruitment submodel
+  matrix[N_r, K] X_r; // fixeff explanatory variables for each sizeclass:plot 
   // combination, used to predict growth and survival for the recruitment 
   // submodel sizeclasses; instead of observed sizes here we have the 
-  // class_mean_dbhs for each size class; MUST BE ORDERED subplot (slow) sizeclass (fast)
+  // class_mean_dbhs for each size class; MUST BE ORDERED plot (slow) sizeclass (fast)
   int plotid_r[N_r]; // plot id indices for survival random effects in IPM
   int ecosub_r[N_r]; // ecosub indices for survival random effects in IPM
   int<lower=0> M_r; // number of modeled size classes for the recruitment submodel
@@ -32,10 +32,10 @@ data {
   vector[M_r] l_bounds; //lower bounds of size bins
   vector[2] a; // plot area for each of the size classes; here only for the 
   // smallest 2 size classes (only need these, and the macro breakpoint diameter is not consistent 
-  // across all the subplots)
-  int cprime[2,S_r]; // counts of untagged trees in each size class on each subplot
-  vector<lower=0>[M_r] n[S_r]; // vector of area-standardaized rates of occurence for 
-  // each of size class on each of S_r subplots at time t = 0
+  // across all the plots)
+  int cprime[2,P_r]; // counts of untagged trees in each size class on each plot
+  vector<lower=0>[M_r] n[P_r]; // vector of area-standardaized rates of occurence for 
+  // each of size class on each of P_r plots at time t = 0
   vector<lower=0>[2] r; // recruitment size kernel
   
 }
@@ -94,27 +94,27 @@ model {
   vector[N_g] XB_g;
   
   // // recruitment
-  vector[N_r] XBs_r; // linear predictor for sizeclass class_mean_dbhs on each subplot
-  vector[N_r] XBg_r; // linear predictor for sizeclass class_mean_dbhs on each subplot
+  vector[N_r] XBP_r; // linear predictor for sizeclass class_mean_dbhs on each plot
+  vector[N_r] XBg_r; // linear predictor for sizeclass class_mean_dbhs on each plot
   vector[N_r] XBf_r;
   vector[N_r] mu_gr;
   vector[N_r] logitp_sr;
-  vector[2] nprime[S_r]; // area-standardized occurence rates at time t+1 on 
-  // each subplot in each size class (only the smallest 2 classes)
-  matrix[2,M_r] A[S_r]; // final IPM transition kernel describing how column 
+  vector[2] nprime[P_r]; // area-standardized occurence rates at time t+1 on 
+  // each plot in each size class (only the smallest 2 classes)
+  matrix[2,M_r] A[P_r]; // final IPM transition kernel describing how column 
   // size classes at time 0 lead to row size classes at time 1 (only smallest 2 classes)
-  matrix[2,M_r] recKern[S_r]; // recruitment kernel (into the smallest 2 classes)
-  matrix[2,M_r] growKern[S_r]; // growth*survival transitions (into the smallest 2 classes)
-  matrix[M_r,1] g[S_r]; // growth kernel of transitions from size class to size class on each plot
+  matrix[2,M_r] recKern[P_r]; // recruitment kernel (into the smallest 2 classes)
+  matrix[2,M_r] growKern[P_r]; // growth*survival transitions (into the smallest 2 classes)
+  matrix[M_r,1] g[P_r]; // growth kernel of transitions from size class to size class on each plot
                         // (only from the smallest class into the others)
-  matrix[M_r,S_r] s; // survival rates on each subplot for each sizeclass 
-  matrix[M_r,S_r] f; // fecundity rates by size class and subplots
+  matrix[M_r,P_r] s; // survival rates on each plot for each sizeclass 
+  matrix[M_r,P_r] f; // fecundity rates by size class and plots
   vector[N_r] logf; 
   
   // fixed effects
   XB_s = X_s * beta_s;
   XB_g = X_g * beta_g;
-  XBs_r = X_r * beta_s;
+  XBP_r = X_r * beta_s;
   XBg_r = X_r * beta_g;
   XBf_r = X_r * beta_f;
   
@@ -131,19 +131,19 @@ model {
   
   // linear predictors for gtrowth and survival on the recruitment IPM
   for (i in 1:N_r){
-    logitp_sr[i] = XBs_r[i] + plotEffect_s[plotid_r[i]]+ ecoEffect_s[ecosub_r[i]];
+    logitp_sr[i] = XBP_r[i] + plotEffect_s[plotid_r[i]]+ ecoEffect_s[ecosub_r[i]];
     mu_gr[i] = XBg_r[i] + plotEffect_g[plotid_r[i]] + ecoEffect_g[ecosub_r[i]];
     logf[i] = XBf_r[i] + plotEffect_f[plotid_r[i]] + ecoEffect_f[ecosub_r[i]];
   }
   
 
   //print("r(2): ", r);
-  // IPM model for recruitment; loop over all the subplots
-  for (subplot in 1:S_r){
+  // IPM model for recruitment; loop over all the plots
+  for (plot in 1:P_r){
     
           
     // expected survival in the smallest size class
-    s[1,subplot] = inv_logit(logitp_sr[1+(M_r*(subplot-1))]);
+    s[1,plot] = inv_logit(logitp_sr[1+(M_r*(plot-1))]);
     
     // in the shriver code, this loops over all combinations of size classes,
     // which isn't necessary because we're only using growth from the smallest 
@@ -151,36 +151,36 @@ model {
     // be 1 everywhere and sizeclass_to to be 1:2
     for (sizeclass_to in 1:2){
         // equation 12
-        g[subplot, sizeclass_to, 1] = 
-         (normal_cdf(u_bounds[sizeclass_to]| mu_gr[1+(M_r*(subplot-1))], sigmaEpsilon_g) - 
-          normal_cdf(l_bounds[sizeclass_to]| mu_gr[1+(M_r*(subplot-1))], sigmaEpsilon_g)) / 
-          (1-normal_cdf(0| mu_gr[1+(M_r*(subplot-1))], sigmaEpsilon_g));
+        g[plot, sizeclass_to, 1] = 
+         (normal_cdf(u_bounds[sizeclass_to]| mu_gr[1+(M_r*(plot-1))], sigmaEpsilon_g) - 
+          normal_cdf(l_bounds[sizeclass_to]| mu_gr[1+(M_r*(plot-1))], sigmaEpsilon_g)) / 
+          (1-normal_cdf(0| mu_gr[1+(M_r*(plot-1))], sigmaEpsilon_g));
 
       // growth kernel is the product of growth into each size class from 
       // the smallest size class, and 
       // survival in the smallest size class // note: shriver's code has 
-      // s[sizeclass_to, subplot], which is also unnesessary, because only 
+      // s[sizeclass_to, plot], which is also unnesessary, because only 
       // growskern[, , sizeclass_from=1] actually gets used
-      growKern[subplot,sizeclass_to,1] = g[subplot, sizeclass_to,1]*s[1,subplot];
+      growKern[plot,sizeclass_to,1] = g[plot, sizeclass_to,1]*s[1,plot];
     }
     
     // loop over all the size classes
     for (sizeclass in 1:M_r){
     
       // expected fecundity in each size class
-      f[sizeclass,subplot] = exp(logf[sizeclass+(M_r*(subplot-1))]);
+      f[sizeclass,plot] = exp(logf[sizeclass+(M_r*(plot-1))]);
     
       // recruitment kernel (new recruits per existing adult divvied into the 
       // recruitment size kernel)
-      recKern[subplot,1:2,sizeclass] = r * f[sizeclass,subplot];
+      recKern[plot,1:2,sizeclass] = r * f[sizeclass,plot];
     }
     
     // transition kernel is the sum of growth of existing small individuals 
     // plus new recruits from the smallest size class (<1" dbh) (eq 11)
-    A[subplot,,1] = recKern[subplot,1:2,1]+growKern[subplot,1:2,1];
-    A[subplot,,2:20] = recKern[subplot,1:2,2:M_r]; // or just recruitment from bigger classes
+    A[plot,,1] = recKern[plot,1:2,1]+growKern[plot,1:2,1];
+    A[plot,,2:20] = recKern[plot,1:2,2:M_r]; // or just recruitment from bigger classes
     
-    nprime[subplot,] = A[subplot,,]*n[subplot,]; // eqation 10 in shriver et al; density at t=1 is 
+    nprime[plot,] = A[plot,,]*n[plot,]; // eqation 10 in shriver et al; density at t=1 is 
     // the transition kernel matrix multiplied by the density at time t = 0
   }
   
@@ -212,10 +212,10 @@ model {
   for (i in 1:N_g){
     size1_g[i] ~ normal(mu_g[i], sigmaEpsilon_g) T[0,]; // size at time t+1 (growth)
     }
-  for (subplot in 1:S_r){
+  for (plot in 1:P_r){
     for (sizeclass in 1:2){
-        cprime[sizeclass,subplot] ~ 
-          neg_binomial_2(nprime[subplot,sizeclass]*a[sizeclass], kappa_r);
+        cprime[sizeclass,plot] ~ 
+          neg_binomial_2(nprime[plot,sizeclass]*a[sizeclass], kappa_r);
     }
   }
    

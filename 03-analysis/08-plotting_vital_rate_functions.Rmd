@@ -1489,7 +1489,7 @@ plots.sf =
   left_join(
     readRDS(here::here('02-data',
                        '01-preprocessed',
-                       'subplot_data.rds')) %>%
+                       'plot_data.rds')) %>%
       group_by(plot_id, lat, lon) %>%
       summarise() %>%
       ungroup()

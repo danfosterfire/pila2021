@@ -418,7 +418,7 @@ subplots =
                      PLOT_NONSAMPLE_REASN_CD.TYPE = plot_nonsamplereasntype)) 
 
 
-subplots =
+plots =
   subplots %>%
   
   # convert the disturbance and treatment codes to presence/absence
@@ -491,7 +491,7 @@ subplots =
   
   # aggregate the conds together to subplots
   group_by(PLT_CN, PREV_PLT_CN, INVYR,
-           STATECD, UNITCD, COUNTYCD, PLOT, SUBP,
+           STATECD, UNITCD, COUNTYCD, PLOT,
            MEASYEAR, MEASMON, MEASDAY,
            KINDCD.TYPE, DESIGNCD.TYPE, MANUAL,
            PLOT_STATUS_CD.TYPE, PLOT_NONSAMPLE_REASN_CD.TYPE,
@@ -513,8 +513,6 @@ subplots =
   mutate(
     plot_id = paste(STATECD, UNITCD, COUNTYCD, PLOT, 
                     sep = '-'),
-    subp_id = paste(STATECD, UNITCD, COUNTYCD, PLOT, SUBP,
-                    sep = '-'),
     invdate = as.Date(paste(MEASYEAR, MEASMON, MEASDAY, sep = '-'))
   ) %>%
   
@@ -523,7 +521,6 @@ subplots =
     prev_plt_cn = PREV_PLT_CN,
     invyr = INVYR,
     plot_id, 
-    subp_id,
     invdate,
     inv_kind = KINDCD.TYPE,
     inv_design = DESIGNCD.TYPE,
@@ -637,24 +634,26 @@ seedlings =
                                'QUKE')),
                   species,
                   'OTHER')) %>%
-  group_by(plt_cn, plot_id, subp_id, species) %>%
+  group_by(plt_cn, plot_id, species) %>%
            # this is super confusing but by default the FIA program counts 
          # each seedling as representing ~75 per acre, even though they are 
          # sampled at the subplot level and the area of an individual subplot 
          # is only 1/(75*4) ac; they must sum the TPA to get to the plot level,
          # rather than average them. The upshot is that here I need to multiply 
-         # by four to get the TPA represented by a single subplot
-  summarise(tpa_unadj = sum(tpa_unadj*4, na.rm = TRUE),
+         # by four to get the TPA represented by a single subplot if working 
+  # at the subplot level, but if aggregating up to plots just need to sum the 
+  # TPAs
+  summarise(tpa_unadj = sum(tpa_unadj, na.rm = TRUE),
             count = sum(count, na.rm = TRUE)) %>%
   ungroup()
 
 
 
-#### filter subplots ###########################################################
+#### filter plots ##############################################################
 
 # aspatial filtering first
-subplots = 
-  subplots %>%
+plots = 
+  plots %>%
   
   # within CA or OR
   filter(is.element(gsub(x = plot_id, pattern = '-.*$', replacement = ''), 
@@ -685,12 +684,12 @@ subplots =
 
 #### filter treelist ###########################################################
 
-# want only trees from included subplots, and no trees which were 
+# want only trees from included plots, and no trees which were 
 # excluded on remeasurement, and no trees with NA remeasure DBH and remasure
 # status=='live' (theres 17 of the latter)
 treelist = 
   treelist %>%
-  filter(is.element(plt_cn, subplots$plt_cn)) %>%
+  filter(is.element(plt_cn, plots$plt_cn)) %>%
   filter(tree_status != 'outofsample' & 
            !is.element(tre_cn, 
                        treelist %>%
@@ -704,10 +703,10 @@ treelist =
 
 #### filter seedlings ##########################################################
 
-# want only seedlings from included subplots
+# want only seedlings from included plots
 seedlings = 
   seedlings %>%
-  filter(is.element(plt_cn, subplots$plt_cn))
+  filter(is.element(plt_cn, plots$plt_cn))
 
 
 
@@ -716,60 +715,59 @@ seedlings =
 
 
 # all three models - growth, mortality, and recruitment - use the 
-# same subplot-level explanatory variables:
+# same plot-level explanatory variables:
 # presence of fire/insects/disease/cutting flag at remeasurement
 # basal area at initial measurement
 # max CWD between initial and remeasurement
 
-# need a dataframe with one row per subplot
-subplot_data = 
+# need a dataframe with one row per plot
+plot_data = 
   
-  subplots %>%
+  plots %>%
   
   # just the remeasurement plots which have an initial measure associated
   filter(!is.na(prev_plt_cn) & inv_kind == 'national_remeasure') %>%
-  select(plt_cn, prev_plt_cn, plot_id, subp_id,
+  select(plt_cn, prev_plt_cn, plot_id, 
          elev_ft, lat, lon, ecosubcd,
          invdate, inv_manual, macro_break,
          fire, insects, disease, cutting) %>%
   
   # get the invdate and inv manual for the initial measurement
-  left_join(subplots %>%
-              select(plt_cn, subp_id, invdate, inv_manual),
+  left_join(plots %>%
+              select(plt_cn, plot_id, invdate, inv_manual),
             suffix = c('.re', '.init'),
             by = c('prev_plt_cn' = 'plt_cn',
-                   'subp_id' = 'subp_id')) %>%
+                   'plot_id' = 'plot_id')) %>%
   
   # get the live BA for the initial measurement
   left_join(treelist %>%
               filter(tree_status == 'live') %>%
-              mutate(ba_ft2ac = (pi*((0.5*(dbh_in/12))^2))*tpa_unadj*4) %>%
-              group_by(plt_cn, subp_id) %>%
+              mutate(ba_ft2ac = (pi*((0.5*(dbh_in/12))^2))*tpa_unadj) %>%
+              group_by(plt_cn, plot_id) %>%
               summarise(ba_ft2ac = sum(ba_ft2ac, na.rm = TRUE)) %>%
               ungroup(),
             by = c('prev_plt_cn' = 'plt_cn',
-                   'subp_id' = 'subp_id')) %>%
+                   'plot_id' = 'plot_id')) %>%
   mutate(ba_ft2ac = 
            ifelse(is.na(ba_ft2ac), 0, ba_ft2ac)) %>%
   
   # get the presence or absence of WPBR for the initial measurement
   left_join(treelist %>%
-              group_by(plt_cn, subp_id) %>%
+              group_by(plt_cn, plot_id) %>%
               summarise(wpbr = any(wpbr)) %>%
               ungroup(),
             by = c('prev_plt_cn' = 'plt_cn',
-                   'subp_id' = 'subp_id')) %>%
+                   'plot_id' = 'plot_id')) %>%
   mutate(wpbr = 
            ifelse(is.na(wpbr), FALSE, wpbr))
 
-summary(subplot_data$wpbr)
 
 #### get timestep distribution #################################################
 
-head(subplot_data)
+head(plot_data)
 
 invdate_diffs = 
-  as.numeric(subplot_data$invdate.re-subplot_data$invdate.init) / 365
+  as.numeric(plot_data$invdate.re-plot_data$invdate.init) / 365
 
 summary(invdate_diffs)
 
@@ -779,21 +777,21 @@ quantile(invdate_diffs, c(0, .05, 0.5, 0.95, 1))
 
 library(terra)
 
-head(subplot_data)
+head(plot_data)
 
-subplots_data.sf = 
-  subplot_data %>%
-  st_as_sf(coords = c('lon', 'lat'),
+plot_data.sf = 
+  plot_data %>%
+  sf::st_as_sf(coords = c('lon', 'lat'),
            crs = 'EPSG:4269')
 
 
-subplots_bbox = 
-  list('lat_min' = min(subplot_data$lat)-1,
-       'lat_max' = max(subplot_data$lat)+1,
-       'lon_min' = min(subplot_data$lon)-1,
-       'lon_max' = max(subplot_data$lon)+1)
+plots_bbox = 
+  list('lat_min' = min(plot_data$lat)-1,
+       'lat_max' = max(plot_data$lat)+1,
+       'lon_min' = min(plot_data$lon)-1,
+       'lon_max' = max(plot_data$lon)+1)
 
-subplots_bbox
+plots_bbox
 
 cwd_growseason_means = 
   lapply(X = 2000:2020,
@@ -807,8 +805,8 @@ cwd_growseason_means =
            
            cwd_year = 
              crop(cwd_year,
-                  c(subplots_bbox$lon_min, subplots_bbox$lon_max,
-                    subplots_bbox$lat_min, subplots_bbox$lat_max))
+                  c(plots_bbox$lon_min, plots_bbox$lon_max,
+                    plots_bbox$lat_min, plots_bbox$lat_max))
            
            cwd_year = 
              mean(cwd_year[[5:10]])
@@ -832,13 +830,13 @@ names(cwd_departure) = paste0('cwddeparture_', as.character(2000:2020))
 
 plot(cwd_departure)
 
-head(subplot_data)
+head(plot_data)
 
 cwd_departures = 
-  extract(cwd_departure, subplot_data[,c('lon', 'lat')]) %>%
-  bind_cols('subp_id' = subplot_data$subp_id,
-            'year_begin' = lubridate::year(subplot_data$invdate.init),
-            'year_end' = lubridate::year(subplot_data$invdate.re))
+  extract(cwd_departure, plot_data[,c('lon', 'lat')]) %>%
+  bind_cols('plot_id' = plot_data$plot_id,
+            'year_begin' = lubridate::year(plot_data$invdate.init),
+            'year_end' = lubridate::year(plot_data$invdate.re))
 
 cwd_departure_span = 
   sapply(X = 1:nrow(cwd_departures),
@@ -861,11 +859,11 @@ cwd_departure_span =
 
 head(cwd_departure_span)
 
-subplot_data$cwd_departure90 = cwd_departure_span
+plot_data$cwd_departure90 = cwd_departure_span
 
-subplot_data$cwd_mean = 
+plot_data$cwd_mean = 
   extract(mean(cwd_growseason_means),
-          subplot_data[,c('lon', 'lat')])$mean
+          plot_data[,c('lon', 'lat')])$mean
 
 
 #### make individual mortality data frame ######################################
@@ -875,7 +873,7 @@ mort_data =
   # start with the treelist
   treelist %>%
   
-  select(tre_cn, prev_tre_cn, plt_cn, subp_id, tree_status, species, dbh_in) %>%
+  select(tre_cn, prev_tre_cn, plt_cn, plot_id, tree_status, species, dbh_in) %>%
   
   # filter to only trees which were recorded at remeasurement
   filter(!is.na(prev_tre_cn)) %>%
@@ -907,7 +905,7 @@ growth_data =
   # start with the treelist
   treelist %>%
   
-  select(tre_cn, prev_tre_cn, plt_cn, subp_id, tree_status, species, dbh_in) %>%
+  select(tre_cn, prev_tre_cn, plt_cn, plot_id, tree_status, species, dbh_in) %>%
   
   # filter to only trees which were recorded at remeasurement
   filter(!is.na(prev_tre_cn)) %>%
@@ -929,17 +927,17 @@ growth_data =
 # start with the subplots data
 sizedist_data = 
   
-  subplot_data %>%
+  plot_data %>%
   
   # filter to only subplots where both initial and remeasurement had manual 
   # greater than or equal to 2
   filter(inv_manual.init >= 2.0 & inv_manual.re >= 2.0) %>%
   
-  select(plt_cn, prev_plt_cn, subp_id) %>%
+  select(plt_cn, prev_plt_cn, plot_id) %>%
   
   # expand it to get 1 row per size bin and species (should be 
   # 17232 * 7 spp * 100 bins = 12062400 rows)
-  expand(nesting(plt_cn, prev_plt_cn, subp_id),
+  expand(nesting(plt_cn, prev_plt_cn, plot_id),
          species = c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE', 'OTHER'),
          dbh_class = 
              cut(seq(from = 2.5, to = 97.5, by = 5),
@@ -951,10 +949,10 @@ sizedist_data =
   # data for the remeasurement
   left_join(seedlings %>%
               mutate(dbh_class = 1) %>%
-              select(plt_cn, subp_id, species, dbh_class, 
+              select(plt_cn, plot_id, species, dbh_class, 
                      tpa_unadj_little = tpa_unadj),
             by = c('plt_cn' = 'plt_cn',
-                   'subp_id' = 'subp_id',
+                   'plot_id' = 'plot_id',
                    'species' = 'species',
                    'dbh_class' = 'dbh_class')) %>%
   
@@ -962,10 +960,10 @@ sizedist_data =
   # data for the initial measurement
   left_join(seedlings %>%
               mutate(dbh_class = 1) %>%
-              select(plt_cn, subp_id, species, dbh_class, 
+              select(plt_cn, plot_id, species, dbh_class, 
                      tpa_unadj_little = tpa_unadj),
             by = c('prev_plt_cn' = 'plt_cn',
-                   'subp_id' = 'subp_id',
+                   'plot_id' = 'plot_id',
                    'species' = 'species',
                    'dbh_class' = 'dbh_class'),
             suffix = c('.re', '.init')) %>%
@@ -979,14 +977,14 @@ sizedist_data =
                                       seq(from = 0, to = 100, by = 5),
                                     labels = FALSE,
                                     right = FALSE)) %>%
-              select(plt_cn, subp_id, species, dbh_class, tpa_unadj) %>%
-              group_by(plt_cn, subp_id, species, dbh_class) %>%
+              select(plt_cn, plot_id, species, dbh_class, tpa_unadj) %>%
+              group_by(plt_cn, plot_id, species, dbh_class) %>%
               # note that TPA-unadj is for summed subplots; to get tpa for 
               # an individual subplot need to multiply by four
-              summarise(tpa_unadj_big = sum(tpa_unadj*4, na.rm = TRUE)) %>%
+              summarise(tpa_unadj_big = sum(tpa_unadj, na.rm = TRUE)) %>%
               ungroup(),
             by = c('plt_cn' = 'plt_cn',
-                   'subp_id' = 'subp_id',
+                   'plot_id' = 'plot_id',
                    'species' = 'species',
                    'dbh_class' = 'dbh_class')) %>%
   
@@ -997,12 +995,12 @@ sizedist_data =
                                        seq(from = 0, to = 100, by = 5),
                                      labels = FALSE,
                                      right = FALSE)) %>%
-              select(plt_cn, subp_id, species, dbh_class, tpa_unadj) %>%
-              group_by(plt_cn, subp_id, species, dbh_class) %>%
-              summarise(tpa_unadj_big = sum(tpa_unadj*4, na.rm = TRUE)) %>%
+              select(plt_cn, plot_id, species, dbh_class, tpa_unadj) %>%
+              group_by(plt_cn, plot_id, species, dbh_class) %>%
+              summarise(tpa_unadj_big = sum(tpa_unadj, na.rm = TRUE)) %>%
               ungroup(),
             by = c('prev_plt_cn' = 'plt_cn',
-                   'subp_id' = 'subp_id',
+                   'plot_id' = 'plot_id',
                    'species' = 'species',
                    'dbh_class' = 'dbh_class'),
             suffix = c('.re', '.init')) %>%
@@ -1025,22 +1023,22 @@ sizedist_data =
                                 0,
                                 tpa_unadj_big.re),
          tpa_unadj.re = tpa_unadj_little.re+tpa_unadj_big.re) %>%
-  select(plt_cn, prev_plt_cn, subp_id, species, dbh_class,
+  select(plt_cn, prev_plt_cn, plot_id, species, dbh_class,
          tpa_unadj.init, tpa_unadj.re)
 
 
 test = 
   sizedist_data %>%
   filter(species == 'PILA' &
-           is.element(subp_id,
+           is.element(plot_id,
                       mort_data %>%
                         filter(species=='PILA') %>%
-                        pull(subp_id))&
-           is.element(subp_id,
+                        pull(plot_id))&
+           is.element(plot_id,
                       growth_data %>%
                         filter(species=='PILA') %>%
-                        pull(subp_id))) %>%
-  group_by(plt_cn, prev_plt_cn, subp_id) %>%
+                        pull(plot_id))) %>%
+  group_by(plt_cn, prev_plt_cn, plot_id) %>%
   summarise(tpa_unadj.init = sum(tpa_unadj.init),
             tpa_unadj.re = sum(tpa_unadj.re)) %>%
   ungroup() %>%
@@ -1048,28 +1046,29 @@ test =
 
 treelist %>% filter(plt_cn =='24988722010900' & species=='PILA')  %>% print(width = Inf)
 treelist %>% filter(subp_id=='6-2-105-93474-3' & species=='PILA')  %>% print(width = Inf)
-subplots %>% filter(subp_id=='6-2-105-93474-3')
+plots %>% filter(plot_id=='6-2-105-93474')
+
 
 treelist %>% filter(tre_cn == '24988786010900') %>% print(width = Inf)
 #### make untagged plants data frame ###########################################
 
-# want a 10 X S matrix, where S is the number of distinct subplots, and the 
+# want a 10 X P matrix, where P is the number of distinct subplots, and the 
 # rows 1-5 are 1 inch size bins, and the cell values are the counts of 
 # **untagged** (new) individuals in each size class on each plot; storing a 
 # long dataframe here 
 
 # start with a frame of all the plots and size classes
 untagged_data = 
-  subplot_data %>%
+  plot_data %>%
   
-  # filter to only subplots where both initial and remeasurement had manual 
+  # filter to only plots where both initial and remeasurement had manual 
   # greater than or equal to 2
   filter(inv_manual.init >= 2.0 & inv_manual.re >= 2.0) %>%
   
-  select(plt_cn, prev_plt_cn, subp_id) %>%
+  select(plt_cn, prev_plt_cn, plot_id) %>%
   
   # expand it to get 1 row per size bin and species 
-  expand(nesting(plt_cn, prev_plt_cn, subp_id),
+  expand(nesting(plt_cn, prev_plt_cn, plot_id),
          species = c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE', 'OTHER'),
          dbh_class = 1:20) %>%
 
@@ -1077,10 +1076,10 @@ untagged_data =
   # data for the remeasurement
   left_join(seedlings %>%
               mutate(dbh_class = 1) %>%
-              select(plt_cn, subp_id, species, dbh_class,
+              select(plt_cn, plot_id, species, dbh_class,
                      count_little = count),
             by = c('plt_cn' = 'plt_cn',
-                   'subp_id' = 'subp_id',
+                   'plot_id' = 'plot_id',
                    'species' = 'species',
                    'dbh_class' = 'dbh_class')) %>%
   
@@ -1094,12 +1093,12 @@ untagged_data =
                                     labels = FALSE,
                                     right = FALSE),
                      count_big = 1) %>%
-              select(plt_cn, subp_id, species, dbh_class, count_big) %>%
-              group_by(plt_cn, subp_id, species, dbh_class) %>%
+              select(plt_cn, plot_id, species, dbh_class, count_big) %>%
+              group_by(plt_cn, plot_id, species, dbh_class) %>%
               summarise(count_big = sum(count_big, na.rm = TRUE)) %>%
               ungroup(),
             by = c('plt_cn' = 'plt_cn',
-                   'subp_id' = 'subp_id',
+                   'plot_id' = 'plot_id',
                    'species' = 'species',
                    'dbh_class' = 'dbh_class')) %>%
   
@@ -1108,7 +1107,7 @@ untagged_data =
          count_big = ifelse(is.na(count_big), 0, count_big),
          count = count_little+count_big) %>%
   
-  select(subp_id, species, dbh_class, count)
+  select(plot_id, species, dbh_class, count)
 
 
 #### size classes metadata #####################################################
@@ -1133,8 +1132,8 @@ size_metadata =
          # size classes included as responses in the recruitment submodel; 
          # min macroplot dbh is 24"
          plot_area_ac = 
-           c(0.00333, 
-             0.0415, 
+           c(pi*(6.8**2)*4/43560, 
+             pi*(24**2)*4/43560, 
              rep(NA, times = 18))) %>%
   
   # get the median size of all live trees within each size class
@@ -1166,7 +1165,7 @@ size_metadata
 
 head(mort_data)
 head(growth_data)
-head(subplot_data)
+head(plot_data)
 head(sizedist_data)
 
 write.csv(mort_data,
@@ -1199,15 +1198,15 @@ saveRDS(sizedist_data,
                    '01-preprocessed',
                    'sizedist_data.rds'))
 
-write.csv(subplot_data,
+write.csv(plot_data,
           here::here('02-data',
                      '01-preprocessed',
-                     'subplot_data.csv'),
+                     'plot_data.csv'),
           row.names = FALSE)
-saveRDS(subplot_data,
+saveRDS(plot_data,
         here::here('02-data',
                    '01-preprocessed',
-                   'subplot_data.rds'))
+                   'plot_data.rds'))
 
 write.csv(untagged_data,
           here::here('02-data', 

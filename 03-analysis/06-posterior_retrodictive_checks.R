@@ -192,17 +192,17 @@ recruitment.retrodictions =
                      as.numeric(samples.plotEffect_s[i,])[pila_training$plotid_r]
                    
                    s = 
-                     matrix(nrow = 1, ncol = pila_training$S_r, byrow = TRUE,
+                     matrix(nrow = 1, ncol = pila_training$P_r, byrow = TRUE,
                             data = 
-                              sapply(X = 1:pila_training$S_r,
+                              sapply(X = 1:pila_training$P_r,
                                      FUN = function(subplot){
                                        boot::inv.logit(logitp[1+(pila_training$M_r*(subplot-1))])
                                      }))
                    
                    g = 
-                     matrix(nrow = 2, ncol = pila_training$S_r, byrow = FALSE,
+                     matrix(nrow = 2, ncol = pila_training$P_r, byrow = FALSE,
                             data = 
-                              sapply(X = 1:pila_training$S_r,
+                              sapply(X = 1:pila_training$P_r,
                                      FUN = function(subplot){
                                        sapply(X = 1:2,
                                               FUN = function(sizeclass_to){
@@ -220,9 +220,9 @@ recruitment.retrodictions =
                    
                    # growth kernel from sizeclass 1
                    growKern = 
-                     matrix(nrow = pila_training$S_r, ncol = 2, byrow = TRUE,
+                     matrix(nrow = pila_training$P_r, ncol = 2, byrow = TRUE,
                             data = 
-                              sapply(X = 1:pila_training$S_r,
+                              sapply(X = 1:pila_training$P_r,
                                      FUN = function(subplot){
                                        sapply(X = 1:2,
                                               FUN = function(sizeclass_to){
@@ -231,10 +231,10 @@ recruitment.retrodictions =
                                      }))
                    
                    f = 
-                     matrix(nrow = pila_training$M_r, ncol = pila_training$S_r, 
+                     matrix(nrow = pila_training$M_r, ncol = pila_training$P_r, 
                             byrow = FALSE,
                             data = 
-                              sapply(X = 1:pila_training$S_r,
+                              sapply(X = 1:pila_training$P_r,
                                      FUN = function(subplot){
                                        sapply(X = 1:pila_training$M_r,
                                               FUN = function(sizeclass_from){
@@ -244,11 +244,11 @@ recruitment.retrodictions =
                    
                    recKern = 
                      array(dim = 
-                             c(pila_training$S_r,
+                             c(pila_training$P_r,
                                2,
                                pila_training$M_r),
                            dimnames = 
-                             list(subplot = 1:pila_training$S_r,
+                             list(subplot = 1:pila_training$P_r,
                                   sizeclass_to = 1:2,
                                   sizeclass_from = 1:pila_training$M_r),
                            data = 
@@ -256,7 +256,7 @@ recruitment.retrodictions =
                                     FUN = function(sizeclass_from){
                                       sapply(X = 1:2,
                                              FUN = function(sizeclass_to){
-                                               sapply(X = 1:pila_training$S_r,
+                                               sapply(X = 1:pila_training$P_r,
                                                       FUN = function(subplot){
                                                         pila_training$r[sizeclass_to]*
                                                           f[sizeclass_from,subplot]
@@ -266,11 +266,11 @@ recruitment.retrodictions =
                    
                    A = 
                      array(dim = 
-                             c(pila_training$S_r,
+                             c(pila_training$P_r,
                                2,
                                pila_training$M_r),
                            dimnames = 
-                             list(subplot = 1:pila_training$S_r,
+                             list(subplot = 1:pila_training$P_r,
                                   sizeclass_to = 1:2,
                                   sizeclass_from = 1:pila_training$M_r),
                            data = 
@@ -278,7 +278,7 @@ recruitment.retrodictions =
                                     FUN = function(sizeclass_from){
                                       sapply(X = 1:2,
                                              FUN = function(sizeclass_to){
-                                               sapply(X = 1:pila_training$S_r,
+                                               sapply(X = 1:pila_training$P_r,
                                                       FUN = function(subplot){
                                                         if(sizeclass_from == 1){
                                                           growKern[subplot, sizeclass_to]+
@@ -291,9 +291,9 @@ recruitment.retrodictions =
                                     }))
                    
                    nprime = 
-                     matrix(nrow = pila_training$S_r, ncol = 2, byrow = TRUE,
+                     matrix(nrow = pila_training$P_r, ncol = 2, byrow = TRUE,
                             data = 
-                              sapply(X = 1:pila_training$S_r,
+                              sapply(X = 1:pila_training$P_r,
                                      FUN = function(subplot){
                                        sapply(X = 1:2,
                                               FUN = function(sizeclass){
@@ -303,9 +303,9 @@ recruitment.retrodictions =
                                      }))
                    
                    cprime_pred = 
-                     matrix(nrow = 2, ncol = pila_training$S_r, byrow = FALSE,
+                     matrix(nrow = 2, ncol = pila_training$P_r, byrow = FALSE,
                             data = 
-                              sapply(X = 1:pila_training$S_r,
+                              sapply(X = 1:pila_training$P_r,
                                      FUN = function(subplot){
                                        sapply(X = 1:2,
                                               FUN = function(sizeclass){
@@ -318,13 +318,13 @@ recruitment.retrodictions =
                                      }))
                    
                    result = 
-                     expand.grid(subplot = 1:pila_training$S_r,
+                     expand.grid(subplot = 1:pila_training$P_r,
                                  sizeclass = 1:2) %>%
                      as_tibble() %>%
                      arrange(subplot,sizeclass)
                    
                    result$density_pred = 
-                     sapply(X = 1:pila_training$S_r,
+                     sapply(X = 1:pila_training$P_r,
                             FUN = function(subplot){
                               sapply(X = 1:2,
                                      FUN = function(sizeclass){
@@ -333,7 +333,7 @@ recruitment.retrodictions =
                             }) %>%
                      as.numeric()
                    result$count_sim = 
-                     sapply(X = 1:pila_training$S_r,
+                     sapply(X = 1:pila_training$P_r,
                             FUN = function(subplot){
                               sapply(X = 1:2,
                                      FUN = function(sizeclass){
@@ -342,7 +342,7 @@ recruitment.retrodictions =
                             }) %>%
                      as.integer()
                    result$count_true = 
-                     sapply(X = 1:pila_training$S_r,
+                     sapply(X = 1:pila_training$P_r,
                             FUN = function(subplot){
                               sapply(X = 1:2,
                                      FUN = function(sizeclass){

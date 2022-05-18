@@ -186,17 +186,17 @@ recruitment.predictions =
                      as.numeric(samples.plotEffect_s[i,])[pila_validation$plotid_r]
                    
                    s = 
-                     matrix(nrow = 1, ncol = pila_validation$S_r, byrow = TRUE,
+                     matrix(nrow = 1, ncol = pila_validation$P_r, byrow = TRUE,
                             data = 
-                              sapply(X = 1:pila_validation$S_r,
+                              sapply(X = 1:pila_validation$P_r,
                                      FUN = function(subplot){
                                        boot::inv.logit(logitp[1+(pila_validation$M_r*(subplot-1))])
                                      }))
                    
                    g = 
-                     matrix(nrow = 2, ncol = pila_validation$S_r, byrow = FALSE,
+                     matrix(nrow = 2, ncol = pila_validation$P_r, byrow = FALSE,
                             data = 
-                              sapply(X = 1:pila_validation$S_r,
+                              sapply(X = 1:pila_validation$P_r,
                                      FUN = function(subplot){
                                        sapply(X = 1:2,
                                               FUN = function(sizeclass_to){
@@ -214,9 +214,9 @@ recruitment.predictions =
                    
                    # growth kernel from sizeclass 1
                    growKern = 
-                     matrix(nrow = pila_validation$S_r, ncol = 2, byrow = TRUE,
+                     matrix(nrow = pila_validation$P_r, ncol = 2, byrow = TRUE,
                             data = 
-                              sapply(X = 1:pila_validation$S_r,
+                              sapply(X = 1:pila_validation$P_r,
                                      FUN = function(subplot){
                                        sapply(X = 1:2,
                                               FUN = function(sizeclass_to){
@@ -225,10 +225,10 @@ recruitment.predictions =
                                      }))
                    
                    f = 
-                     matrix(nrow = pila_validation$M_r, ncol = pila_validation$S_r, 
+                     matrix(nrow = pila_validation$M_r, ncol = pila_validation$P_r, 
                             byrow = FALSE,
                             data = 
-                              sapply(X = 1:pila_validation$S_r,
+                              sapply(X = 1:pila_validation$P_r,
                                      FUN = function(subplot){
                                        sapply(X = 1:pila_validation$M_r,
                                               FUN = function(sizeclass_from){
@@ -238,11 +238,11 @@ recruitment.predictions =
                    
                    recKern = 
                      array(dim = 
-                             c(pila_validation$S_r,
+                             c(pila_validation$P_r,
                                2,
                                pila_validation$M_r),
                            dimnames = 
-                             list(subplot = 1:pila_validation$S_r,
+                             list(subplot = 1:pila_validation$P_r,
                                   sizeclass_to = 1:2,
                                   sizeclass_from = 1:pila_validation$M_r),
                            data = 
@@ -250,7 +250,7 @@ recruitment.predictions =
                                     FUN = function(sizeclass_from){
                                       sapply(X = 1:2,
                                              FUN = function(sizeclass_to){
-                                               sapply(X = 1:pila_validation$S_r,
+                                               sapply(X = 1:pila_validation$P_r,
                                                       FUN = function(subplot){
                                                         pila_validation$r[sizeclass_to]*
                                                           f[sizeclass_from,subplot]
@@ -260,11 +260,11 @@ recruitment.predictions =
                    
                    A = 
                      array(dim = 
-                             c(pila_validation$S_r,
+                             c(pila_validation$P_r,
                                2,
                                pila_validation$M_r),
                            dimnames = 
-                             list(subplot = 1:pila_validation$S_r,
+                             list(subplot = 1:pila_validation$P_r,
                                   sizeclass_to = 1:2,
                                   sizeclass_from = 1:pila_validation$M_r),
                            data = 
@@ -272,7 +272,7 @@ recruitment.predictions =
                                     FUN = function(sizeclass_from){
                                       sapply(X = 1:2,
                                              FUN = function(sizeclass_to){
-                                               sapply(X = 1:pila_validation$S_r,
+                                               sapply(X = 1:pila_validation$P_r,
                                                       FUN = function(subplot){
                                                         if(sizeclass_from == 1){
                                                           growKern[subplot, sizeclass_to]+
@@ -285,9 +285,9 @@ recruitment.predictions =
                                     }))
                    
                    nprime = 
-                     matrix(nrow = pila_validation$S_r, ncol = 2, byrow = TRUE,
+                     matrix(nrow = pila_validation$P_r, ncol = 2, byrow = TRUE,
                             data = 
-                              sapply(X = 1:pila_validation$S_r,
+                              sapply(X = 1:pila_validation$P_r,
                                      FUN = function(subplot){
                                        sapply(X = 1:2,
                                               FUN = function(sizeclass){
@@ -297,9 +297,9 @@ recruitment.predictions =
                                      }))
                    
                    cprime_pred = 
-                     matrix(nrow = 2, ncol = pila_validation$S_r, byrow = FALSE,
+                     matrix(nrow = 2, ncol = pila_validation$P_r, byrow = FALSE,
                             data = 
-                              sapply(X = 1:pila_validation$S_r,
+                              sapply(X = 1:pila_validation$P_r,
                                      FUN = function(subplot){
                                        sapply(X = 1:2,
                                               FUN = function(sizeclass){
@@ -312,13 +312,13 @@ recruitment.predictions =
                                      }))
                    
                    result = 
-                     expand.grid(subplot = 1:pila_validation$S_r,
+                     expand.grid(subplot = 1:pila_validation$P_r,
                                  sizeclass = 1:2) %>%
                      as_tibble() %>%
                      arrange(subplot,sizeclass)
                    
                    result$density_pred = 
-                     sapply(X = 1:pila_validation$S_r,
+                     sapply(X = 1:pila_validation$P_r,
                             FUN = function(subplot){
                               sapply(X = 1:2,
                                      FUN = function(sizeclass){
@@ -327,7 +327,7 @@ recruitment.predictions =
                             }) %>%
                      as.numeric()
                    result$count_sim = 
-                     sapply(X = 1:pila_validation$S_r,
+                     sapply(X = 1:pila_validation$P_r,
                             FUN = function(subplot){
                               sapply(X = 1:2,
                                      FUN = function(sizeclass){
@@ -336,7 +336,7 @@ recruitment.predictions =
                             }) %>%
                      as.integer()
                    result$count_true = 
-                     sapply(X = 1:pila_validation$S_r,
+                     sapply(X = 1:pila_validation$P_r,
                             FUN = function(subplot){
                               sapply(X = 1:2,
                                      FUN = function(sizeclass){
