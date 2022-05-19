@@ -1160,6 +1160,10 @@ size_metadata[size_metadata$bin_id==18,'dbh_in.mean'] =
 
 size_metadata
 
+# to avoid evicting big trees, the upper bound for the largest size class 
+# needs to be really high
+size_metadata[size_metadata$bin_id==20,'bin_upper'] = 10
+
 #### write results #############################################################
 
 
