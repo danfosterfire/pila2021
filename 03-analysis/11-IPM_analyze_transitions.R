@@ -1,3 +1,105 @@
+
+#### observed plots lambda #####################################################
+
+A_observed = 
+  readRDS(here::here('02-data',
+                   '03-results',
+                   'real_fits',
+                   'A_observed.rds'))
+
+lambda_observed = 
+  sapply(X = 1:nrow(plots.pila),
+         FUN = function(plot){
+           A_plot = A_observed[,,plot]
+           lambda_plot = max(as.numeric(Re(eigen(A_plot)$values)))
+           return(lambda_plot)
+         })
+
+ggplot(data.frame(lambda_observed),
+       aes(x = lambda_observed))+
+  geom_density()+
+  theme_minimal()
+
+ggplot(data.frame(lambda_observed),
+       aes(x = log(lambda_observed)))+
+  geom_density()+
+  theme_minimal()
+
+# proportion of plots where lambda < 1
+length(lambda_observed[lambda_observed<1])/length(lambda_observed)
+
+#### observed plots ssd ########################################################
+
+# stable size distribution
+ssd_observed = 
+  matrix(nrow = nrow(size_metadata),
+         ncol = nrow(plots.pila),
+         byrow = FALSE,
+         data = 
+           sapply(X = 1:nrow(plots.pila),
+                  FUN = function(plot){
+                    A.plot = A_observed[,,plot]
+                    # from supplamentory materials for merow et al 2014 
+                    # "On using integral projection models..."
+                    w.eigen = Re(eigen(A.plot)$vectors[,1])
+                    ssd = w.eigen / sum(w.eigen)
+                    return(ssd)
+                  }))
+
+ssd_observed.df = 
+  expand.grid('plot' = 1:nrow(plots.pila),
+              'sizeclass' = 1:nrow(size_metadata)) %>%
+  left_join(size_metadata %>%
+              mutate(bin_midpoint_cm = bin_midpoint*100) %>%
+              select(sizeclass = bin_id, bin_midpoint_cm))
+
+ssd_observed.df$class_proportion = 
+  
+  as.numeric(
+    sapply(X = 1:nrow(size_metadata),
+           FUN = function(sizeclass){
+             
+             return(ssd_observed[sizeclass,])
+             
+           })
+  )
+
+# stable size distribution is inverse J not surprising
+ssd_observed.df %>%
+  group_by(bin_midpoint_cm, sizeclass) %>%
+  summarise(prop.med = median(class_proportion),
+            prop.05 = quantile(class_proportion, 0.05),
+            prop.95 = quantile(class_proportion, 0.95)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_cm))+
+  geom_point(aes(y = prop.med), size = 3)+
+  geom_errorbar(aes(ymin = prop.05, ymax = prop.95),
+                width = 1)+
+  theme_minimal()
+
+# stable size distribution is inverse J not surprising
+ssd_observed.df %>%
+  group_by(bin_midpoint_cm, sizeclass) %>%
+  summarise(prop.med = median(class_proportion),
+            prop.05 = quantile(class_proportion, 0.05),
+            prop.95 = quantile(class_proportion, 0.95)) %>%
+  ungroup() %>%
+  ggplot(aes(x = bin_midpoint_cm))+
+  geom_point(aes(y = prop.med), size = 3)+
+  geom_errorbar(aes(ymin = prop.05, ymax = prop.95),
+                width = 1)+
+  theme_minimal()+
+  scale_y_log10()
+
+ggplot(size_metadata,
+       aes(x = bin_midpoint, y = dbh_m.mean))+
+  geom_point()+
+  geom_abline(intercept = 0, slope = 1, color = 'red')
+```
+
+
+
+#### scratch ###################################################################
 library(here)
 library(tidyverse)
 

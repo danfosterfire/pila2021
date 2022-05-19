@@ -241,7 +241,7 @@ A_median_full =
                      
                      # construct explanatory variable matrix for vital rate 
                      # functions for the current plot
-                     X = 
+                     X_sg = 
                        plots.pila %>%
                        slice(plot) %>%
                        expand(nesting(intercept, fire, wpbr, ba_scaled,
@@ -257,6 +257,8 @@ A_median_full =
                               dbh_fire, dbh_wpbr, dbh_ba,
                               dbh_cwd_dep90, dbh_cwd_mean) %>%
                        as.matrix()
+                     
+                     
                      
                      # calculate vector of survival probabilities for each 
                      # size class on this plot with this parameter draw
