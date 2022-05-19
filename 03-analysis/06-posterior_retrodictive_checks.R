@@ -177,7 +177,7 @@ recruitment.retrodictions =
                    beta_s = as.numeric(samples.beta_s[i,])
                    
                    logf = 
-                     as.numeric(pila_training$X_r %*% beta_f)+
+                     as.numeric(pila_training$X_f %*% beta_f)+
                      as.numeric(samples.ecoEffect_f[i,])[pila_training$ecosub_r]+
                      as.numeric(samples.plotEffect_f[i,])[pila_training$plotid_r]
                    
@@ -382,6 +382,7 @@ recr_retrodictions_plot2 =
               alpha = 0.2)+
   geom_point(aes(y = count_true))+
   theme_minimal()
+
 
 recr_retrodictions_plot2
 

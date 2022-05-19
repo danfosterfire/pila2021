@@ -171,7 +171,7 @@ recruitment.predictions =
                    beta_s = as.numeric(samples.beta_s[i,])
                    
                    logf = 
-                     as.numeric(pila_validation$X_r %*% beta_f)+
+                     as.numeric(pila_validation$X_f %*% beta_f)+
                      as.numeric(samples.ecoEffect_f[i,])[pila_validation$ecosub_r]+
                      as.numeric(samples.plotEffect_f[i,])[pila_validation$plotid_r]
                    

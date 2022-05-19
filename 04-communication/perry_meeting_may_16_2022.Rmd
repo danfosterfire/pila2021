@@ -182,6 +182,8 @@ size_metadata$r =
                        'pila_training.rds'))$r,
     rep(0, times = 18))
 
+
+
 ```
 
 
