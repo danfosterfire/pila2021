@@ -309,6 +309,17 @@ lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
            geom_jitter(width = 0.1, size = 0, height = 0)+
            geom_boxplot(width = 0.1, position = position_nudge(x = -0.25))
        })
+
+lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
+       FUN = function(v){
+         ggplot(data = surv_data,
+                aes(x = .data[[v]], y = surv))+
+           geom_jitter(width = 0, size = 0, height = 0.1)+
+           geom_smooth(method = 'lm', formula = y~x+I(x**2))
+       })
+
+
+
 lapply(X = c('fire', 'wpbr'),
        FUN = function(v){
          ggplot(data = surv_data,

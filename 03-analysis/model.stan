@@ -1,6 +1,6 @@
 data {
   int<lower=1> K; // number of fixed effect covariates, incl intercept and interactions
-  int<lower=1> K_f;
+  int<lower=1> K_g;
   int<lower=1> P; // number of unique plots
   int<lower=1> E; // number of unique ecoregion subsections
   
@@ -16,17 +16,17 @@ data {
   real size1_g[N_g]; // sizes at time t+1
   int plotid_g[N_g]; // plot id indices
   int ecosub_g[N_g]; // ecoregion subsection indices
-  matrix[N_g,K] X_g; // design matrix for fixed effects, including intercept
+  matrix[N_g,K_g] X_g; // design matrix for fixed effects, including intercept
   
   // recruitment data
   int<lower=0> N_r; // M_r (20) times the number of unique plots for the 
   // recruitment submodel
   int<lower=0> P_r; // number of unique plots for the recruitment submodel
-  matrix[N_r, K_f] X_f; // fixeff explanatory variables for each sizeclass:plot 
+  matrix[N_r, K] X_r; // fixeff explanatory variables for each sizeclass:plot 
   // combination, used to predict growth and survival for the recruitment 
   // submodel sizeclasses; instead of observed sizes here we have the 
   // class_mean_dbhs for each size class; MUST BE ORDERED plot (slow) sizeclass (fast)
-  matrix[N_r, K] X_r;
+  matrix[N_r, K_g] X_rg;
   int plotid_r[N_r]; // plot id indices for survival random effects in IPM
   int ecosub_r[N_r]; // ecosub indices for survival random effects in IPM
   int<lower=0> M_r; // number of modeled size classes for the recruitment submodel
@@ -52,7 +52,7 @@ parameters {
   vector[E] zEco_s; // sdnormal deviates for ecoregion random effect
   
   // growth 
-  vector[K] beta_g; // fixeff coeffs, including intercept, for growth model
+  vector[K_g] beta_g; // fixeff coeffs, including intercept, for growth model
   real<lower=0> sigmaPlot_g; // std deviation of plot random effect
   vector[P] zPlot_g; // std normal deviates for plot random effect
   real<lower=0> sigmaEco_g; // std dev of ecoregion random effect
@@ -61,7 +61,7 @@ parameters {
   
   // recruitment
   real<lower=0> kappa_r; // neg binomial dispersion parameter for recruitment
-  vector[K_f] beta_f; // fixeff coefficients including intercept for fecundity model
+  vector[K] beta_f; // fixeff coefficients including intercept for fecundity model
   real<lower=0> sigmaPlot_f;
   vector[P] zPlot_f;
   real<lower=0> sigmaEco_f;
@@ -117,8 +117,8 @@ model {
   XB_s = X_s * beta_s;
   XB_g = X_g * beta_g;
   XBP_r = X_r * beta_s;
-  XBg_r = X_r * beta_g;
-  XBf_r = X_f * beta_f;
+  XBg_r = X_rg * beta_g;
+  XBf_r = X_r * beta_f;
   
   
   // linear predictor for survival model

@@ -27,7 +27,8 @@ fitted_model =
     parallel_chains = 4,
     output_dir = here::here('02-data', '03-results', 'real_fits'),
     output_basename = 'pila',
-    seed = 112188)
+    seed = 110819,
+    adapt_delta = 0.9)
 
 
 
