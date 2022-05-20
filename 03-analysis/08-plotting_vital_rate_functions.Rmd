@@ -38,16 +38,22 @@ beta_s_names =
   data.frame(
       param = c('beta_s[1]', 'beta_s[2]', 'beta_s[3]', 'beta_s[4]', 'beta_s[5]',
                 'beta_s[6]', 'beta_s[7]', 'beta_s[8]', 'beta_s[9]', 'beta_s[10]',
-                'beta_s[11]', 'beta_s[12]'),
-      data_name = c('intercept', 'dbh_m.init', 'fire', 
-              'wpbr','ba_scaled', 'cwd_dep90_scaled', 
-              'cwd_mean_scaled', 'dbh_fire', 
-              'dbh_wpbr', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean'),
-      position = str_pad(1:12, width = 2, side = 'left', pad = '0'),
+                'beta_s[11]', 'beta_s[12]', 'beta_s[13]', 'beta_s[14]',
+                'beta_s[15]', 'beta_s[16]', 'beta_s[17]', 'beta_s[18]'),
+      data_name = c('intercept', 'dbh_m.init', 
+                                           'dbh_m2.init', 'fire', 
+                                     'wpbr','ba_scaled', 'cwd_dep90_scaled', 
+                                     'cwd_mean_scaled', 'dbh_fire', 'dbh2_fire',
+                                     'dbh_wpbr','dbh2_wpbr',
+                                     'dbh_ba', 'dbh2_ba', 'dbh_cwd90','dbh2_cwd90',
+                                     'dbh_cwdmean', 'dbh2_cwdmean'),
+      position = str_pad(1:18, width = 2, side = 'left', pad = '0'),
       pretty_name = 
-          c('Intercept','DBH (m)','Fire','WPBR','Basal Area',
-            'Drought','Site Dryness','DBH x Fire','DBH x WPBR',
-            'DBH x BA','DBH x Drought','DBH x Dryness'))
+          c('Intercept','DBH (m)','DBH^2 (m)', 'Fire','WPBR','Basal Area',
+            'Drought','Site Dryness','DBH x Fire', 'DBH^2 x Fire', 
+            'DBH x WPBR', 'DBH^2 x WPBR', 
+            'DBH x BA', 'DBH^2 x BA', 'DBH x Drought', 'DBH^2 x Drought', 
+            'DBH x Dryness', 'DBH^2 x Dryness'))
 
 pretty_beta_s_labels = 
   beta_s_names$pretty_name
@@ -324,6 +330,12 @@ mcmc_intervals(samples,
                         'beta_s[10]',
                         'beta_s[11]',
                         'beta_s[12]',
+                        'beta_s[13]',
+                        'beta_s[14]',
+                        'beta_s[15]',
+                        'beta_s[16]',
+                        'beta_s[17]',
+                        'beta_s[18]',
                         'sigmaPlot_s',
                         'sigmaEco_s'))
 
@@ -334,7 +346,7 @@ summary_s =
   left_join(beta_s_names %>%
               bind_rows(
                 data.frame(param = c('sigmaPlot_s', 'sigmaEco_s'),
-                       position = c('13', '14'),
+                       position = c('19', '20'),
                        pretty_name = c('SD Plots', 'SD Ecoregions'))
               ),
             by = c('variable' = 'param')) %>%
@@ -391,12 +403,6 @@ paramvalues_s =
   labs(x = 'Value', y = 'Parameter (Survival)')
 
 paramvalues_s
-ggsave(paramvalues_s,
-       filename = here::here('04-communication',
-                             'figures', 
-                             'manuscript',
-                             'paramvalues_s.png'),
-       height = 4, width = 6.5, units = 'in')
 ```
 
 
@@ -538,11 +544,14 @@ predict_survival_fixeff =
                      
                      beta_i = as.numeric(betas_s[i,])
                      
-                     X = dataset[,c('intercept', 'dbh_m.init', 'fire', 
+                     X = dataset[,c('intercept', 'dbh_m.init', 'dbh2_m.init',
+                                    'fire', 
                                     'wpbr', 'ba_scaled', 
                                     'cwd_dep90_scaled', 'cwd_mean_scaled', 
-                                    'dbh_fire', 'dbh_wpbr',
-                                    'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean')]
+                                    'dbh_fire', 'dbh2_fire', 'dbh_wpbr',
+                                    'dbh2_wpbr',
+                                    'dbh_ba', 'dbh2_ba', 'dbh_cwd90', 'dbh2_cwd90', 
+                                    'dbh_cwdmean', 'dbh2_cwdmean')]
                      
                      predictions = X
                      predictions$logitp = 
@@ -561,17 +570,23 @@ predict_survival_fixeff =
 ## the subplot-level mean (so like the average subplot))
 size_fixeff_s = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0.1, to = 2.5, by = 0.01),
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
-  mutate(dbh_fire = dbh_m.init*fire,
+  mutate(dbh2_m.init = dbh_m.init**2,
+         dbh_fire = dbh_m.init*fire,
+         dbh2_fire = dbh2_m.init*fire,
          dbh_wpbr = dbh_m.init*wpbr,
+         dbh2_wpbr = dbh2_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
+         dbh2_ba = dbh2_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
-         dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
+         dbh2_cwd90 = dbh2_m.init*cwd_dep90_scaled,
+         dbh_cwdmean = dbh_m.init*cwd_mean_scaled,
+         dbh2_cwdmean = dbh2_m.init*cwd_mean_scaled) %>%
   predict_survival_fixeff() %>%
   group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
@@ -597,17 +612,23 @@ size_fixeff_s =
 # size X fire
 fire_fixeff_s = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0.1, to = 2.5, by = 0.01),
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
             'fire' = c(0,1),
             'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
-  mutate(dbh_fire = dbh_m.init*fire,
+  mutate(dbh2_m.init = dbh_m.init**2,
+         dbh_fire = dbh_m.init*fire,
+         dbh2_fire = dbh2_m.init*fire,
          dbh_wpbr = dbh_m.init*wpbr,
+         dbh2_wpbr = dbh2_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
+         dbh2_ba = dbh2_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
-         dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
+         dbh2_cwd90 = dbh2_m.init*cwd_dep90_scaled,
+         dbh_cwdmean = dbh_m.init*cwd_mean_scaled,
+         dbh2_cwdmean = dbh2_m.init*cwd_mean_scaled) %>%
   predict_survival_fixeff() %>%
   group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
@@ -637,17 +658,23 @@ fire_fixeff_s =
 # size X wpbr
 wpbr_fixeff_s = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0.1, to = 2.5, by = 0.01),
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
             'fire' = 0,
             'wpbr' = c(0,1),
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
-  mutate(dbh_fire = dbh_m.init*fire,
+  mutate(dbh2_m.init = dbh_m.init**2,
+         dbh_fire = dbh_m.init*fire,
+         dbh2_fire = dbh2_m.init*fire,
          dbh_wpbr = dbh_m.init*wpbr,
+         dbh2_wpbr = dbh2_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
+         dbh2_ba = dbh2_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
-         dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
+         dbh2_cwd90 = dbh2_m.init*cwd_dep90_scaled,
+         dbh_cwdmean = dbh_m.init*cwd_mean_scaled,
+         dbh2_cwdmean = dbh2_m.init*cwd_mean_scaled) %>%
   predict_survival_fixeff() %>%
   group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
@@ -677,17 +704,23 @@ wpbr_fixeff_s =
 # size X Basal area
 ba_fixeff_s = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0.1, to = 2.5, by = 0.01),
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = c(-1,1),
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = 0) %>%
-  mutate(dbh_fire = dbh_m.init*fire,
+  mutate(dbh2_m.init = dbh_m.init**2,
+         dbh_fire = dbh_m.init*fire,
+         dbh2_fire = dbh2_m.init*fire,
          dbh_wpbr = dbh_m.init*wpbr,
+         dbh2_wpbr = dbh2_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
+         dbh2_ba = dbh2_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
-         dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
+         dbh2_cwd90 = dbh2_m.init*cwd_dep90_scaled,
+         dbh_cwdmean = dbh_m.init*cwd_mean_scaled,
+         dbh2_cwdmean = dbh2_m.init*cwd_mean_scaled) %>%
   predict_survival_fixeff() %>%
   group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
@@ -717,17 +750,23 @@ ba_fixeff_s =
 # size X drought
 drought_fixeff_s = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0.1, to = 2.5, by = 0.01),
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = c(-1,1),
             'cwd_mean_scaled' = 0) %>%
-  mutate(dbh_fire = dbh_m.init*fire,
+  mutate(dbh2_m.init = dbh_m.init**2,
+         dbh_fire = dbh_m.init*fire,
+         dbh2_fire = dbh2_m.init*fire,
          dbh_wpbr = dbh_m.init*wpbr,
+         dbh2_wpbr = dbh2_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
+         dbh2_ba = dbh2_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
-         dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
+         dbh2_cwd90 = dbh2_m.init*cwd_dep90_scaled,
+         dbh_cwdmean = dbh_m.init*cwd_mean_scaled,
+         dbh2_cwdmean = dbh2_m.init*cwd_mean_scaled) %>%
   predict_survival_fixeff() %>%
   group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
@@ -757,17 +796,23 @@ drought_fixeff_s =
 # size X dryness
 dryness_fixeff_s = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0.1, to = 2.5, by = 0.01),
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
             'cwd_dep90_scaled' = 0,
             'cwd_mean_scaled' = c(-1,1)) %>%
-  mutate(dbh_fire = dbh_m.init*fire,
+  mutate(dbh2_m.init = dbh_m.init**2,
+         dbh_fire = dbh_m.init*fire,
+         dbh2_fire = dbh2_m.init*fire,
          dbh_wpbr = dbh_m.init*wpbr,
+         dbh2_wpbr = dbh2_m.init*wpbr,
          dbh_ba = dbh_m.init*ba_scaled,
+         dbh2_ba = dbh2_m.init*ba_scaled,
          dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
-         dbh_cwdmean = dbh_m.init*cwd_mean_scaled) %>%
+         dbh2_cwd90 = dbh2_m.init*cwd_dep90_scaled,
+         dbh_cwdmean = dbh_m.init*cwd_mean_scaled,
+         dbh2_cwdmean = dbh2_m.init*cwd_mean_scaled) %>%
   predict_survival_fixeff() %>%
   group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
@@ -874,7 +919,7 @@ predict_grow_fixeff =
 ## the subplot-level mean (so like the average subplot))
 size_fixeff_g = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0.1, to = 2.5, by = 0.01),
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
@@ -909,7 +954,7 @@ size_fixeff_g =
 # size X fire
 fire_fixeff_g = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0.1, to = 2.5, by = 0.01),
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
             'fire' = c(0,1),
             'wpbr' = 0,
             'ba_scaled' = 0,
@@ -948,7 +993,7 @@ fire_fixeff_g =
 # size X wpbr
 wpbr_fixeff_g = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0.1, to = 2.5, by = 0.01),
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
             'fire' = 0,
             'wpbr' = c(0,1),
             'ba_scaled' = 0,
@@ -988,7 +1033,7 @@ wpbr_fixeff_g =
 # size X Basal area
 ba_fixeff_g = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0.1, to = 2.5, by = 0.01),
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = c(-1,1),
@@ -1028,7 +1073,7 @@ ba_fixeff_g =
 # size X drought
 drought_fixeff_g = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0.1, to = 2.5, by = 0.01),
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
@@ -1068,7 +1113,7 @@ drought_fixeff_g =
 # size X dryness
 dryness_fixeff_g = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0.1, to = 2.5, by = 0.01),
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
@@ -1185,7 +1230,7 @@ predict_fecundity_fixeff =
 ## the subplot-level mean (so like the average subplot))
 size_fixeff_f = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0.1, to = 2.5, by = 0.01),
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
@@ -1227,7 +1272,7 @@ size_fixeff_f =
 # size X fire
 fire_fixeff_f = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0.1, to = 2.5, by = 0.01),
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
             'fire' = c(0,1),
             'wpbr' = 0,
             'ba_scaled' = 0,
@@ -1273,7 +1318,7 @@ fire_fixeff_f =
 # size X wpbr
 wpbr_fixeff_f = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0.1, to = 2.5, by = 0.01),
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
             'fire' = 0,
             'wpbr' = c(0,1),
             'ba_scaled' = 0,
@@ -1320,7 +1365,7 @@ wpbr_fixeff_f =
 # size X Basal area
 ba_fixeff_f = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0.1, to = 2.5, by = 0.01),
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = c(-1,1),
@@ -1367,7 +1412,7 @@ ba_fixeff_f =
 # size X drought
 drought_fixeff_f = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0.1, to = 2.5, by = 0.01),
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
@@ -1414,7 +1459,7 @@ drought_fixeff_f =
 # size X dryness
 dryness_fixeff_f = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0.1, to = 2.5, by = 0.01),
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
@@ -1776,3 +1821,4 @@ ggsave(data_map,
        height = 6, width = 4, units = 'in')
 
 ```
+

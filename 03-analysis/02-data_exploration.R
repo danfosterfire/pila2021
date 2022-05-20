@@ -101,6 +101,18 @@ ggplot(data = mort_data,
        aes(x = species, fill = survived))+
   geom_bar(position = position_fill())
 
+# how many of the big trees that died were harvested?
+
+ggplot(data = mort_data %>% filter(species=='PILA'),
+       aes(x = dbh_in.init, y = as.numeric(survived)))+
+  #geom_jitter(height = 0.1, width = 0)+
+  geom_smooth(method = 'lm', formula = y~x+I(x**2))+
+  geom_jitter(height = 0.1, width = 0, aes(color = tree_status.re))
+
+# the biggest harvested tree was 59.1" (1.5m); harvests arent what killed the big ones
+
+max(mort_data %>% filter(species=='PILA'&tree_status.re=='harvested') %>% pull(dbh_in.init))
+
 #### sizedist data #############################################################
 
 head(sizedist_data)

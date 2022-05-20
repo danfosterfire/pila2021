@@ -177,12 +177,12 @@ recruitment.retrodictions =
                    beta_s = as.numeric(samples.beta_s[i,])
                    
                    logf = 
-                     as.numeric(pila_training$X_f %*% beta_f)+
+                     as.numeric(pila_training$X_r %*% beta_f)+
                      as.numeric(samples.ecoEffect_f[i,])[pila_training$ecosub_r]+
                      as.numeric(samples.plotEffect_f[i,])[pila_training$plotid_r]
                    
                    mu = 
-                     as.numeric(pila_training$X_r %*% beta_g)+
+                     as.numeric(pila_training$X_rg %*% beta_g)+
                      as.numeric(samples.ecoEffect_g[i,])[pila_training$ecosub_r]+
                      as.numeric(samples.plotEffect_g[i,])[pila_training$plotid_r]
                    
@@ -200,11 +200,11 @@ recruitment.retrodictions =
                                      }))
                    
                    g = 
-                     matrix(nrow = 2, ncol = pila_training$P_r, byrow = FALSE,
+                     matrix(nrow = pila_training$max_recr_class, ncol = pila_training$P_r, byrow = FALSE,
                             data = 
                               sapply(X = 1:pila_training$P_r,
                                      FUN = function(subplot){
-                                       sapply(X = 1:2,
+                                       sapply(X = 1:pila_training$max_recr_class,
                                               FUN = function(sizeclass_to){
                                                 (pnorm(pila_training$u_bounds[sizeclass_to],
                                                       mean = mu[1+(pila_training$M_r*(subplot-1))],
@@ -224,7 +224,7 @@ recruitment.retrodictions =
                             data = 
                               sapply(X = 1:pila_training$P_r,
                                      FUN = function(subplot){
-                                       sapply(X = 1:2,
+                                       sapply(X = 1:pila_training$max_recr_class,
                                               FUN = function(sizeclass_to){
                                                 s[1,subplot]*g[sizeclass_to,subplot]
                                               })
@@ -245,16 +245,16 @@ recruitment.retrodictions =
                    recKern = 
                      array(dim = 
                              c(pila_training$P_r,
-                               2,
+                               pila_training$max_recr_class,
                                pila_training$M_r),
                            dimnames = 
                              list(subplot = 1:pila_training$P_r,
-                                  sizeclass_to = 1:2,
+                                  sizeclass_to = 1:pila_training$max_recr_class,
                                   sizeclass_from = 1:pila_training$M_r),
                            data = 
                              sapply(X = 1:pila_training$M_r,
                                     FUN = function(sizeclass_from){
-                                      sapply(X = 1:2,
+                                      sapply(X = 1:pila_training$max_recr_class,
                                              FUN = function(sizeclass_to){
                                                sapply(X = 1:pila_training$P_r,
                                                       FUN = function(subplot){
@@ -267,16 +267,16 @@ recruitment.retrodictions =
                    A = 
                      array(dim = 
                              c(pila_training$P_r,
-                               2,
+                               pila_training$max_recr_class,
                                pila_training$M_r),
                            dimnames = 
                              list(subplot = 1:pila_training$P_r,
-                                  sizeclass_to = 1:2,
+                                  sizeclass_to = 1:pila_training$max_recr_class,
                                   sizeclass_from = 1:pila_training$M_r),
                            data = 
                              sapply(X = 1:pila_training$M_r,
                                     FUN = function(sizeclass_from){
-                                      sapply(X = 1:2,
+                                      sapply(X = 1:pila_training$max_recr_class,
                                              FUN = function(sizeclass_to){
                                                sapply(X = 1:pila_training$P_r,
                                                       FUN = function(subplot){
@@ -291,11 +291,11 @@ recruitment.retrodictions =
                                     }))
                    
                    nprime = 
-                     matrix(nrow = pila_training$P_r, ncol = 2, byrow = TRUE,
+                     matrix(nrow = pila_training$P_r, ncol = pila_training$max_recr_class, byrow = TRUE,
                             data = 
                               sapply(X = 1:pila_training$P_r,
                                      FUN = function(subplot){
-                                       sapply(X = 1:2,
+                                       sapply(X = 1:pila_training$max_recr_class,
                                               FUN = function(sizeclass){
                                                 as.numeric(A[subplot,sizeclass,] %*% 
                                                              pila_training$n[subplot,])
@@ -303,11 +303,11 @@ recruitment.retrodictions =
                                      }))
                    
                    cprime_pred = 
-                     matrix(nrow = 2, ncol = pila_training$P_r, byrow = FALSE,
+                     matrix(nrow = pila_training$max_recr_class, ncol = pila_training$P_r, byrow = FALSE,
                             data = 
                               sapply(X = 1:pila_training$P_r,
                                      FUN = function(subplot){
-                                       sapply(X = 1:2,
+                                       sapply(X = 1:pila_training$max_recr_class,
                                               FUN = function(sizeclass){
                                                 rnbinom(n = 1,
                                                         mu = 
@@ -319,14 +319,14 @@ recruitment.retrodictions =
                    
                    result = 
                      expand.grid(subplot = 1:pila_training$P_r,
-                                 sizeclass = 1:2) %>%
+                                 sizeclass = 1:pila_training$max_recr_class) %>%
                      as_tibble() %>%
                      arrange(subplot,sizeclass)
                    
                    result$density_pred = 
                      sapply(X = 1:pila_training$P_r,
                             FUN = function(subplot){
-                              sapply(X = 1:2,
+                              sapply(X = 1:pila_training$max_recr_class,
                                      FUN = function(sizeclass){
                                        nprime[subplot,sizeclass]*pila_training$a[sizeclass]
                                      })
@@ -335,7 +335,7 @@ recruitment.retrodictions =
                    result$count_sim = 
                      sapply(X = 1:pila_training$P_r,
                             FUN = function(subplot){
-                              sapply(X = 1:2,
+                              sapply(X = 1:pila_training$max_recr_class,
                                      FUN = function(sizeclass){
                                        cprime_pred[sizeclass,subplot]
                                      })
@@ -344,7 +344,7 @@ recruitment.retrodictions =
                    result$count_true = 
                      sapply(X = 1:pila_training$P_r,
                             FUN = function(subplot){
-                              sapply(X = 1:2,
+                              sapply(X = 1:pila_training$max_recr_class,
                                      FUN = function(sizeclass){
                                        pila_training$cprime[sizeclass,subplot]
                                      })
