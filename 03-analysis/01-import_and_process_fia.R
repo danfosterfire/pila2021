@@ -1128,13 +1128,17 @@ size_metadata =
          
          # <5" dbh are measured on a 6.8' radius (.00333ac) microcplot
          # >= 5" dbh measured on a 24' radius (0.0415ac) subplot
-         # ignoring the macroplots here, because we only need this info for the 
+         # including the macroplots here because we want to use the whole a
+         # vector and stan won't allow NAs, but we only use the areas for the 
+         # smalles classes so it doesn't matter that the macro breakpoint 
+         # diameter is inconsistent, because we only need this info for the 
          # size classes included as responses in the recruitment submodel; 
          # min macroplot dbh is 24"
          plot_area_ac = 
            c(pi*(6.8**2)*4/43560, 
              pi*(24**2)*4/43560, 
-             rep(NA, times = 18))) %>%
+             rep(pi*(24**2)*4/43560, times = 3),
+             rep(pi*(58.9**2)*4/43560, times = 15))) %>%
   
   # get the median size of all live trees within each size class
   left_join(

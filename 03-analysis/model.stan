@@ -19,6 +19,8 @@ data {
   matrix[N_g,K_g] X_g; // design matrix for fixed effects, including intercept
   
   // recruitment data
+  int<lower=1> max_recr_class; // bin number of the largest size bin for 
+  // new recruits 
   int<lower=0> N_r; // M_r (20) times the number of unique plots for the 
   // recruitment submodel
   int<lower=0> P_r; // number of unique plots for the recruitment submodel
@@ -32,13 +34,13 @@ data {
   int<lower=0> M_r; // number of modeled size classes for the recruitment submodel
   vector[M_r] u_bounds; // upper bounds of size bins
   vector[M_r] l_bounds; //lower bounds of size bins
-  vector[2] a; // plot area for each of the size classes; here only for the 
+  vector[M_r] a; // plot area for each of the size classes; here only for the 
   // smallest 2 size classes (only need these, and the macro breakpoint diameter is not consistent 
   // across all the plots)
-  int cprime[2,P_r]; // counts of untagged trees in each size class on each plot
+  int cprime[max_recr_class, P_r]; // counts of untagged trees in each size class on each plot
   vector<lower=0>[M_r] n[P_r]; // vector of area-standardaized rates of occurence for 
   // each of size class on each of P_r plots at time t = 0
-  vector<lower=0>[2] r; // recruitment size kernel
+  vector<lower=0>[M_r] r; // recruitment size kernel
   
 }
 
@@ -96,18 +98,18 @@ model {
   vector[N_g] XB_g;
   
   // // recruitment
-  vector[N_r] XBP_r; // linear predictor for sizeclass class_mean_dbhs on each plot
+  vector[N_r] XBs_r; // linear predictor for sizeclass class_mean_dbhs on each plot
   vector[N_r] XBg_r; // linear predictor for sizeclass class_mean_dbhs on each plot
   vector[N_r] XBf_r;
   vector[N_r] mu_gr;
   vector[N_r] logitp_sr;
-  vector[2] nprime[P_r]; // area-standardized occurence rates at time t+1 on 
-  // each plot in each size class (only the smallest 2 classes)
-  matrix[2,M_r] A[P_r]; // final IPM transition kernel describing how column 
+  vector[max_recr_class] nprime[P_r]; // area-standardized occurence rates at time t+1 on 
+  // each plot in each size class (only the smallest class)
+  matrix[max_recr_class,M_r] A[P_r]; // final IPM transition kernel describing how column 
   // size classes at time 0 lead to row size classes at time 1 (only smallest 2 classes)
-  matrix[2,M_r] recKern[P_r]; // recruitment kernel (into the smallest 2 classes)
-  matrix[2,M_r] growKern[P_r]; // growth*survival transitions (into the smallest 2 classes)
-  matrix[M_r,1] g[P_r]; // growth kernel of transitions from size class to size class on each plot
+  matrix[max_recr_class,M_r] recKern[P_r]; // recruitment kernel (into the smallest size class)
+  matrix[max_recr_class,M_r] growKern[P_r]; // growth*survival transitions (into the smallest 2 classes)
+  matrix[max_recr_class,1] g[P_r]; // growth kernel of transitions from size class to size class on each plot
                         // (only from the smallest class into the others)
   matrix[M_r,P_r] s; // survival rates on each plot for each sizeclass 
   matrix[M_r,P_r] f; // fecundity rates by size class and plots
@@ -116,7 +118,7 @@ model {
   // fixed effects
   XB_s = X_s * beta_s;
   XB_g = X_g * beta_g;
-  XBP_r = X_r * beta_s;
+  XBs_r = X_r * beta_s;
   XBg_r = X_rg * beta_g;
   XBf_r = X_r * beta_f;
   
@@ -133,7 +135,7 @@ model {
   
   // linear predictors for gtrowth and survival on the recruitment IPM
   for (i in 1:N_r){
-    logitp_sr[i] = XBP_r[i] + plotEffect_s[plotid_r[i]]+ ecoEffect_s[ecosub_r[i]];
+    logitp_sr[i] = XBs_r[i] + plotEffect_s[plotid_r[i]]+ ecoEffect_s[ecosub_r[i]];
     mu_gr[i] = XBg_r[i] + plotEffect_g[plotid_r[i]] + ecoEffect_g[ecosub_r[i]];
     logf[i] = XBf_r[i] + plotEffect_f[plotid_r[i]] + ecoEffect_f[ecosub_r[i]];
   }
@@ -146,12 +148,11 @@ model {
           
     // expected survival in the smallest size class
     s[1,plot] = inv_logit(logitp_sr[1+(M_r*(plot-1))]);
-    
     // in the shriver code, this loops over all combinations of size classes,
     // which isn't necessary because we're only using growth from the smallest 
-    // size class into the smallest two size classes;  set "sizeclass_from" to 
-    // be 1 everywhere and sizeclass_to to be 1:2
-    for (sizeclass_to in 1:2){
+    // size class into the smallest size class;  set "sizeclass_from" to 
+    // be 1 everywhere and sizeclass_to to be 1
+    for (sizeclass_to in 1:max_recr_class){
         // equation 12
         g[plot, sizeclass_to, 1] = 
          (normal_cdf(u_bounds[sizeclass_to]| mu_gr[1+(M_r*(plot-1))], sigmaEpsilon_g) - 
@@ -174,13 +175,13 @@ model {
     
       // recruitment kernel (new recruits per existing adult divvied into the 
       // recruitment size kernel)
-      recKern[plot,1:2,sizeclass] = r * f[sizeclass,plot];
+      recKern[plot,1:max_recr_class,sizeclass] = r[1:max_recr_class] * f[sizeclass,plot];
     }
     
     // transition kernel is the sum of growth of existing small individuals 
     // plus new recruits from the smallest size class (<1" dbh) (eq 11)
-    A[plot,,1] = recKern[plot,1:2,1]+growKern[plot,1:2,1];
-    A[plot,,2:20] = recKern[plot,1:2,2:M_r]; // or just recruitment from bigger classes
+    A[plot,,1] = recKern[plot,1:max_recr_class,1]+growKern[plot,1:max_recr_class,1];
+    A[plot,,2:20] = recKern[plot,1:max_recr_class,2:M_r]; // or just recruitment from bigger classes
     
     nprime[plot,] = A[plot,,]*n[plot,]; // eqation 10 in shriver et al; density at t=1 is 
     // the transition kernel matrix multiplied by the density at time t = 0
@@ -215,7 +216,7 @@ model {
     size1_g[i] ~ normal(mu_g[i], sigmaEpsilon_g) T[0,]; // size at time t+1 (growth)
     }
   for (plot in 1:P_r){
-    for (sizeclass in 1:2){
+    for (sizeclass in 1:max_recr_class){
         cprime[sizeclass,plot] ~ 
           neg_binomial_2(nprime[plot,sizeclass]*a[sizeclass], kappa_r);
     }

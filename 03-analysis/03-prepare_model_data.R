@@ -5,6 +5,9 @@ library(tidyverse)
 
 set.seed(110819)
 
+# use this to control how many bins new recruits can fall into
+max_recr_class = 1
+
 # a row for every subplot, columns for the subplot-level covariates like 
 # disturbance data, basal area, and drought
 plot_data = 
@@ -206,54 +209,11 @@ recr_data.pila =
 # in the sampler. Because these aren't really the parameters of interest anyways, 
 # I'm going to avoid trying to estimate them in the model and just supply the 
 # recruitment size kernel as data. 
-r = 
-  # start with all the untagged data
-  readRDS(here::here('02-data',
-                     '01-preprocessed',
-                     'untagged_data.rds')) %>%
-  filter(species=='PILA'&is.element(plot_id, recr_data.pila$plot_id)) %>%
-  
-  # bring in the plot size for weighting
-  left_join(size_metadata %>%
-              select(dbh_class = bin_id,
-                     plot_area_ac)) %>%
-  mutate(tpa = count / plot_area_ac) %>%
-  
-  # keep only the first two size classes (assume everything >10" dbh isn't 
-  # really a new recruit, just a missed tree)
-  filter(dbh_class <= 2) %>%
-  
-  # right join to the total number of new recruits on each subplot, keeping 
-  # only subplots with at least 1 new recruit
-  right_join(
-      # get the total number of untagged trees in the first two size classes (new recxruits) 
-    # on each subplot
-    readRDS(here::here('02-data',
-                       '01-preprocessed',
-                       'untagged_data.rds')) %>%
-      filter(species=='PILA'&is.element(plot_id, recr_data.pila$plot_id))  %>%
-      filter(dbh_class <= 2) %>%
-      left_join(size_metadata %>%
-                  select(dbh_class = bin_id,
-                         plot_area_ac)) %>%
-      mutate(tpa = count / plot_area_ac) %>%
-      group_by(plot_id) %>% 
-      summarise(total_tpa = sum(tpa)) %>%
-      ungroup() %>%
-      # keep only subplots with at least 1 new recruit
-      filter(total_tpa > 0)
-  ) %>%
-  
-  # get the proportion of total new recruits in each of the first two size classes
-  mutate(p_tpa = tpa / total_tpa) %>%
-  
-  # get the average distribution across all subplots
-  group_by(dbh_class) %>%
-  summarise(p_tpa = mean(p_tpa)) %>%
-  ungroup() %>%
-  
-  pull(p_tpa)
-
+# Based on York et al. 2004, 90% of sugar pine seedlings fall in the 
+# height range ~0.55-1.4m after 5 years of growth. New recruits have 
+# on average 5 years to grow, and at most 10 years. Assume that  100% fall in the 
+# DBH range 0-5" after 10 years of growth. 
+r = c(1, rep(0, times = 19))
 r
 #### asssign plot and ecoregion indices ########################################
 
@@ -346,12 +306,12 @@ recr_data.pila_validation =
 
 untagged_data.pila_training = 
   recr_data.pila_training %>%
-  filter(dbh_class <= 2) %>%
+  filter(dbh_class <= max_recr_class) %>%
   arrange(plot_id, dbh_in.init)
 
 untagged_data.pila_validation = 
   recr_data.pila_validation %>%
-  filter(dbh_class <= 2) %>%
+  filter(dbh_class <= max_recr_class) %>%
   arrange(plot_id, dbh_in.init)
 
 #### prepare training and validation data ######################################
@@ -396,6 +356,7 @@ pila_training =
                                      'dbh_cwdmean')]),
     
     # recruitment data
+    max_recr_class = max_recr_class,
     N_r = nrow(recr_data.pila_training),
     P_r = length(unique(recr_data.pila_training$plot_id)),
     X_r = 
@@ -419,9 +380,9 @@ pila_training =
     M_r = nrow(size_metadata),
     u_bounds = size_metadata$bin_upper*0.0254,
     l_bounds = size_metadata$bin_lower*0.0254,
-    a = size_metadata$plot_area_ac[1:2],
+    a = size_metadata$plot_area_ac,
     cprime = matrix(ncol = length(unique(recr_data.pila_training$plot_id)),
-                    nrow = 2,
+                    nrow = max_recr_class,
                     data = untagged_data.pila_training$untagged_count,
                     byrow = FALSE),
     n = matrix(nrow = length(unique(recr_data.pila_training$plot_id)),
@@ -469,6 +430,7 @@ pila_validation =
                                      'dbh_cwdmean')]),
     
     # recruitment data
+    max_recr_class = max_recr_class,
     N_r = nrow(recr_data.pila_validation),
     P_r = length(unique(recr_data.pila_validation$plot_id)),
     X_r = 
@@ -492,9 +454,9 @@ pila_validation =
     M_r = nrow(size_metadata),
     u_bounds = size_metadata$bin_upper*0.0254,
     l_bounds = size_metadata$bin_lower*0.0254,
-    a = size_metadata$plot_area_ac[1:2],
+    a = size_metadata$plot_area_ac,
     cprime = matrix(ncol = length(unique(recr_data.pila_validation$plot_id)),
-                    nrow = 2,
+                    nrow = max_recr_class,
                     data = untagged_data.pila_validation$untagged_count,
                     byrow = FALSE),
     n = matrix(nrow = length(unique(recr_data.pila_validation$plot_id)),
