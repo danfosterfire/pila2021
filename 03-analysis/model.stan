@@ -181,7 +181,7 @@ model {
     // transition kernel is the sum of growth of existing small individuals 
     // plus new recruits from the smallest size class (<1" dbh) (eq 11)
     A[plot,,1] = recKern[plot,1:max_recr_class,1]+growKern[plot,1:max_recr_class,1];
-    A[plot,,2:20] = recKern[plot,1:max_recr_class,2:M_r]; // or just recruitment from bigger classes
+    A[plot,,2:M_r] = recKern[plot,1:max_recr_class,2:M_r]; // or just recruitment from bigger classes
     
     nprime[plot,] = A[plot,,]*n[plot,]; // eqation 10 in shriver et al; density at t=1 is 
     // the transition kernel matrix multiplied by the density at time t = 0

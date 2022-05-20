@@ -140,7 +140,7 @@ recr_data.pila =
                  insects, disease, cutting, invdate.init, inv_manual.init, 
                  ba_ft2ac, cwd_departure90, cwd_mean, ba_scaled, cwd_dep90_scaled,
                  cwd_mean_scaled, intercept, wpbr),
-         dbh_in.init = size_metadata$dbh_in.mean) %>%
+         dbh_in.init = size_metadata$bin_midpoint) %>%
   mutate(dbh_class = cut(dbh_in.init,
                          breaks = seq(from = 0, to= 100, by = 5),
                          labels = FALSE,
@@ -213,7 +213,7 @@ recr_data.pila =
 # height range ~0.55-1.4m after 5 years of growth. New recruits have 
 # on average 5 years to grow, and at most 10 years. Assume that  100% fall in the 
 # DBH range 0-5" after 10 years of growth. 
-r = c(1, rep(0, times = 19))
+r = c(1, rep(0, times = 99))
 r
 #### asssign plot and ecoregion indices ########################################
 

@@ -48,7 +48,7 @@ mcmc_pairs(fitted_model$draws(),
            pars = c('beta_g[1]', 'beta_g[2]','sigmaEpsilon_g', 'sigmaEco_g', 'sigmaPlot_g'))
 
 mcmc_pairs(fitted_model$draws(),
-           pars = c('beta_s[1]', 'beta_s[2]', 'sigmaEco_s', 'sigmaPlot_s'))
+           pars = c('beta_s[1]', 'beta_s[2]', 'beta_s[3]', 'sigmaEco_s', 'sigmaPlot_s'))
 
 mcmc_pairs(fitted_model$draws(),
            pars = c('beta_f[1]', 'beta_f[2]', 'sigmaEco_f', 'sigmaPlot_f', 'kappa_r'))

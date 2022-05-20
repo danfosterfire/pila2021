@@ -940,8 +940,8 @@ sizedist_data =
   expand(nesting(plt_cn, prev_plt_cn, plot_id),
          species = c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE', 'OTHER'),
          dbh_class = 
-             cut(seq(from = 2.5, to = 97.5, by = 5),
-                 breaks = seq(from = 0, to = 100, by = 5),
+             cut(seq(from = 0.5, to = 99.5, by = 1),
+                 breaks = seq(from = 0, to = 100, by = 1),
                  labels = FALSE,
                  right = FALSE)) %>%
   
@@ -974,7 +974,7 @@ sizedist_data =
               filter(tree_status == 'live')  %>%
               mutate(dbh_class = cut(dbh_in,
                                     breaks = 
-                                      seq(from = 0, to = 100, by = 5),
+                                      seq(from = 0, to = 100, by = 1),
                                     labels = FALSE,
                                     right = FALSE)) %>%
               select(plt_cn, plot_id, species, dbh_class, tpa_unadj) %>%
@@ -992,7 +992,7 @@ sizedist_data =
               filter(tree_status == 'live') %>%
               mutate(dbh_class = cut(dbh_in,
                                      breaks = 
-                                       seq(from = 0, to = 100, by = 5),
+                                       seq(from = 0, to = 100, by = 1),
                                      labels = FALSE,
                                      right = FALSE)) %>%
               select(plt_cn, plot_id, species, dbh_class, tpa_unadj) %>%
@@ -1089,7 +1089,7 @@ untagged_data =
               filter(is.na(prev_tre_cn) & tree_status=='live') %>%
               mutate(dbh_class = cut(dbh_in,
                                     breaks = 
-                                      seq(from = 0, to = 100, by = 5),
+                                      seq(from = 0, to = 100, by = 1),
                                     labels = FALSE,
                                     right = FALSE),
                      count_big = 1) %>%
@@ -1118,13 +1118,13 @@ untagged_data =
 # of each bin
 size_metadata = 
   data.frame(bin_midpoint = 
-               seq(from = 2.5, to = 97.5, by = 5)) %>%
+               seq(from = 0.5, to = 99.5, by = 1)) %>%
   mutate(bin_id = cut(bin_midpoint,
-                      breaks = seq(from = 0, to = 100, by = 5),
+                      breaks = seq(from = 0, to = 100, by = 1),
                       labels = FALSE,
                       right = FALSE),
-         bin_lower = seq(from = 0, to = 95, by = 5),
-         bin_upper = seq(from = 5, to = 100, by = 5),
+         bin_lower = seq(from = 0, to = 99, by = 1),
+         bin_upper = seq(from = 1, to = 100, by = 1),
          
          # <5" dbh are measured on a 6.8' radius (.00333ac) microcplot
          # >= 5" dbh measured on a 24' radius (0.0415ac) subplot
@@ -1135,10 +1135,15 @@ size_metadata =
          # size classes included as responses in the recruitment submodel; 
          # min macroplot dbh is 24"
          plot_area_ac = 
-           c(pi*(6.8**2)*4/43560, 
-             pi*(24**2)*4/43560, 
-             rep(pi*(24**2)*4/43560, times = 3),
-             rep(pi*(58.9**2)*4/43560, times = 15))) %>%
+           c(pi*(6.8**2)*4/43560, # seedlings on microplot
+             rep(pi*(6.8**2)*2/43560, times = 4), # saplings on microplot
+             rep(pi*(24**2)*4/43560, times = 19), # small trees on subplot
+             rep(pi*(58.9**2)*4/43560, times = 76)) # big trees macroplot; 
+         # incoorectly assuming that the macroplot dbh is 24" everywhere (it 
+         # varies) but it doesn't matter because this data doesn't get used 
+         # anywhere; just cant have it be NA because stan wants the vector for 
+         # the small classes
+         ) %>%
   
   # get the median size of all live trees within each size class
   left_join(
@@ -1150,23 +1155,17 @@ size_metadata =
               mutate(dbh_in = 0) %>%
               select(dbh_in)) %>%
     mutate(bin_id = cut(dbh_in,
-                      breaks = seq(from = 0, to = 100, by = 5),
+                      breaks = seq(from = 0, to = 100, by = 1),
                       labels = FALSE,
                       right = FALSE)) %>%
     group_by(bin_id) %>%
     summarise(dbh_in.mean = mean(dbh_in, na.rm = TRUE)) %>%
     ungroup())
 
-# fudge one bin with no trees in it
-size_metadata[size_metadata$bin_id==18,'dbh_in.mean'] = 
-  (size_metadata[size_metadata$bin_id==17,'dbh_in.mean']+
-     size_metadata[size_metadata$bin_id==19,'dbh_in.mean'])/2
-
-size_metadata
 
 # to avoid evicting big trees, the upper bound for the largest size class 
 # needs to be really high
-size_metadata[size_metadata$bin_id==20,'bin_upper'] = 400
+size_metadata[size_metadata$bin_id==100,'bin_upper'] = 400
 
 #### write results #############################################################
 
