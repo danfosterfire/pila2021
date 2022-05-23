@@ -497,20 +497,19 @@ mcmc_intervals(samples,
                         'beta_f[16]',
                         'beta_f[17]',
                         'beta_f[18]',
-                        'sigmaPlot_f',
                         'sigmaEco_f'))
 
 mcmc_intervals(samples, pars = 'kappa_r')
 
 
 summary_f = 
-  pila_fit$summary(variables = c('beta_f', 'sigmaPlot_f', 'sigmaEco_f', 'kappa_r')) %>%
+  pila_fit$summary(variables = c('beta_f', 'sigmaEco_f', 'kappa_r')) %>%
   left_join(beta_f_names %>%
               bind_rows(
-                data.frame(param = c('sigmaPlot_f', 'sigmaEco_f',
+                data.frame(param = c('sigmaEco_f',
                                      'kappa_r'),
-                       position = c('19', '20', '21'),
-                       pretty_name = c('SD Plots', 'SD Ecoregions', 'NB Dispersion'))
+                       position = c('19', '20'),
+                       pretty_name = c('SD Ecoregions', 'NB Dispersion'))
               ),
             by = c('variable' = 'param')) %>%
   select(Position = position,
@@ -1724,20 +1723,6 @@ ecoEffect_map_f =
 
 ecoEffect_map_f
 
-plotEffect_f.med = 
-  samples %>%
-  select(contains('plotEffect_f')) %>%
-  summarise_all(median) %>%
-  as.numeric()
-
-plots.sf$plotEffect_f.med = 
-  plotEffect_f.med[plots.sf$plot_id.i]
-
-ggplot(data = plots.sf,
-       aes(color = plotEffect_f.med))+
-  geom_sf(size = 1, alpha = 0.5)+
-  theme_minimal()+
-  scale_color_viridis_c()
 
 ```
 

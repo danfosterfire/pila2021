@@ -160,7 +160,6 @@ ggsave(growth_predictions_plot2,
 
 samples.beta_f = samples %>% select(contains('beta_f'))
 samples.ecoEffect_f = samples %>% select(contains('ecoEFfect_f'))
-samples.plotEffect_f = samples %>% select(contains('plotEffect_f'))
 
 recruitment.predictions = 
   do.call('bind_rows',
@@ -172,8 +171,7 @@ recruitment.predictions =
                    
                    logf = 
                      as.numeric(pila_validation$X_r %*% beta_f)+
-                     as.numeric(samples.ecoEffect_f[i,])[pila_validation$ecosub_r]+
-                     as.numeric(samples.plotEffect_f[i,])[pila_validation$plotid_r]
+                     as.numeric(samples.ecoEffect_f[i,])[pila_validation$ecosub_r]
                    
                    mu = 
                      as.numeric(pila_validation$X_rg %*% beta_g)+

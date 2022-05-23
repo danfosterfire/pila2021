@@ -166,7 +166,6 @@ ggsave(growth_retrodictions_plot2,
 
 samples.beta_f = samples %>% select(contains('beta_f'))
 samples.ecoEffect_f = samples %>% select(contains('ecoEFfect_f'))
-samples.plotEffect_f = samples %>% select(contains('plotEffect_f'))
 
 recruitment.retrodictions = 
   do.call('bind_rows',
@@ -178,8 +177,7 @@ recruitment.retrodictions =
                    
                    logf = 
                      as.numeric(pila_training$X_r %*% beta_f)+
-                     as.numeric(samples.ecoEffect_f[i,])[pila_training$ecosub_r]+
-                     as.numeric(samples.plotEffect_f[i,])[pila_training$plotid_r]
+                     as.numeric(samples.ecoEffect_f[i,])[pila_training$ecosub_r]
                    
                    mu = 
                      as.numeric(pila_training$X_rg %*% beta_g)+

@@ -27,7 +27,7 @@ fitted_model =
     parallel_chains = 4,
     output_dir = here::here('02-data', '03-results', 'real_fits'),
     output_basename = 'pila',
-    seed = 112188,
+    seed = 020188,
     adapt_delta = 0.8)
 
 
@@ -37,7 +37,7 @@ fitted_model =
 
 fitted_model$summary(c('beta_s',  'sigmaEco_s', 'sigmaPlot_s',
                        'beta_g', 'sigmaEco_g', 'sigmaPlot_g', 'sigmaEpsilon_g',
-                       'beta_f', 'sigmaEco_f', 'sigmaPlot_f', 'kappa_r')) %>% 
+                       'beta_f', 'sigmaEco_f', 'kappa_r')) %>% 
   print(n = Inf)
 
 # I think it's ok for there to be some correlation in the parameter esitmates 
@@ -51,7 +51,7 @@ mcmc_pairs(fitted_model$draws(),
            pars = c('beta_s[1]', 'beta_s[2]', 'beta_s[3]', 'sigmaEco_s', 'sigmaPlot_s'))
 
 mcmc_pairs(fitted_model$draws(),
-           pars = c('beta_f[1]', 'beta_f[2]', 'sigmaEco_f', 'sigmaPlot_f', 'kappa_r'))
+           pars = c('beta_f[1]', 'beta_f[2]', 'sigmaEco_f',  'kappa_r'))
 
 mcmc_pairs(fitted_model$draws(),
            pars = c('beta_s[1]', 'beta_g[1]', 'beta_f[1]'))
@@ -63,7 +63,7 @@ mcmc_dens_overlay(fitted_model$draws(variables =
                                        c('beta_g', 'sigmaEco_g','sigmaPlot_s', 'sigmaEpsilon_g')))
 
 mcmc_dens_overlay(fitted_model$draws(variables = 
-                                       c('beta_f', 'sigmaEco_f','sigmaPlot_f', 'kappa_r')))
+                                       c('beta_f', 'sigmaEco_f', 'kappa_r')))
 
 fitted_model$cmdstan_diagnose()
 

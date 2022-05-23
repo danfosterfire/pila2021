@@ -64,8 +64,8 @@ parameters {
   // recruitment
   real<lower=0> kappa_r; // neg binomial dispersion parameter for recruitment
   vector[K] beta_f; // fixeff coefficients including intercept for fecundity model
-  real<lower=0> sigmaPlot_f;
-  vector[P] zPlot_f;
+  //real<lower=0> sigmaPlot_f;
+  //vector[P] zPlot_f;
   real<lower=0> sigmaEco_f;
   vector[E] zEco_f;
 }
@@ -73,14 +73,14 @@ parameters {
 transformed parameters {
   vector[P] plotEffect_s;
   vector[P] plotEffect_g;
-  vector[P] plotEffect_f;
+  //vector[P] plotEffect_f;
   vector[E] ecoEffect_s;
   vector[E] ecoEffect_g;
   vector[E] ecoEffect_f;
   
   plotEffect_s = sigmaPlot_s * zPlot_s;
   plotEffect_g = sigmaPlot_g * zPlot_g;
-  plotEffect_f = sigmaPlot_f * zPlot_f;
+  //plotEffect_f = sigmaPlot_f * zPlot_f;
   ecoEffect_s = sigmaEco_s * zEco_s;
   ecoEffect_g = sigmaEco_g * zEco_g;
   ecoEffect_f = sigmaEco_f * zEco_f;
@@ -137,7 +137,8 @@ model {
   for (i in 1:N_r){
     logitp_sr[i] = XBs_r[i] + plotEffect_s[plotid_r[i]]+ ecoEffect_s[ecosub_r[i]];
     mu_gr[i] = XBg_r[i] + plotEffect_g[plotid_r[i]] + ecoEffect_g[ecosub_r[i]];
-    logf[i] = XBf_r[i] + plotEffect_f[plotid_r[i]] + ecoEffect_f[ecosub_r[i]];
+    logf[i] = XBf_r[i] + ecoEffect_f[ecosub_r[i]]; 
+    // +plotEffect_f[plotid_r[i]]
   }
   
 
@@ -194,7 +195,7 @@ model {
   beta_f ~ normal(0, 5);
   sigmaPlot_s ~ normal(0, 5);
   sigmaPlot_g ~ normal(0, 5);
-  sigmaPlot_f ~ normal(0, 5);
+  //sigmaPlot_f ~ normal(0, 5);
   sigmaEco_s ~ normal(0, 5);
   sigmaEco_g ~ normal(0, 5);
   sigmaEco_f ~ normal(0, 5);
@@ -204,7 +205,7 @@ model {
   // random effect realizations
   zPlot_s ~ std_normal();
   zPlot_g ~ std_normal();
-  zPlot_f ~ std_normal();
+  //zPlot_f ~ std_normal();
   zEco_s ~ std_normal();
   zEco_g ~ std_normal();
   zEco_f ~ std_normal();
