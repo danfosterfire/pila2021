@@ -1783,22 +1783,56 @@ range_map =
                      values = c('red' = 'red'), 
                      labels = c('FIA plots'))+
   theme(legend.position = 'bottom',
-        text = element_text(size = 18),
-        axis.text.x = element_blank(),
-        axis.text.y = element_blank())
+        axis.text.x = element_text(angle = 45))
 
 range_map
 
 
+range_map_ppt = 
+  ggplot()+
+  geom_sf(data = 
+            spData::us_states,
+          fill = NA, lwd = 1)+
+  #geom_sf(color = 'blue', fill = NA)+
+  geom_sf(data = plots.sf, aes(color = 'red'), size = 1, alpha = 0.5)+
+  theme_minimal()+
+  coord_sf(xlim = c(390000, 1100000), ylim = c(3740000, 5020000),
+           crs = "EPSG:26910")+
+  annotation_scale()+
+  scale_color_manual(name = '', 
+                     values = c('red' = 'red'), 
+                     labels = c('FIA plots'))+
+  theme(legend.position = 'bottom',
+        text = element_text(size = 18),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank())
+
+range_map_ppt
+
 data_map = 
   ggdraw()+
   draw_plot(range_map)+
+  draw_plot(overview_map,
+            x = 0.58, y = 0.67, width = 0.3, height = 0.3)
+
+data_map_ppt = 
+  ggdraw()+
+  draw_plot(range_map_ppt)+
   draw_plot(overview_map,
             x = 0.48, y = 0.6, width = 0.3, height = 0.3)
 
 data_map
 
 ggsave(data_map,
+       filename = here::here('04-communication',
+                             'figures',
+                             'manuscript',
+                             'data_map.png'),
+       height = 6, width = 4, units = 'in')
+
+
+
+ggsave(data_map_ppt,
        filename = here::here('04-communication',
                              'figures',
                              'powerpoint',
