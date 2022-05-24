@@ -2,6 +2,7 @@ library(here)
 library(tidyverse)
 library(posterior)
 library(bayesplot)
+library(data.table)
 
 #### build transitions #########################################################
 
@@ -415,6 +416,12 @@ repro_observed.df %>% filter(reproductive_value<0) %>% pull(plot) %>% unique()
 plots.pila %>% 
   filter(is.element(plot_id.i, c(257, 546, 1005, 971, 634))) %>%
   print(width = Inf)
+
+# looking at the bad plots
+A.plot = A_observed[,,634]
+# they all have mixed signs and small magnitudes in the left eigenvector
+v.eigen = Re(eigen(t(A.plot))$vectors[,1])
+rv = v.eigen / v.eigen[1]
 
 #### sensitivity and elasticity ################################################
 v.dot.w_observed = 
