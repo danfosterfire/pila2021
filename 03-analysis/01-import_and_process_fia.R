@@ -44,6 +44,9 @@ dbListTables(fiadb.ca) == dbListTables(fiadb.nv) &
   dbListTables(fiadb.ca) == dbListTables(fiadb.or) &
   dbListTables(fiadb.ca) == dbListTables(fiadb.wa)
 
+dbListTables(fiadb.ca)
+
+dbReadTable(fiadb.ca, 'REF_FIADB_VERSION')
 
 fia = 
   lapply(X =  c('COND', 'PLOT', 'REF_FOREST_TYPE',
