@@ -261,7 +261,22 @@ recr_data.pila =
   left_join(union_ecosubs)
 
 
+#### get distribution of inventory intervals ###################################
 
+plot_data %>%
+  filter(is.element(plot_id, union_plots$plot_id)) %>%
+  mutate(interval_days = invdate.re - invdate.init,
+         interval_years = as.numeric(interval_days) / 365) %>%
+  pull(interval_years) %>%
+  summary()
+
+
+plot_data %>%
+  filter(is.element(plot_id, union_plots$plot_id)) %>%
+  mutate(interval_days = invdate.re - invdate.init,
+         interval_years = as.numeric(interval_days) / 365) %>%
+  pull(interval_years) %>%
+  quantile(., probs = c(0.1, 0.9))
 
 
 #### split into training and validation data ###################################
