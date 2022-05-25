@@ -77,7 +77,8 @@ beta_s_priorvpost =
   theme_minimal()+
   facet_wrap(~position, scales = 'free',
              labeller = 
-               labeller(position = pretty_beta_s_labels))
+               labeller(position = pretty_beta_s_labels))+
+  theme(axis.text.y = element_blank())
 
 beta_s_priorvpost
 
@@ -86,7 +87,7 @@ ggsave(beta_s_priorvpost,
                              'figures',
                              'manuscript',
                              'beta_s_priorvpost.png'), 
-       height = 6.5, width = 4, units = 'in')
+       width = 6.5, height = 4, units = 'in')
 
 
 sigmaPlot_s_priorvpost = 
@@ -97,7 +98,8 @@ sigmaPlot_s_priorvpost =
   geom_density(data = 
                  data.frame(prior = truncnorm::rtruncnorm(n = 1000, a = 0, mean = 0, sd = 5)),
                aes(x = prior), color = 'red')+
-  theme_minimal()
+  theme_minimal()+
+  theme(axis.text.y = element_blank())
 
 sigmaEco_s_priorvpost = 
   samples %>%
@@ -107,7 +109,8 @@ sigmaEco_s_priorvpost =
   geom_density(data = 
                  data.frame(prior = truncnorm::rtruncnorm(n = 1000, a = 0, mean = 0, sd = 5)),
                aes(x = prior), color = 'red')+
-  theme_minimal()
+  theme_minimal()+
+  theme(axis.text.y = element_blank())
 
 sigmas_s_priorvpost = 
   plot_grid(sigmaPlot_s_priorvpost, sigmaEco_s_priorvpost)
@@ -118,7 +121,7 @@ ggsave(sigmas_s_priorvpost,
        filename = here::here('04-communication',
                   'figures',
                   'manuscript',
-                  'sigmas_s_priorvpost.png'), height = 6.5, width = 4, units = 'in')
+                  'sigmas_s_priorvpost.png'), width = 6.5, height = 4, units = 'in')
 
 
 ```
@@ -164,7 +167,8 @@ beta_g_priorvpost =
   theme_minimal()+
   facet_wrap(~position, scales = 'free',
              labeller = 
-               labeller(position = pretty_beta_g_labels))
+               labeller(position = pretty_beta_g_labels))+
+  theme(axis.text.y = element_blank())
 
 beta_g_priorvpost
 
@@ -172,7 +176,7 @@ ggsave(beta_g_priorvpost,
        filename = here::here('04-communication',
                              'figures',
                              'manuscript',
-                             'beta_g_priorvpost.png'), height = 6.5, width = 4, units = 'in')
+                             'beta_g_priorvpost.png'), width = 6.5, height = 4, units = 'in')
 
 sigmaPlot_g_priorvpost = 
   samples %>%
@@ -182,7 +186,8 @@ sigmaPlot_g_priorvpost =
   geom_density(data = 
                  data.frame(prior = truncnorm::rtruncnorm(n = 1000, a = 0, mean = 0, sd = 5)),
                aes(x = prior), color = 'red')+
-  theme_minimal()
+  theme_minimal()+
+  theme(axis.text.y = element_blank())
 
 
 
@@ -194,7 +199,8 @@ sigmaEco_g_priorvpost =
   geom_density(data = 
                  data.frame(prior = truncnorm::rtruncnorm(n = 1000, a = 0, mean = 0, sd = 5)),
                aes(x = prior), color = 'red')+
-  theme_minimal()
+  theme_minimal()+
+  theme(axis.text.y = element_blank())
 
 sigmaEpsilon_g_priorvpost = 
   samples %>%
@@ -204,7 +210,8 @@ sigmaEpsilon_g_priorvpost =
   geom_density(data = 
                  data.frame(prior = truncnorm::rtruncnorm(n = 1000, a = 0, mean = 0, sd = 5)),
                aes(x = prior), color = 'red')+
-  theme_minimal()
+  theme_minimal()+
+  theme(axis.text.y = element_blank())
 
 sigmas_g_priorvpost = 
   plot_grid(sigmaPlot_g_priorvpost,
@@ -217,7 +224,7 @@ ggsave(sigmas_g_priorvpost,
        filename = here::here('04-communication',
                              'figures',
                              'manuscript',
-                             'sigmas_g_priorvpost.png'), height = 6.5, width = 4, units = 'in')
+                             'sigmas_g_priorvpost.png'), width = 6.5, height = 4, units = 'in')
 
 ```
 
@@ -268,7 +275,8 @@ beta_f_priorvpost =
   theme_minimal()+
   facet_wrap(~position, scales = 'free',
              labeller = 
-               labeller(position = pretty_beta_f_labels))
+               labeller(position = pretty_beta_f_labels))+
+  theme(axis.text.y = element_blank())
 
 beta_f_priorvpost
 
@@ -276,7 +284,7 @@ ggsave(beta_f_priorvpost,
        filename = here::here('04-communication',
                              'figures',
                              'manuscript',
-                             'beta_f_priorvpost.png'), height = 6.5, width = 4, units = 'in')
+                             'beta_f_priorvpost.png'), width = 6.5, height = 4, units = 'in')
 
 half_cauchy_samples = 
   sapply(X = 1:1000,
@@ -298,7 +306,8 @@ kappa_r_priorvpost =
     data = data.frame(prior = half_cauchy_samples),
     aes(x = prior), 
     color = 'red'
-  )
+  )+
+  theme(axis.text.y = element_blank())
 
 kappa_r_priorvpost
 
@@ -307,7 +316,7 @@ ggsave(kappa_r_priorvpost,
                              'figures',
                              'manuscript',
                              'kappa_r_priorvpost.png'), 
-       height = 6.5, width = 4, units = 'in')
+       width = 6.5, height = 4, units = 'in')
 
 ```
 
