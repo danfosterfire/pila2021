@@ -576,6 +576,38 @@ predict_survival_fixeff =
 
 ## size main effect (no disturbances, continuous variables held at 0, which is 
 ## the subplot-level mean (so like the average subplot))
+  expand.grid('intercept' = 1,
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
+            'fire' = 0,
+            'wpbr' = 0,
+            'ba_scaled' = 0,
+            'cwd_dep90_scaled' = 0,
+            'cwd_mean_scaled' = 0) %>%
+  mutate(dbh2_m.init = dbh_m.init**2,
+         dbh_fire = dbh_m.init*fire,
+         dbh2_fire = dbh2_m.init*fire,
+         dbh_wpbr = dbh_m.init*wpbr,
+         dbh2_wpbr = dbh2_m.init*wpbr,
+         dbh_ba = dbh_m.init*ba_scaled,
+         dbh2_ba = dbh2_m.init*ba_scaled,
+         dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
+         dbh2_cwd90 = dbh2_m.init*cwd_dep90_scaled,
+         dbh_cwdmean = dbh_m.init*cwd_mean_scaled,
+         dbh2_cwdmean = dbh2_m.init*cwd_mean_scaled) %>%
+  predict_survival_fixeff() %>%
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
+           dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
+  summarise(p.median = median(p),
+            p.025 = quantile(p, probs = 0.025),
+            p.25 = quantile(p, probs = 0.25),
+            p.75 = quantile(p, probs = 0.75),
+            p.975 = quantile(p, probs = 0.975)) %>%
+    arrange(p.median) %>%
+    print(width = Inf)
+
+
+
 size_fixeff_s = 
   expand.grid('intercept' = 1,
             'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
@@ -1239,6 +1271,38 @@ predict_fecundity_fixeff =
   }
 # first, "main effects" (other than the focal variable, disturbances held at false 
 # and continuous variables held at 0 (other than size, they are scaled) 
+
+size_fixeff_f = 
+  expand.grid('intercept' = 1,
+            'dbh_m.init' = seq(from = 0, to = 2.5, by = 0.01),
+            'fire' = 0,
+            'wpbr' = 0,
+            'ba_scaled' = 0,
+            'cwd_dep90_scaled' = 0,
+            'cwd_mean_scaled' = 0) %>%
+  mutate(dbh2_m.init = dbh_m.init**2,
+         dbh_fire = dbh_m.init*fire,
+         dbh2_fire = dbh2_m.init*fire,
+         dbh_wpbr = dbh_m.init*wpbr,
+         dbh2_wpbr = dbh2_m.init*wpbr,
+         dbh_ba = dbh_m.init*ba_scaled,
+         dbh2_ba = dbh2_m.init*ba_scaled,
+         dbh_cwd90 = dbh_m.init*cwd_dep90_scaled,
+         dbh2_cwd90 = dbh2_m.init*cwd_dep90_scaled,
+         dbh_cwdmean = dbh_m.init*cwd_mean_scaled,
+         dbh2_cwdmean = dbh2_m.init*cwd_mean_scaled) %>%
+  predict_fecundity_fixeff() %>%
+  group_by(intercept, dbh_m.init, fire, wpbr, ba_scaled, 
+           cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
+           dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
+  summarise(fecundity.median = median(fecundity),
+            fecundity.025 = quantile(fecundity, probs = 0.025),
+            fecundity.25 = quantile(fecundity, probs = 0.25),
+            fecundity.75 = quantile(fecundity, probs = 0.75),
+            fecundity.975 = quantile(fecundity, probs = 0.975)) %>%
+  arrange(desc(dbh_m.init)) %>%
+  print(width = Inf)
+
 
 ## size main effect (no disturbances, continuous variables held at 0, which is 
 ## the subplot-level mean (so like the average subplot))

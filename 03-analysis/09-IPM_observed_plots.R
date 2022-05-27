@@ -267,6 +267,8 @@ lambda_observed =
            return(lambda_plot)
          })
 
+summary(lambda_observed)
+
 lambda_observed_plot = 
   ggplot(data.frame(lambda_observed),
        aes(x = lambda_observed))+

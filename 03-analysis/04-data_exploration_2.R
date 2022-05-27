@@ -318,7 +318,11 @@ lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
            geom_smooth(method = 'lm', formula = y~x+I(x**2))
        })
 
+surv_data$ecosub.i = pila_data$ecosub_s
 
+surv_data %>%
+  filter(dbh_m.init>2) %>%
+  print(width = Inf)
 
 lapply(X = c('fire', 'wpbr'),
        FUN = function(v){
