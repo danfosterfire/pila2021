@@ -414,3 +414,143 @@ lapply(X = colnames(pila_data$X_r),
            geom_histogram()
        })
 
+#### tph and BA ################################################################
+
+tph_data = 
+  readRDS(here::here('02-data',
+                     '02-for_analysis',
+                     'tph.rds'))
+
+ba_data = 
+  readRDS(here::here('02-data',
+                     '02-for_analysis',
+                     'ba.rds'))
+
+ba_tph_df = 
+  tph_data$X %>%
+  as_tibble() %>%
+  mutate(delta_tph = tph_data$Y,
+         delta_ba = ba_data$Y,
+         ecosub_id = tph_data$ecosub_id)
+
+# y distribution
+ggplot(data = ba_tph_df,
+       aes(x = delta_tph))+
+  geom_histogram()
+
+ggplot(data = ba_tph_df,
+       aes(x = delta_tph))+
+  geom_histogram()+
+  scale_x_continuous(limits = c(-250, 250))
+
+ggplot(data = ba_tph_df,
+       aes(x = delta_ba))+
+  geom_histogram()
+
+# x distributions
+ggplot(data = ba_tph_df,
+       aes(x = fire))+
+  geom_bar()
+
+ggplot(data = ba_tph_df,
+       aes(x = wpbr))+
+  geom_bar()
+
+ggplot(data = ba_tph_df,
+       aes(x = ba_scaled))+
+  geom_histogram()
+
+ggplot(data = ba_tph_df,
+       aes(x = cwd_dep90_scaled))+
+  geom_histogram()
+
+ggplot(data = ba_tph_df,
+       aes(x = cwd_mean_scaled))+
+  geom_histogram()
+
+# xx relationships
+ggplot(data = ba_tph_df,
+       aes(x = ba_scaled, color = as.factor(fire)))+
+  geom_density()
+
+ggplot(data = ba_tph_df,
+       aes(x = cwd_dep90_scaled, color = as.factor(fire)))+
+  geom_density()
+ggplot(data = ba_tph_df,
+       aes(x = cwd_mean_scaled, color = as.factor(fire)))+
+  geom_density()
+
+ggplot(data = ba_tph_df,
+       aes(x = ba_scaled, color = as.factor(wpbr)))+
+  geom_density()
+
+ggplot(data = ba_tph_df,
+       aes(x = cwd_dep90_scaled, color = as.factor(wpbr)))+
+  geom_density()
+ggplot(data = ba_tph_df,
+       aes(x = cwd_mean_scaled, color = as.factor(wpbr)))+
+  geom_density()
+
+ggplot(data = ba_tph_df,
+       aes(x = ba_scaled, y = cwd_dep90_scaled))+
+  geom_point()
+
+ggplot(data = ba_tph_df,
+       aes(x = ba_scaled, y = cwd_mean_scaled))+
+  geom_point()
+
+ggplot(data = ba_tph_df,
+       aes(x = cwd_dep90_scaled, y = cwd_mean_scaled))+
+  geom_point()
+
+# xy relationships
+ggplot(data = ba_tph_df,
+       aes(x = as.factor(fire), y = delta_tph))+
+  geom_boxplot()+
+  scale_y_continuous(limits = c(-250, 250))
+
+ggplot(data = ba_tph_df,
+       aes(x = as.factor(wpbr), y = delta_tph))+
+  geom_boxplot()+
+  scale_y_continuous(limits = c(-250, 250))
+
+ggplot(data = ba_tph_df,
+       aes(x = ba_scaled, y = delta_tph))+
+  geom_point()+
+  geom_smooth(method = 'lm')
+
+ggplot(data = ba_tph_df,
+       aes(x = cwd_dep90_scaled, y = delta_tph))+
+  geom_point()+
+  geom_smooth(method = 'lm')
+
+ggplot(data = ba_tph_df,
+       aes(x = cwd_mean_scaled, y = delta_tph))+
+  geom_point()+
+  geom_smooth(method = 'lm')
+
+ggplot(data = ba_tph_df,
+       aes(x = as.factor(fire), y = delta_ba))+
+  geom_boxplot()
+
+ggplot(data = ba_tph_df,
+       aes(x = as.factor(wpbr), y = delta_ba))+
+  geom_boxplot()
+
+ggplot(data = ba_tph_df,
+       aes(x = ba_scaled, y = delta_ba))+
+  geom_point()+
+  geom_smooth(method = 'lm')
+
+ggplot(data = ba_tph_df,
+       aes(x = cwd_dep90_scaled, y = delta_ba))+
+  geom_point()+
+  geom_smooth(method = 'lm')
+
+ggplot(data = ba_tph_df,
+       aes(x = cwd_mean_scaled, y = delta_ba))+
+  geom_point()+
+  geom_smooth(method = 'lm')
+
+
+

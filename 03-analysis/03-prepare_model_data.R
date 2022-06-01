@@ -480,7 +480,151 @@ pila_validation =
                byrow = TRUE),
     r = r)
 
+#### tph and BA ################################################################
 
+tph = 
+  list(N = nrow(plot_data),
+       E = length(unique(plot_data$ecosubcd)),
+       Y = plot_data$pila_tph.re-plot_data$pila_tph.init,
+       X = plot_data[,c('intercept', 'fire', 'wpbr', 'ba_scaled',
+                        'cwd_dep90_scaled', 'cwd_mean_scaled')] %>%
+         as.matrix(),
+       ecosub_id = as.integer(factor(plot_data$ecosubcd)))
+
+ba = 
+  list(N = nrow(plot_data),
+       E = length(unique(plot_data$ecosubcd)),
+       Y = plot_data$pila_ba_m2ha.re-plot_data$pila_ba_m2ha.init,
+       X = plot_data[,c('intercept', 'fire', 'wpbr', 'ba_scaled',
+                        'cwd_dep90_scaled', 'cwd_mean_scaled')] %>%
+         as.matrix(),
+       ecosub_id = as.integer(factor(plot_data$ecosubcd)))
+
+plot_data %>% summary()
+
+basal_area_plot = 
+  plot_data %>%
+  select(plot_id,
+         `2001-2009` = pila_ba_m2ha.init,
+         `2010-2019` = pila_ba_m2ha.re) %>%
+  pivot_longer(cols = c(`2001-2009`, `2010-2019`),
+               names_to = 'timestep',
+               values_to = 'pila_ba_m2ha') %>%
+  group_by(timestep) %>%
+  summarise(mean_ba_m2ha = mean(pila_ba_m2ha),
+            se_ba_m2ha = sd(pila_ba_m2ha)/sqrt(n())) %>%
+  ungroup() %>%
+  ggplot(aes(x = timestep, y = mean_ba_m2ha))+
+  geom_point(size = 3)+
+  geom_errorbar(aes(ymin = mean_ba_m2ha-2*se_ba_m2ha,
+                    ymax = mean_ba_m2ha+2*se_ba_m2ha),
+                width = 0.25)+
+  theme_minimal()+
+  labs(x = 'Period', y = 'Basal Area (m^2/ha)')
+
+basal_area_plot
+
+
+tph_plot = 
+  plot_data %>%
+  select(plot_id,
+         `2001-2009`= pila_tph.init,
+         `2010-2019` = pila_tph.re) %>%
+  pivot_longer(cols = c(`2001-2009`, `2010-2019`),
+               names_to = 'timestep',
+               values_to = 'pila_tph') %>%
+  group_by(timestep) %>%
+  summarise(mean_tph = mean(pila_tph),
+            se_tph = sd(pila_tph)/sqrt(n())) %>%
+  ungroup() %>%
+  ggplot(aes(x = timestep, y = mean_tph))+
+  geom_point(size = 3)+
+  geom_errorbar(aes(ymin = mean_tph-2*se_tph,
+                    ymax = mean_tph+2*se_tph),
+                width = 0.25)+
+  theme_minimal()+
+  labs(y = 'Stem Density (trees / ha)',
+       x = 'Period')
+
+abundance_plot = 
+  cowplot::plot_grid(basal_area_plot, tph_plot, ncol = 2)
+
+abundance_plot
+
+ggsave(abundance_plot,
+       filename = 
+         here::here('04-communication',
+                  'figures',
+                  'manuscript',
+                  'abundance.png'),
+       height = 4, width = 6.5, units = 'in')
+
+# proportional and absolute changes in TPA
+readRDS(here::here('02-data',
+                   '01-preprocessed',
+                   'tph_data.rds')) %>%
+  filter(species=='PILA' & is.element(plot_id, plot_data$plot_id)) %>%
+  group_by(plot_id) %>%
+  summarise(pila_tph_unadj.init = sum(tpa_unadj.init)/0.404686,
+            pila_tph_unadj.re = sum(tpa_unadj.re)/0.404686) %>%
+  ungroup() %>%
+  left_join(
+    readRDS(here::here('02-data',
+                     '01-preprocessed',
+                     'tph_data.rds')) %>%
+    group_by(plot_id) %>%
+    summarise(total_tph_unadj.init = sum(tpa_unadj.init)/0.404686,
+              total_tph_unadj.re = sum(tpa_unadj.re)/0.404686) %>%
+    ungroup()
+  ) %>%
+  mutate(pila_prop.init = pila_tph_unadj.init / total_tph_unadj.init,
+         pila_prop.re = pila_tph_unadj.re / total_tph_unadj.re) %>%
+  summarise(mean_pila_tph_re = mean(pila_tph_unadj.re),
+            mean_pila_tph_init = mean(pila_tph_unadj.init),
+            mean_pila_prop_re = mean(pila_prop.re,na.rm = TRUE),
+            mean_pila_prop_init = mean(pila_prop.init, na.rm = TRUE),
+            se_pila_tph_re = sd(pila_tph_unadj.re)/sqrt(n()),
+            se_pila_tph_init = sd(pila_tph_unadj.init)/sqrt(n()),
+            se_pila_prop_re = sd(pila_prop.re,na.rm = TRUE)/sqrt(n()),
+            se_pila_prop_init = sd(pila_prop.init, na.rm = TRUE)/sqrt(n()),
+            )
+
+
+
+# proportional and absolute changes in BA
+
+
+# size distribution of PILA
+sizedist_data.pila %>%
+  group_by(dbh_class) %>%
+  summarise(tpa_unadj.init = mean(tpa_unadj.init),
+            tpa_unadj.re = mean(tpa_unadj.re)) %>%
+  ungroup() %>%
+  mutate(total_tpa_unadj.init = 
+           sizedist_data.pila %>%
+              group_by(plt_cn) %>%
+              summarise(tpa_unadj.init = sum(tpa_unadj.init),
+                        tpa_unadj.re = sum(tpa_unadj.re)) %>%
+              ungroup() %>%
+              summarise(total_tpa_unadj.init = mean(tpa_unadj.init),
+                        total_tpa_unadj.re = mean(tpa_unadj.re)) %>%
+           pull(total_tpa_unadj.init),
+         total_tpa_unadj.re = 
+           sizedist_data.pila %>%
+              group_by(plt_cn) %>%
+              summarise(tpa_unadj.init = sum(tpa_unadj.init),
+                        tpa_unadj.re = sum(tpa_unadj.re)) %>%
+              ungroup() %>%
+              summarise(total_tpa_unadj.init = mean(tpa_unadj.init),
+                        total_tpa_unadj.re = mean(tpa_unadj.re)) %>%
+           pull(total_tpa_unadj.re)) %>%
+  mutate(proportion.init = tpa_unadj.init / total_tpa_unadj.init,
+         proportion.re = tpa_unadj.re / total_tpa_unadj.re) %>%
+  ggplot(aes(x = dbh_class, y = proportion.init))+
+  geom_point()+
+  scale_y_log10()
+
+# proportion of plot total BA and TPH
 
 #### write results #############################################################
 
@@ -496,3 +640,12 @@ saveRDS(union_plots,
 saveRDS(union_ecosubs,
         here::here('02-data', '02-for_analysis', 'union_ecosubs.rds'))
 
+saveRDS(tph,
+        here::here('02-data', 
+                   '02-for_analysis',
+                   'tph.rds'))
+
+saveRDS(ba,
+        here::here('02-data',
+                   '02-for_analysis',
+                   'ba.rds'))

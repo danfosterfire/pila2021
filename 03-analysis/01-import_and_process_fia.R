@@ -364,6 +364,7 @@ subplots =
               rename(CND_CN = CN) %>%
               select(PLT_CN, CND_CN, STATECD, UNITCD, 
                      COUNTYCD, PLOT, CONDID, 
+                     #FORTYPCD,
                      DSTRBCD1, DSTRBCD2, DSTRBCD3,
                      TRTCD1, TRTCD2, TRTCD3),
             by = c('PLT_CN' = 'PLT_CN',
@@ -418,7 +419,12 @@ subplots =
   
   left_join(plot_nonsamplereasncds %>%
               select(PLOT_NONSAMPLE_REASN_CD = code,
-                     PLOT_NONSAMPLE_REASN_CD.TYPE = plot_nonsamplereasntype)) 
+                     PLOT_NONSAMPLE_REASN_CD.TYPE = plot_nonsamplereasntype))# %>%
+  
+  #left_join(fia$REF_FOREST_TYPE %>%
+  #            select(FORTYPCD = VALUE,
+  #                   FORTYPCD.TYPE = MEANING))
+
 
 
 plots =
@@ -589,6 +595,7 @@ treelist =
          plt_cn = PLT_CN,
          prev_tre_cn = PREV_TRE_CN,
          plot_id, subp_id, tree_id,
+         #cond_id = CONDID,
          tree_status = STATUSCD.TYPE,
          species = SPECIES,
          dbh_in = DIA,
@@ -651,8 +658,42 @@ seedlings =
   ungroup()
 
 
-
 #### filter plots ##############################################################
+
+# get a list of the forest types where at least 1` pila is present
+fia$TREE %>%
+  select(PLT_CN, STATECD, UNITCD, COUNTYCD, PLOT, SUBP, CONDID, SPCD, 
+         STATUSCD) %>%
+  filter(SPCD == 117 & STATUSCD==1) %>%
+  left_join(subplots %>%
+              select(PLT_CN, STATECD, UNITCD, COUNTYCD, PLOT, SUBP, CONDID, FORTYPCD, 
+                     FORTYPCD.TYPE)) %>%
+  group_by(FORTYPCD, FORTYPCD.TYPE) %>%
+  summarise(tally = n()) %>%
+  mutate(total = 
+           fia$TREE %>%
+              select(SPCD, STATUSCD) %>%
+              filter(SPCD==117 & STATUSCD==1) %>% 
+           summarise(total = n()) %>%
+           pull(total)) %>%
+  mutate(prop = tally / total) %>%
+  arrange(desc(tally)) %>%
+  print(n = Inf)
+
+
+treelist %>%
+  left_join(subplots %>%
+              mutate(plt_cn = PLT_CN,
+                     plot_id = 
+                       paste(STATECD, UNITCD, COUNTYCD, PLOT,
+                             sep = '-'),
+                     subp_id = 
+                       paste(STATECD, UNITCD, COUNTYCD, PLOT, SUBP,
+                             sep = '-')) %>%
+              select(plt_cn, plot_id, subp_id, for_type_cd = FORTYPCD,
+                     for_type_type = FORTYPCD.TYPE)) %>%
+  filter(tree_status=='live'&species=='PILA')
+
 
 # aspatial filtering first
 plots = 
@@ -722,6 +763,8 @@ seedlings =
 # presence of fire/insects/disease/cutting flag at remeasurement
 # basal area at initial measurement
 # max CWD between initial and remeasurement
+# for a plot-level analysis, also want TPH and BA of live PILA at initial
+# and remeasurement
 
 # need a dataframe with one row per plot
 plot_data = 
@@ -762,8 +805,38 @@ plot_data =
             by = c('prev_plt_cn' = 'plt_cn',
                    'plot_id' = 'plot_id')) %>%
   mutate(wpbr = 
-           ifelse(is.na(wpbr), FALSE, wpbr))
-
+           ifelse(is.na(wpbr), FALSE, wpbr)) %>%
+  
+  # get the live TPH and BA of pila at initial measurement
+  left_join(treelist %>%
+              filter(tree_status=='live'& species=='PILA') %>%
+              mutate(pila_ba_m2ha = (pi*((0.5*(dbh_in*2.54)/100)**2)*(tpa_unadj/0.404686)),
+                     pila_tph = tpa_unadj/0.404686) %>%
+              group_by(plt_cn, plot_id) %>%
+              summarise(pila_ba_m2ha = sum(pila_ba_m2ha, na.rm = TRUE),
+                        pila_tph = sum(pila_tph, na.rm = TRUE)) %>%
+              ungroup(),
+            by = c('prev_plt_cn' = 'plt_cn',
+                   'plot_id' = 'plot_id')) %>%
+  # get the live TPH and BA of pila at remeasurement
+  left_join(treelist %>%
+              filter(tree_status=='live'& species=='PILA') %>%
+              mutate(pila_ba_m2ha = (pi*((0.5*(dbh_in*2.54)/100)**2)*(tpa_unadj/0.404686)),
+                     pila_tph = tpa_unadj/0.404686) %>%
+              group_by(plt_cn, plot_id) %>%
+              summarise(pila_ba_m2ha = sum(pila_ba_m2ha, na.rm = TRUE),
+                        pila_tph = sum(pila_tph, na.rm = TRUE)) %>%
+              ungroup(),
+            by = c('plt_cn' = 'plt_cn',
+                   'plot_id' = 'plot_id'),
+            suffix = c('.init', '.re'))  %>%
+  # fill in missing TPH and BA with 0
+  mutate(pila_ba_m2ha.init = ifelse(is.na(pila_ba_m2ha.init), 0, pila_ba_m2ha.init),
+         pila_ba_m2ha.re = ifelse(is.na(pila_ba_m2ha.re), 0, pila_ba_m2ha.re),
+         pila_tph.init = ifelse(is.na(pila_tph.init), 0, pila_tph.init),
+         pila_tph.re = ifelse(is.na(pila_tph.re), 0, pila_tph.re))
+  
+  
 
 #### get timestep distribution #################################################
 
@@ -1053,6 +1126,110 @@ plots %>% filter(plot_id=='6-2-105-93474')
 
 
 treelist %>% filter(tre_cn == '24988786010900') %>% print(width = Inf)
+
+tph_data = 
+  
+  plot_data %>%
+
+  select(plt_cn, prev_plt_cn, plot_id) %>%
+  
+  # expand it to get 1 row per size bin and species (should be 
+  # 17232 * 7 spp * 100 bins = 12062400 rows)
+  expand(nesting(plt_cn, prev_plt_cn, plot_id),
+         species = c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE', 'OTHER'),
+         dbh_class = 
+             cut(seq(from = 0.5, to = 99.5, by = 1),
+                 breaks = seq(from = 0, to = 100, by = 1),
+                 labels = FALSE,
+                 right = FALSE)) %>%
+  
+  # add in the counts for the smallest size class from the seedlings 
+  # data for the remeasurement
+  left_join(seedlings %>%
+              mutate(dbh_class = 1) %>%
+              select(plt_cn, plot_id, species, dbh_class, 
+                     tpa_unadj_little = tpa_unadj),
+            by = c('plt_cn' = 'plt_cn',
+                   'plot_id' = 'plot_id',
+                   'species' = 'species',
+                   'dbh_class' = 'dbh_class')) %>%
+  
+  # add in the counts for the smallest size class from the seedlings 
+  # data for the initial measurement
+  left_join(seedlings %>%
+              mutate(dbh_class = 1) %>%
+              select(plt_cn, plot_id, species, dbh_class, 
+                     tpa_unadj_little = tpa_unadj),
+            by = c('prev_plt_cn' = 'plt_cn',
+                   'plot_id' = 'plot_id',
+                   'species' = 'species',
+                   'dbh_class' = 'dbh_class'),
+            suffix = c('.re', '.init')) %>%
+  
+  # add in the counts for the other size classes from an aggregated 
+  # treelist 
+  left_join(treelist %>%
+              filter(tree_status == 'live')  %>%
+              mutate(dbh_class = cut(dbh_in,
+                                    breaks = 
+                                      seq(from = 0, to = 100, by = 1),
+                                    labels = FALSE,
+                                    right = FALSE)) %>%
+              select(plt_cn, plot_id, species, dbh_class, tpa_unadj) %>%
+              group_by(plt_cn, plot_id, species, dbh_class) %>%
+              # note that TPA-unadj is for summed subplots; to get tpa for 
+              # an individual subplot need to multiply by four
+              summarise(tpa_unadj_big = sum(tpa_unadj, na.rm = TRUE)) %>%
+              ungroup(),
+            by = c('plt_cn' = 'plt_cn',
+                   'plot_id' = 'plot_id',
+                   'species' = 'species',
+                   'dbh_class' = 'dbh_class')) %>%
+  
+  left_join(treelist %>%
+              filter(tree_status == 'live') %>%
+              mutate(dbh_class = cut(dbh_in,
+                                     breaks = 
+                                       seq(from = 0, to = 100, by = 1),
+                                     labels = FALSE,
+                                     right = FALSE)) %>%
+              select(plt_cn, plot_id, species, dbh_class, tpa_unadj) %>%
+              group_by(plt_cn, plot_id, species, dbh_class) %>%
+              summarise(tpa_unadj_big = sum(tpa_unadj, na.rm = TRUE)) %>%
+              ungroup(),
+            by = c('prev_plt_cn' = 'plt_cn',
+                   'plot_id' = 'plot_id',
+                   'species' = 'species',
+                   'dbh_class' = 'dbh_class'),
+            suffix = c('.re', '.init')) %>%
+  
+  
+  
+  # fill in the NAs with 0s
+  mutate(tpa_unadj_little.init = ifelse(is.na(tpa_unadj_little.init),
+                                   0,
+                                   tpa_unadj_little.init),
+         tpa_unadj_big.init = ifelse(is.na(tpa_unadj_big.init),
+                                0,
+                                tpa_unadj_big.init),
+         tpa_unadj.init = tpa_unadj_little.init+tpa_unadj_big.init,
+         
+         tpa_unadj_little.re = ifelse(is.na(tpa_unadj_little.re),
+                                   0,
+                                   tpa_unadj_little.re),
+         tpa_unadj_big.re = ifelse(is.na(tpa_unadj_big.re),
+                                0,
+                                tpa_unadj_big.re),
+         tpa_unadj.re = tpa_unadj_little.re+tpa_unadj_big.re) %>%
+  select(plt_cn, prev_plt_cn, plot_id, species, dbh_class,
+         tpa_unadj.init, tpa_unadj.re) %>%
+  
+  # ditch the smallest size class, which was counted inconsistently
+  filter(dbh_class > 1)
+
+  
+
+
 #### make untagged plants data frame ###########################################
 
 # want a 10 X P matrix, where P is the number of distinct subplots, and the 
@@ -1238,3 +1415,7 @@ saveRDS(size_metadata,
                    '01-preprocessed',
                    'size_metadata.rds'))
 
+saveRDS(tph_data,
+        here::here('02-data',
+                   '01-preprocessed',
+                   'tph_data.rds'))
