@@ -131,11 +131,11 @@ sizedist_data.pila %>% filter(plot_id == '41-1-39-79537')
 recr_data.pila = 
   plot_data %>%
   filter(is.element(plot_id, mort_data.pila$plot_id)&
-           is.element(plot_id, growth_data.pila$plot_id)) %>%  
+           is.element(plot_id, growth_data.pila$plot_id)) %>%
   # filter to only subplots where both initial and remeasurement had manual 
   # greater than or equal to 2
   filter(inv_manual.init >= 2.0 & inv_manual.re >= 2.0) %>%
-  expand(nesting(plt_cn, prev_plt_cn, plot_id, elev_ft, lat, lon,
+    expand(nesting(plt_cn, prev_plt_cn, plot_id, elev_ft, lat, lon,
                  ecosubcd, invdate.re, inv_manual.re, macro_break, fire,
                  insects, disease, cutting, invdate.init, inv_manual.init, 
                  ba_ft2ac, cwd_departure90, cwd_mean, ba_scaled, cwd_dep90_scaled,
@@ -195,7 +195,12 @@ recr_data.pila =
   
   # order by size and subplot
   arrange(plot_id, dbh_in.init) %>%
-  rename(untagged_count = count)
+  rename(untagged_count = count) 
+  
+recr_data.pila %>%
+  pull(plot_id) %>%
+  unique() %>%
+  length()
 
 
 
@@ -501,13 +506,27 @@ ba =
        ecosub_id = as.integer(factor(plot_data$ecosubcd)))
 
 plot_data %>% summary()
+plot_data %>%
+  filter(inv_manual.init >= 2.0 & inv_manual.re >= 2.0) %>%
+  filter(fire == FALSE) %>%
+  select(plot_id,
+         `2004-2009` = pila_ba_m2ha.init,
+         `2014-2019` = pila_ba_m2ha.re) %>%
+  pivot_longer(cols = c(`2004-2009`, `2014-2019`),
+               names_to = 'timestep',
+               values_to = 'pila_ba_m2ha') %>%
+  group_by(timestep) %>%
+  summarise(mean_ba_m2ha = mean(pila_ba_m2ha),
+            se_ba_m2ha = sd(pila_ba_m2ha)/sqrt(n())) %>%
+  ungroup()
 
 basal_area_plot = 
   plot_data %>%
+  filter(inv_manual.init >= 2.0 & inv_manual.re >= 2.0) %>%
   select(plot_id,
-         `2001-2009` = pila_ba_m2ha.init,
-         `2010-2019` = pila_ba_m2ha.re) %>%
-  pivot_longer(cols = c(`2001-2009`, `2010-2019`),
+         `2004-2009` = pila_ba_m2ha.init,
+         `2014-2019` = pila_ba_m2ha.re) %>%
+  pivot_longer(cols = c(`2004-2009`, `2014-2019`),
                names_to = 'timestep',
                values_to = 'pila_ba_m2ha') %>%
   group_by(timestep) %>%
@@ -525,26 +544,69 @@ basal_area_plot =
 basal_area_plot
 
 
-tph_plot = 
-  plot_data %>%
-  select(plot_id,
-         `2001-2009`= pila_tph.init,
-         `2010-2019` = pila_tph.re) %>%
-  pivot_longer(cols = c(`2001-2009`, `2010-2019`),
-               names_to = 'timestep',
-               values_to = 'pila_tph') %>%
-  group_by(timestep) %>%
-  summarise(mean_tph = mean(pila_tph),
-            se_tph = sd(pila_tph)/sqrt(n())) %>%
+tph_data = 
+  readRDS(here::here('02-data',
+                     '01-preprocessed',
+                     'tph_data.rds'))
+
+sizedist_data = 
+  readRDS(here::here('02-data',
+                     '01-preprocessed',
+                     'sizedist_data.rds'))
+
+tph_data %>%
+  filter(species=='PILA') %>%
+  group_by(plot_id) %>%
+  summarise(tph.init = sum(tpa_unadj.init/0.404686),
+            tph.re = sum(tpa_unadj.re/0.404686)) %>%
   ungroup() %>%
-  ggplot(aes(x = timestep, y = mean_tph))+
+  summarise(mean_tph.init = mean(tph.init),
+            se_tph.init = sd(tph.init)/sqrt(n()),
+            mean_tph.re = mean(tph.re),
+            se_tph.re = sd(tph.re)/sqrt(n()))
+
+tph_plot = 
+  sizedist_data %>%
+  filter(species=='PILA') %>%
+  group_by(plot_id) %>%
+  summarise(tph.init = sum(tpa_unadj.init/0.404686),
+            tph.re = sum(tpa_unadj.re/0.404686)) %>%
+  ungroup() %>%
+  pivot_longer(cols = c(tph.init, tph.re),
+               names_to = 'Period',
+               values_to = 'tph') %>%
+  mutate(Period = ifelse(Period=='tph.init',
+                         '2004-2009',
+                         '2014-2019')) %>%
+  group_by(Period) %>%
+  summarise(mean_tph = mean(tph),
+            se_tph = sd(tph)/sqrt(n())) %>%
+  ungroup() %>%
+  ggplot(aes(x = Period, y = mean_tph))+
   geom_point(size = 3)+
-  geom_errorbar(aes(ymin = mean_tph-2*se_tph,
-                    ymax = mean_tph+2*se_tph),
+  geom_errorbar(aes(ymin = mean_tph-(2*se_tph),
+                    ymax = mean_tph+(2*se_tph)),
                 width = 0.25)+
   theme_minimal()+
   labs(y = 'Stem Density (trees / ha)',
        x = 'Period')
+  
+  sizedist_data %>%
+  filter(species=='PILA') %>%
+  group_by(plot_id) %>%
+  summarise(tph.init = sum(tpa_unadj.init/0.404686),
+            tph.re = sum(tpa_unadj.re/0.404686)) %>%
+  ungroup() %>%
+  pivot_longer(cols = c(tph.init, tph.re),
+               names_to = 'Period',
+               values_to = 'tph') %>%
+  mutate(Period = ifelse(Period=='tph.init',
+                         '2004-2009',
+                         '2014-2019')) %>%
+  group_by(Period) %>%
+  summarise(mean_tph = mean(tph),
+            se_tph = sd(tph)/sqrt(n())) %>%
+  ungroup()
 
 abundance_plot = 
   cowplot::plot_grid(basal_area_plot, tph_plot, ncol = 2)
@@ -649,3 +711,10 @@ saveRDS(ba,
         here::here('02-data',
                    '02-for_analysis',
                    'ba.rds'))
+
+
+#### scratch ###################################################################
+
+# plots in growth data but not mortality data? why?
+unique(growth_data.pila$plot_id)[!is.element(unique(growth_data.pila$plot_id),
+                                             mort_data.pila$plot_id)] 

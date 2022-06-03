@@ -1222,10 +1222,10 @@ tph_data =
                                 tpa_unadj_big.re),
          tpa_unadj.re = tpa_unadj_little.re+tpa_unadj_big.re) %>%
   select(plt_cn, prev_plt_cn, plot_id, species, dbh_class,
-         tpa_unadj.init, tpa_unadj.re) %>%
+         tpa_unadj.init, tpa_unadj.re) #%>%
   
   # ditch the smallest size class, which was counted inconsistently
-  filter(dbh_class > 1)
+  #filter(dbh_class > 1)
 
   
 
