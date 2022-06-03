@@ -1,5 +1,6 @@
 data {
   int<lower=1> K; // number of fixed effect parameters
+  int<lower=1> K_g; // fixeff params for growth (no quadratic effect of size)
   int<lower=1> P; // number of unique plots
   
   // survival data
@@ -14,7 +15,7 @@ data {
   int<lower=0> N_g; // number of individual observations (tree:census) in the 
                     // growth model
   real<lower=0> dbhT_g[N_g]; // observed size at time T for each observation in meters
-  matrix[N_g, K] X_g; // fixed effects covariates matrix for growth model
+  matrix[N_g, K_g] X_g; // fixed effects covariates matrix for growth model
   int<lower=1, upper=P> plotid_g[N_g]; // plot indices for growth observations
   
   // fecundity data
@@ -40,7 +41,7 @@ parameters {
   vector[P] zPlot_s; // standard normal deviates for random effectrepeat
   
   // growth
-  vector[K] beta_g; // fixed effects coeffs
+  vector[K_g] beta_g; // fixed effects coeffs
   real<lower=0> sigmaPlot_g; // random effect SD
   vector[P] zPlot_g; // std normal deviates for random effect
   real<lower=0> sigmaEpsilon_g; // residual sd
