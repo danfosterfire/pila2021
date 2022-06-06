@@ -128,7 +128,7 @@ growth_data.pila %>% filter(plot_id == '41-1-39-79537') %>% print(width = Inf)
 sizedist_data.pila %>% filter(plot_id == '41-1-39-79537')
 # a row for each size class and plot, with only plots which are in 
 # BOTH the growth and mortality datasets
-recr_data.pila = 
+recr_data.pila  = 
   plot_data %>%
   filter(is.element(plot_id, mort_data.pila$plot_id)&
            is.element(plot_id, growth_data.pila$plot_id)) %>%
@@ -142,7 +142,7 @@ recr_data.pila =
                  cwd_mean_scaled, intercept, wpbr),
          dbh_in.init = size_metadata$bin_midpoint) %>%
   mutate(dbh_class = cut(dbh_in.init,
-                         breaks = seq(from = 0, to= 100, by = 5),
+                         breaks = seq(from = 0, to= 100, by = 1),
                          labels = FALSE,
                          right = FALSE),
          dbh_m.init = dbh_in.init*0.0254,
@@ -505,10 +505,31 @@ ba =
          as.matrix(),
        ecosub_id = as.integer(factor(plot_data$ecosubcd)))
 
+tph.df = 
+  tph$X %>%
+  as.data.frame() %>%
+  mutate(y = tph$Y,
+         ecosub = as.factor(tph$ecosub_id))
+
+library(lme4)
+
+tph_lme4_fit = lme4::lmer(data = tph.df,
+                      formula = y ~ fire + wpbr + ba_scaled + cwd_dep90_scaled + 
+                        cwd_mean_scaled + (1|ecosub))
+
+summary(tph_lme4_fit)
+
+summary(predict(tph_lme4_fit))
+
+tph_stan_fit = readRDS(here::here('02-data', '03-results', 'real_fits','tph_fit.rds'))
+
+tph_stan_fit$summary()
+
+
 plot_data %>% summary()
 plot_data %>%
-  filter(inv_manual.init >= 2.0 & inv_manual.re >= 2.0) %>%
-  filter(fire == FALSE) %>%
+  #filter(inv_manual.init >= 2.0 & inv_manual.re >= 2.0) %>%
+  #filter(fire == FALSE) %>%
   select(plot_id,
          `2004-2009` = pila_ba_m2ha.init,
          `2014-2019` = pila_ba_m2ha.re) %>%
@@ -554,7 +575,7 @@ sizedist_data =
                      '01-preprocessed',
                      'sizedist_data.rds'))
 
-tph_data %>%
+sizedist_data %>%
   filter(species=='PILA') %>%
   group_by(plot_id) %>%
   summarise(tph.init = sum(tpa_unadj.init/0.404686),

@@ -360,27 +360,8 @@ lapply(X = c('fire', 'wpbr'),
 # plot y distribution
 pila_data$cprime
 
-response_untagged = 
-  data.frame(dbh_0_13 = pila_data$cprime[1,],
-           dbh_13_25 = pila_data$cprime[2,]) %>%
-  pivot_longer(cols = everything(),
-               names_to = 'class',
-               values_to = 'count') %>%
-  ggplot(aes(x = count))+
-  geom_histogram()+
-  theme_minimal()+
-  theme(text = element_text(size = 14))+
-  facet_wrap(~class, scales = 'free')+
-  labs(y = 'N subplots', x = 'N untagged trees')
+hist(pila_data$cprime)
 
-response_untagged
-
-ggsave(response_untagged,
-       filename = here::here('04-communication',
-                             'figures',
-                             'powerpoint',
-                             'response_untagged.png'),
-       height = 2.5, width = 5.5, units = 'in')
 
 # check total TPA on each subplot looks OK
 recr_tpa = 
@@ -391,12 +372,34 @@ recr_tpa =
          })
 
 hist(recr_tpa)
-summary(recr_tpa)
+summary(recr_tpa/0.404686)
+
+readRDS(here::here('02-data',
+           '01-preprocessed',
+           'sizedist_data.rds')) %>%
+  filter(
+    is.element(plot_id,
+                 readRDS(here::here('02-data',
+                   '02-for_analysis',
+                   'union_plots.rds')) %>%
+                 filter(is.element(plot_id.i,
+                                   pila_data$plotid_r)) %>%
+                 pull(plot_id))
+    ) %>%
+  filter(species=='PILA') %>%
+  group_by(plot_id) %>%
+  summarise(tph.init = sum(tpa_unadj.init/0.404686)) %>%
+  ungroup() %>%
+  summary()
+
+
+
+
 
 # check TPA of bigger trees on each subplots
 sapply(X = 1:nrow(pila_data$n),
        FUN = function(subplot){
-         sum(pila_data$n[subplot,3:20])
+         sum(pila_data$n[subplot,2:100])
        }) %>%
   summary()
 

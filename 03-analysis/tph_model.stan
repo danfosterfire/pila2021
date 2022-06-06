@@ -41,7 +41,7 @@ model {
   XB = X * beta;
   
   for (i in 1:N){
-    Y[i] ~ cauchy(XB[i]+ecosub_effects[ecosub_id[i]], sigma_epsilon);
+    Y[i] ~ normal(XB[i]+ecosub_effects[ecosub_id[i]], sigma_epsilon);
   }
 }
 
