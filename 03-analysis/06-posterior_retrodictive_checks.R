@@ -58,6 +58,50 @@ mort_retrodictions =
   mutate(r = dense_rank(p.mean),
          r_bin = cut(r, breaks = seq(0, nrow(.)+1, length.out = 20)))
 
+do.call('bind_rows',
+        lapply(X = 1:nrow(samples),
+               FUN = function(i){
+                 beta_s = as.numeric(samples.beta_s[i,])
+                 logitp = 
+                   as.numeric(pila_training$X_s %*% beta_s)+
+                   as.numeric(samples.ecoEffect_s[i,])[pila_training$ecosub_s]+
+                   as.numeric(samples.plotEffect_s[i,])[pila_training$plotid_s]
+                 p = boot::inv.logit(logitp)
+                 surv_sim = rbinom(n = pila_training$N_s, 
+                               size = 1, 
+                               prob = p)
+                 
+                 result = 
+                   pila_training$X_s %>% 
+                   as_tibble() %>%
+                   rownames_to_column('tree_id')
+                 result$logitp = logitp
+                 result$p = p
+                 result$surv_sim = surv_sim
+                 result$surv_true = pila_training$surv
+                 result$iter = i
+                 return(result)
+               })) %>%
+  group_by(tree_id, dbh_m.init, surv_true) %>%
+  summarise(p.50 = quantile(p, 0.5),
+            p.mean = mean(p),
+            p.025 = quantile(p, 0.025),
+            p.975 = quantile(p, 0.975)) %>%
+  ungroup() %>%
+  mutate(dbh_class = cut(dbh_m.init, breaks = seq(from = 0, to = 2.54, by = 0.0254),
+                         labels = FALSE)) %>%
+  group_by(dbh_class) %>%
+  summarise(p.real = mean(surv_true),
+            p.50 = mean(p.50),
+            p.mean = mean(p.mean),
+            p.025 = mean(p.025),
+            p.975 = mean(p.975)) %>%
+  ungroup() %>%
+  ggplot(aes(x = as.factor(dbh_class)))+
+  geom_point(aes(y = p.real), color = 'red')+
+  geom_point(aes(y = p.mean), color = 'black')+
+  geom_errorbar(aes(ymin = p.025, ymax = p.975), width = 0.2)
+  
 head(mort_retrodictions)
 surv_retrodictions_plot = 
   ggplot(
@@ -153,7 +197,10 @@ growth_retrodictions_plot2 =
               alpha = 0.2)+
   geom_abline(intercept = 0, slope = 1, color = 'blue')
 
-growth_retrodictions_plot2
+growth_retrodictions_plot2+
+  coord_cartesian(xlim = c(0, 0.25), ylim = c(0, 0.25))+
+  scale_y_continuous(breaks = seq(from = 0, to = 0.254, by = 0.0254))+
+  scale_x_continuous(breaks = seq(from = 0, to = 2.54, by = 0.0254))
 
 ggsave(growth_retrodictions_plot2,
        filename = here::here('04-communication',

@@ -286,6 +286,27 @@ sizedist_to_project %>%
             ba_pred.mean = mean(ba_pred),
             ba_pred.se = sd(ba_pred)/sqrt(n()))
 
+head(sizedist_to_project)
+
+sizedist_to_project %>%
+  group_by(dbh_class) %>%
+  summarise(tph_init = mean(tph_init),
+            tph_re = mean(tph_re),
+            tph_pred = mean(tph_pred),
+            ba_init = mean(ba_m2ha_init),
+            ba_re = mean(ba_m2ha_re),
+            ba_pred = mean(ba_m2ha_pred)) %>%
+  ungroup() %>%
+  pivot_longer(cols = c(-dbh_class),
+               names_to = c('stat', 'timestep'),
+               values_to = 'value',
+               names_sep = '_') %>%
+  filter(stat == 'tph') %>%
+  ggplot(aes(x = dbh_class, y = value, color = timestep))+
+  geom_point()+
+  theme_minimal()+
+  geom_smooth(method= 'loess')
+
 
 #### scratch ###################################################################
 
