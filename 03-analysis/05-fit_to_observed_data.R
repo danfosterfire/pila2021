@@ -26,7 +26,7 @@ fitted_model =
     data = pila_training,
     parallel_chains = 4,
     output_dir = here::here('02-data', '03-results', 'real_fits'),
-    output_basename = 'pila',
+    output_basename = 'pila_quadgrow',
     seed = 020188,
     adapt_delta = 0.8)
 
@@ -46,6 +46,7 @@ fitted_model$summary(c('beta_s',  'sigmaEco_s', 'sigmaPlot_s',
 # to 1
 mcmc_pairs(fitted_model$draws(),
            pars = c('beta_g[1]', 'beta_g[2]','sigmaEpsilon_g', 'sigmaEco_g', 'sigmaPlot_g'))
+
 
 mcmc_pairs(fitted_model$draws(),
            pars = c('beta_s[1]', 'beta_s[2]', 'beta_s[3]', 'sigmaEco_s', 'sigmaPlot_s'))

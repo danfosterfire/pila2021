@@ -998,6 +998,70 @@ growth_data =
   filter(tree_status.init == 'live' & tree_status.re=='live') 
 
 
+#### recruits as >= 1" #########################################################
+
+new_recruits = 
+  treelist %>%
+  filter(is.element(plt_cn, plot_data$plt_cn) & 
+           is.na(prev_tre_cn)) %>%
+  left_join(plot_data %>%
+              select(plt_cn, prev_plt_cn, plot_id, invdate.re, invdate.init)) %>%
+  filter(dbh_in < 5)
+
+summary(new_recruits)
+
+hist(new_recruits$dbh_in)
+
+head(treelist)
+
+# start with a frame of all the plots and size classes
+recruits_data = 
+  plot_data %>%
+  
+  select(plt_cn, prev_plt_cn, plot_id) %>%
+  
+  # expand it to get 1 row per size bin and species 
+  expand(nesting(plt_cn, prev_plt_cn, plot_id),
+         species = c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE', 'OTHER'),
+         dbh_class = 1:100) %>%
+
+  # add in the counts for the smallest size class from the seedlings 
+  # data for the remeasurement
+  left_join(seedlings %>%
+              mutate(dbh_class = 1) %>%
+              select(plt_cn, plot_id, species, dbh_class,
+                     count_little = count),
+            by = c('plt_cn' = 'plt_cn',
+                   'plot_id' = 'plot_id',
+                   'species' = 'species',
+                   'dbh_class' = 'dbh_class')) %>%
+  
+  # add in the counts from the bigger size classes from the trees data 
+  # for the remeasurement, **BUT ONLY INCLUDING UNTAGGED TREES**
+  left_join(treelist %>%
+              filter(is.na(prev_tre_cn) & tree_status=='live') %>%
+              mutate(dbh_class = cut(dbh_in,
+                                    breaks = 
+                                      seq(from = 0, to = 100, by = 1),
+                                    labels = FALSE,
+                                    right = FALSE),
+                     count_big = 1) %>%
+              select(plt_cn, plot_id, species, dbh_class, count_big) %>%
+              group_by(plt_cn, plot_id, species, dbh_class) %>%
+              summarise(count_big = sum(count_big, na.rm = TRUE)) %>%
+              ungroup(),
+            by = c('plt_cn' = 'plt_cn',
+                   'plot_id' = 'plot_id',
+                   'species' = 'species',
+                   'dbh_class' = 'dbh_class')) %>%
+  
+  # fill in the missings with 0s
+  mutate(count_little = ifelse(is.na(count_little), 0, count_little),
+         count_big = ifelse(is.na(count_big), 0, count_big),
+         count = count_little+count_big) %>%
+  
+  select(plot_id, species, dbh_class, count)
+
 #### make size distribution data frame #########################################
 
 # start with the subplots data

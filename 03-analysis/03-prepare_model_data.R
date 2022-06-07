@@ -342,7 +342,7 @@ pila_training =
   list(
     # number of fixef parameters
     K = 18,
-    K_g = 12,
+    K_g = 18,
     # number of plots and ecoregions
     P = nrow(union_plots),
     E = nrow(union_ecosubs),
@@ -368,12 +368,12 @@ pila_training =
        ecosub_g = growth_data.pila_training$ecosub.i,
        X_g = 
          as.matrix(growth_data.pila_training[,c('intercept', 'dbh_m.init', 
-                                            'fire', 
-                                     'wpbr','ba_scaled', 'cwd_dep90_scaled', 
-                                     'cwd_mean_scaled', 'dbh_fire',
-                                     'dbh_wpbr',
-                                     'dbh_ba', 'dbh_cwd90',
-                                     'dbh_cwdmean')]),
+                                                'dbh_m2.init', 'fire', 
+                                                'wpbr','ba_scaled', 'cwd_dep90_scaled', 
+                                                'cwd_mean_scaled', 'dbh_fire', 'dbh2_fire',
+                                                'dbh_wpbr','dbh2_wpbr',
+                                                'dbh_ba', 'dbh2_ba', 'dbh_cwd90','dbh2_cwd90',
+                                                'dbh_cwdmean', 'dbh2_cwdmean')]),
     
     # recruitment data
     max_recr_class = max_recr_class,
@@ -389,12 +389,12 @@ pila_training =
                                      'dbh_cwdmean', 'dbh2_cwdmean')]),
     X_rg = 
       as.matrix(recr_data.pila_training[,c('intercept', 'dbh_m.init', 
-                                            'fire', 
-                                     'wpbr','ba_scaled', 'cwd_dep90_scaled', 
-                                     'cwd_mean_scaled', 'dbh_fire',
-                                     'dbh_wpbr',
-                                     'dbh_ba', 'dbh_cwd90',
-                                     'dbh_cwdmean')]),
+                                           'dbh_m2.init', 'fire', 
+                                           'wpbr','ba_scaled', 'cwd_dep90_scaled', 
+                                           'cwd_mean_scaled', 'dbh_fire', 'dbh2_fire',
+                                           'dbh_wpbr','dbh2_wpbr',
+                                           'dbh_ba', 'dbh2_ba', 'dbh_cwd90','dbh2_cwd90',
+                                           'dbh_cwdmean', 'dbh2_cwdmean')]),
     plotid_r = recr_data.pila_training$plot_id.i,
     ecosub_r = recr_data.pila_training$ecosub.i,
     M_r = nrow(size_metadata),
@@ -415,7 +415,7 @@ pila_validation =
   list(
     # number of fixef parameters
     K = 18,
-    K_g = 12,
+    K_g = 18,
     # number of plots and ecoregions
     P = nrow(union_plots),
     E = nrow(union_ecosubs),
@@ -442,12 +442,12 @@ pila_validation =
        X_g = 
          as.matrix(growth_data.pila_validation[,
                                                c('intercept', 'dbh_m.init', 
-                                            'fire', 
-                                     'wpbr','ba_scaled', 'cwd_dep90_scaled', 
-                                     'cwd_mean_scaled', 'dbh_fire',
-                                     'dbh_wpbr',
-                                     'dbh_ba', 'dbh_cwd90',
-                                     'dbh_cwdmean')]),
+                                                 'dbh_m2.init', 'fire', 
+                                                 'wpbr','ba_scaled', 'cwd_dep90_scaled', 
+                                                 'cwd_mean_scaled', 'dbh_fire', 'dbh2_fire',
+                                                 'dbh_wpbr','dbh2_wpbr',
+                                                 'dbh_ba', 'dbh2_ba', 'dbh_cwd90','dbh2_cwd90',
+                                                 'dbh_cwdmean', 'dbh2_cwdmean')]),
     
     # recruitment data
     max_recr_class = max_recr_class,
@@ -463,12 +463,12 @@ pila_validation =
                                      'dbh_cwdmean', 'dbh2_cwdmean')]),
     X_rg = 
       as.matrix(recr_data.pila_validation[,c('intercept', 'dbh_m.init', 
-                                            'fire', 
-                                     'wpbr','ba_scaled', 'cwd_dep90_scaled', 
-                                     'cwd_mean_scaled', 'dbh_fire',
-                                     'dbh_wpbr',
-                                     'dbh_ba', 'dbh_cwd90',
-                                     'dbh_cwdmean')]),
+                                             'dbh_m2.init', 'fire', 
+                                             'wpbr','ba_scaled', 'cwd_dep90_scaled', 
+                                             'cwd_mean_scaled', 'dbh_fire', 'dbh2_fire',
+                                             'dbh_wpbr','dbh2_wpbr',
+                                             'dbh_ba', 'dbh2_ba', 'dbh_cwd90','dbh2_cwd90',
+                                             'dbh_cwdmean', 'dbh2_cwdmean')]),
     plotid_r = recr_data.pila_validation$plot_id.i,
     ecosub_r = recr_data.pila_validation$ecosub.i,
     M_r = nrow(size_metadata),
