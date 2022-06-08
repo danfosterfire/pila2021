@@ -651,13 +651,13 @@ individual_recruits.pila =
 #### fecundity model data ######################################################
 
 fecd_model_data_pila = 
-  list(K = 3,
+  list(K = 2,
        P = length(unique(fecundity_data.pila$plot)),
        N = nrow(fecundity_data.pila),
        M = nrow(size_metadata),
        C = nrow(recruit_counts.pila),
        cprime = recruit_counts.pila$count,
-       X = fecundity_data.pila[,c('intercept', 'dbh_0.m', 'dbh2_0.m')] %>%
+       X = fecundity_data.pila[,c('intercept', 'dbh_0.m')] %>%
          as.matrix(),
        plot_id = fecundity_data.pila$plot_id.i,
        n = matrix(nrow = nrow(size_metadata),
