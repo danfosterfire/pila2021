@@ -1100,7 +1100,7 @@ size_metadata =
                       labels = FALSE,
                       right = FALSE),
          bin_lower = seq(from = 1, to = 99, by = 1),
-         bin_upper = seq(from = 2, to = 100, by = 1),
+         bin_upper = c(seq(from = 2, to = 99, by = 1), 400),
          
          # <5" dbh are measured on a 6.8' radius (.00333ac) microcplot
          # >= 5" dbh measured on a 24' radius (0.0415ac) subplot

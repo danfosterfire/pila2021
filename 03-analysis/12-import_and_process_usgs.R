@@ -119,9 +119,15 @@ individual_data =
   # ditch live trees with missing DBHs
   filter(!(is.na(dbh)&status=='live')) %>%
   
+  # convert dbh to meters to match the growth and survival models
+  mutate(dbh = dbh/100) %>%
+  
+  # ditch stems smaller than 0.0254 at initial census
+  filter(dbh >= 0.0254) %>%
+  
   # get the dbh and status at the end of each census interval
   select(plot, tree_id, spp, obs_0 = obs, year, status, dbh) %>%
-  mutate(obs_1 = obs_0 + 1) %>% 
+  mutate(obs_1 = obs_0 + 2) %>% 
   left_join(select(., plot, tree_id, spp, obs_0, year, status, dbh),
             by = c('plot' = 'plot',
                    'tree_id' = 'tree_id',
@@ -131,21 +137,24 @@ individual_data =
   
   # get rid of trees which are dead at the start of a census, or which haven't 
   # had a followup census
-  filter(status_0=='live' & !is.na(year_T)) 
+  filter(status_0=='live' & !is.na(year_T)) %>%
+  
+  # get rid of the 5-year cycle censuses, which are obs_0 2, 4, 6, and 8
+  filter(is.element(obs_0, c(1, 3, 5, 7)))
 
 #### size metadata #############################################################
 
 size_metadata = 
-  individual_data %>%
-  mutate(dbh_class = cut(dbh_0,
-                         breaks = c(seq(from = 0, to = 254, by = 2.54),1000),
-                         labels = FALSE)) %>%
-  group_by(dbh_class) %>%
-  summarise(midpoint = median(dbh_0)) %>%
-  ungroup() %>%
-  mutate(lower = seq(from = 0, to = 254, by = 2.54),
-         upper = c(seq(from = 2.54, to = 254, by = 2.54), 1000),
-         midpoint = seq(from = 1.27, to = 254+1.27, by = 2.54))
+  readRDS(here::here('02-data',
+                     '01-preprocessed',
+                     'size_metadata.rds')) %>%
+  select(bin_midpoint, bin_id, bin_lower, bin_upper) %>%
+  mutate(bin_midpoint = bin_midpoint * 0.0254,
+         bin_lower = bin_lower * 0.0254,
+         bin_upper = bin_upper * 0.0254)
+
+size_metadata
+
 
 #### complete crossing of plot and year ########################################
 
@@ -180,14 +189,15 @@ census_years =
                         'YEAR7', 'YEAR8'),
                names_to = 'census', values_to = 'year') %>%
   mutate(census = as.integer(gsub(census, pattern = 'YEAR', replacement = '')),
-         census_1 = census+1) %>%
+         census_1 = census+2) %>%
   select(plot = PLOT, census, census_1, year) %>%
   left_join(select(., plot, census, year),
             by = c('plot' = 'plot',
                    'census_1' = 'census'),
             suffix = c('_0', '_T')) %>%
   filter(!is.na(year_0)&!is.na(year_T)) %>%
-  select(-census_1)
+  select(-census_1) %>%
+  filter(is.element(census, c(1, 3, 5, 7)))
 
 
 #### adding plot level spatial data ############################################
@@ -372,16 +382,16 @@ plot_year_spp_sizeclass =
   
   # get all the combinations of plot, year, species, and size class
   census_data %>%
-  expand(nesting(plot, census, year_0, year_T, areaha, lat, lon, 
+  tidyr::expand(nesting(plot, census, year_0, year_T, areaha, lat, lon, 
                  burned_0T, wpbr, ba_m2ha, cwd_departure90),
          spp = unique(individual_data$spp)) %>%
-  expand(nesting(plot, census, year_0, year_T, areaha, lat, lon, burned_0T,
+  tidyr::expand(nesting(plot, census, year_0, year_T, areaha, lat, lon, burned_0T,
                  wpbr, ba_m2ha, cwd_departure90, spp),
-         dbh_class = 1:101) %>%
+         dbh_class = 1:99) %>%
   
-  # add in the median dbh for each size class
+  # add in the midpoint dbh for each size class
   left_join(size_metadata %>%
-              select(dbh_class, midpoint)) %>%
+              select(dbh_class = bin_id, midpoint = bin_midpoint)) %>%
   
   arrange(plot, year_0, spp, dbh_class)
 
@@ -393,7 +403,7 @@ fecundity_data =
   left_join(individual_data %>%
               mutate(dbh_class_0 = 
                        cut(dbh_0, 
-                           breaks = c(seq(from = 0, to = 254, by = 2.54), 1000),
+                           breaks = c(seq(from = 0.0254, to = 2.54, by =0.0254), 1000),
                            labels = FALSE)) %>%
               left_join(plots_spatial %>% 
                           select(plot, areaha)) %>%
@@ -407,6 +417,17 @@ fecundity_data =
                    'dbh_class' = 'dbh_class_0')) %>%
   mutate(tph_0 = ifelse(is.na(tph_0), 0, tph_0)) %>%
   arrange(plot, year_0, spp, dbh_class)
+
+fecundity_data %>%
+  group_by(plot, year_0) %>%
+  summarise(tph_0 = sum(tph_0)) %>%
+  ungroup() %>%
+  print(n = Inf)
+
+
+individual_data %>% filter(plot=='BBBPIPO'&spp=='ABCO'&dbh_0 <= 0.0254*2&year_0==1992) %>% print(n = Inf)
+
+fecundity_data
 
 #### new recruit sizes #########################################################
 
@@ -422,7 +443,7 @@ individual_recruits =
   # GIBBS 2008 subplot 3, and 27 (28, and 17 trees), Gibbs 2009 33 trees in 
   # subplot 23);  given the small number of trees involved 
   # for plots other than EMRIDGE, I'm going to filter these by size to get only 
-  # the plausible (initial DBH < 10cm) new recruits
+  # the plausible (initial DBH < 12.7cm) new recruits
   individual_data %>%
   
   # first, ditch trees which were present at the initial census of each plot
@@ -441,14 +462,14 @@ individual_recruits =
   ungroup() %>%
   
   # exclude "recruits" with > 10 cm DBH at time of "recruitment"
-  filter(dbh_recr < 10)
+  filter(dbh_recr < 12.7)
 
 
 #### count of new recruits per census ##########################################
 
 recruit_counts = 
   census_years %>%
-  expand(nesting(plot, census, year_0, year_T),
+  tidyr::expand(nesting(plot, census, year_0, year_T),
          spp = unique(individual_data$spp)) %>%
   left_join(
     individual_recruits %>%
@@ -611,6 +632,11 @@ recruit_counts.pila =
                    'census' = 'census')) %>%
   filter(burned_0T == FALSE)
 
+recruit_counts.pila %>%
+  select(plot, census, year_0, count) %>%
+  print(n = Inf)
+
+
 head(individual_recruits.pila)
 
 
@@ -621,147 +647,63 @@ individual_recruits.pila =
                    'year_recr' = 'year_0')) %>%
   filter(burned_0T == FALSE)
 
-#### build model data ##########################################################
 
-pila_data = 
-  list(
-    K = 3,
-    K_g = 2,
-    P = nrow(unique_plots.pila),
-    
-    # survival data
-    N_s = nrow(survival_data.pila),
-    surv_s = as.integer(survival_data.pila$status_T=='live'),
-    X_s = survival_data.pila[,c('intercept', 'dbh_0.m', 'dbh2_0.m')] %>%
-      as.matrix(),
-    plotid_s = survival_data.pila$plot_id.i,
-    
-    # growth data
-    N_g = nrow(growth_data.pila),
-    dbhT_g = growth_data.pila$dbh_T.m,
-    X_g = 
-      growth_data.pila[,c('intercept', 'dbh_0.m')] %>% 
-      as.matrix(),
-    plotid_g = growth_data.pila$plot_id.i,
-    
-    # fecundity data
-    N_f = nrow(fecundity_data.pila),
-    C_f = nrow(fecundity_data.pila %>%
-                 group_by(plot, census) %>%
-                 summarise() %>%
-                 ungroup()),
-    M_f = nrow(size_metadata),
-    cprime_f = recruit_counts.pila$count,
-    n = matrix(nrow = nrow(size_metadata),
-               ncol = nrow(fecundity_data.pila %>%
-                             group_by(plot,census) %>%
-                             summarise() %>%
-                             ungroup()),
-               data = fecundity_data.pila$tph_0,
-               byrow = FALSE),
-    X_f = 
-      fecundity_data.pila[,c('intercept', 'dbh_0.m', 'dbh2_0.m')] %>% 
-      as.matrix(),
-    plotid_f = fecundity_data.pila$plot_id.i,
-    a = 
-      fecundity_data.pila %>%
-      group_by(plot, census, areaha) %>%
-      summarise() %>%
-      ungroup() %>%
-      pull(areaha),
-    
-    # recruit size data
-    N_r = nrow(individual_recruits.pila),
-    logdbh_r = log(individual_recruits.pila$dbh_recr))
+#### fecundity model data ######################################################
 
-
-saveRDS(pila_data,
-        here::here('02-data', '02-for_analysis', 'usgs', 'pila_data.rds'))
-
-# this is useful for plotting later
-saveRDS(plots_spatial,
-        here::here('02-data', '02-for_analysis', 'usgs', 'plots_spatial.rds'))
-
-# this is useful for the IPM later
-saveRDS(size_metadata,
-        here::here('02-data', '02-for_analysis', 'usgs', 'size_metadata.rds'))
-
+fecd_model_data_pila = 
+  list(K = 3,
+       P = length(unique(fecundity_data.pila$plot)),
+       N = nrow(fecundity_data.pila),
+       M = nrow(size_metadata),
+       C = nrow(recruit_counts.pila),
+       cprime = recruit_counts.pila$count,
+       X = fecundity_data.pila[,c('intercept', 'dbh_0.m', 'dbh2_0.m')] %>%
+         as.matrix(),
+       plot_id = fecundity_data.pila$plot_id.i,
+       n = matrix(nrow = nrow(size_metadata),
+                  ncol = nrow(recruit_counts.pila),
+                  data = fecundity_data.pila$tph_0,
+                  byrow = FALSE),
+       a = recruit_counts.pila$areaha)
 
 #### data exploration ##########################################################
 
-## survival
+fecd_model_data_pila.df = 
+  fecd_model_data_pila$X %>%
+  as.data.frame()
 
-### y distribution
-ggplot(data.frame(surv = as.factor(pila_data$surv_s)),
-       aes(x = surv))+
-  geom_bar()
+fecd_model_data_pila.df$count = fecd_model_data_pila$cprime
 
-### x distributions
-pila_data$X_s %>%
-  as.data.frame() %>%
+fecd_model_data_pila.df$plot_id = fecd_model_data_pila$plot_id
+
+fecd_model_data_pila$N == fecd_model_data_pila$C*fecd_model_data_pila$M
+
+# y distribution
+fecd_model_data_pila.df %>%
+  ggplot(aes(x = count))+
+  geom_histogram()
+
+# X distribution
+fecd_model_data_pila.df %>%
   ggplot(aes(x = dbh_0.m))+
   geom_histogram()
 
-### XY relationship
-pila_data$X_s %>%
-  as.data.frame() %>%
-  mutate(surv = pila_data$surv_s) %>%
-  ggplot(aes(x = dbh_0.m, y = surv))+
-  geom_jitter(width = 0, height = 0.1, size = 0)+
-  geom_smooth(method = 'glm', formula = y~x+I(x**2), method.args = list(family = 'binomial'))
-
-## growth
-
-### y distribution
-ggplot(data.frame(sizeT = pila_data$dbhT_g),
-       aes(x = sizeT))+
-  geom_histogram()
-
-### x distribution
-pila_data$X_g %>%
-  as.data.frame() %>%
-  ggplot(aes(x = dbh_0.m))+
-  geom_histogram()
-
-### xy distribution
-pila_data$X_g %>%
-  as.data.frame() %>%
-  mutate(sizeT = pila_data$dbhT_g) %>%
-  ggplot(aes(x = dbh_0.m, y = sizeT))+
-  geom_point()+
-  geom_smooth(method = 'lm')
-
-## recruitment
-
-pila_data$C_f
-
-hist(pila_data$cprime_f)
-
-head(pila_data$n)
-
-pila_data$n %>%
-  as.data.frame() %>%
-  rowid_to_column('dbh_class') %>%
-  pivot_longer(cols = c(-dbh_class),
-               names_to = 'plot_census',
-               values_to = 'tph') %>%
-  ggplot(aes(x = factor(dbh_class), 
-             y = tph))+
-  geom_boxplot()+
-  scale_y_log10()
-
-
-pila_data$n %>%
-  as.data.frame() %>%
-  rowid_to_column('dbh_class') %>%
-  pivot_longer(cols = c(-dbh_class),
-               names_to = 'plot_census',
-               values_to = 'tph') %>%
-  group_by(plot_census) %>%
-  summarise(tph = sum(tph)) %>%
-  ungroup() %>%
+sapply(X = 1:fecd_model_data_pila$C,
+       FUN = function(c){
+         sum(fecd_model_data_pila$n[,c])
+       }) %>%
   summary()
 
-hist(pila_data$logdbh_r)
+sapply(X = 1:fecd_model_data_pila$M,
+       FUN = function(m){
+         mean(fecd_model_data_pila$n[m,])
+       })
 
-hist(exp(pila_data$logdbh_r))
+hist(fecd_model_data_pila$a)
+
+
+#### write results #############################################################
+saveRDS(fecd_model_data_pila,
+        here::here('02-data',
+                   '02-for_analysis',
+                   'fecd_data_pila_usgs.rds'))

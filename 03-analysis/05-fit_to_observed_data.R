@@ -22,7 +22,7 @@ pila_growth_training =
 pila_fecd_training = 
   readRDS(here::here('02-data',
                      '02-for_analysis',
-                     'pila_fecd_training.rds'))
+                     'fecd_data_pila_usgs.rds'))
 
 #### survival ##################################################################
 
@@ -109,8 +109,8 @@ fecd_fit =
     parallel_chains = 4,
     output_dir = here::here('02-data', '03-results'),
     output_basename = 'pila_fecd',
-    seed = 020190,
-    adapt_delta = 0.9,
+    seed = 110819,
+    adapt_delta = 0.8,
   )
 
 # check summary

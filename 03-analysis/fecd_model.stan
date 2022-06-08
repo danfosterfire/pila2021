@@ -1,31 +1,31 @@
 
 data {
   int<lower=1> K; // number of fixeff params
-  int<lower=1> E; // number of ecoregions
-  int<lower=1> P; // number of plots
-  int<lower=1> N; // number of plot:sizeclass combinations
+  //int<lower=1> P; // number of plots
+  int<lower=1> N; // number of plot:sizeclass:census combinations
   int<lower=1> M; // number of unique size classes
+  int<lower=1> C; // number of unique censuses
   
-  array[P] int<lower=0> cprime; // response; observed tally of new recrs
+  array[C] int<lower=0> cprime; // response; observed tally of new recrs
   matrix[N,K] X; // fixeff covariates for plot:sizeclass combos
-  array[N] int<lower=1,upper=E> ecosub_id; // ecoregion indices
-  matrix<lower=0>[M,P] n; // observed TPA of existing individuals
-  real<lower=0> a; // plot area searched for new recruits in acres
+  //array[N] int<lower=1,upper=P> plot_id; // plot indices
+  matrix<lower=0>[M,C] n; // observed TPA of existing individuals for each size,census
+  vector[C] a; // plot area searched for new recruits in hectares
   
   
 }
 
 parameters {
   vector[K] beta;
-  real<lower=0> sigma_ecosub;
+  //real<lower=0> sigma_plot;
   real<lower=0> kappa;
-  vector[E] z_ecosub;
+  //vector[P] z_plot;
 }
 
 transformed parameters {
-  vector[E] effect_ecosub;
+  //vector[P] effect_plot;
   
-  effect_ecosub = sigma_ecosub * z_ecosub;
+  //effect_plot = sigma_plot * z_plot;
 }
 
 model {
@@ -33,26 +33,29 @@ model {
   // variable declarations
   vector[N] XB; // fixed effects times coeffs
   vector[N] logf; // linear predictor for fecundity
-  vector[P] nprime; // predicted density of new recruits
+  vector[C] nprime; // predicted density of new recruits
   
   // priors
   beta ~ normal(0, 5);
-  sigma_ecosub ~ normal(0, 5);
+  //sigma_plot ~ normal(0, 5);
   kappa ~ cauchy(0, 5);
   
   // random effect realizations
-  z_ecosub ~ std_normal();
+  //z_plot ~ std_normal();
   
   // linear predictor
   XB = X * beta;
   for (i in 1:N){
-    logf[i] = XB[i] + effect_ecosub[ecosub_id[i]];
+    //logf[i] = XB[i] + effect_plot[plot_id[i]];
+    logf[i] = XB[i];
   }
   
-  for (i in 1:P){
+  for (i in 1:C){
     nprime[i] = sum(exp(logf[ (1+(M*(i-1))):(M+(M*(i-1))) ] ));
   }
   
   // likelihood
-  cprime ~ neg_binomial_2(nprime*a, kappa);
+  for (i in 1:C){
+    cprime[i] ~ neg_binomial_2(nprime[i]*a[i], kappa);
+  }
 }
