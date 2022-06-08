@@ -24,6 +24,11 @@ growth_data =
 
 growth_data$size1_g = pila_data$size1_g
 
+growth_data %>%
+ggplot(aes(x = dbh_m.init, y = size1_g-dbh_m.init))+
+  geom_point()+
+  geom_smooth(method = 'lm', formula = y ~ x + I(x**2))
+
 names(growth_data)
 # plot X distributions
 lapply(X = c('dbh_m.init','ba_scaled',

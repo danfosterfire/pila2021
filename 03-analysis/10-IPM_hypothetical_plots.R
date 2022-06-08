@@ -88,27 +88,11 @@ A_hypotheticals =
                             
                             # construct explanatory variable matrix for survival 
                             # for the current plot
-                            X_g = 
-                              hypothetical_plots %>%
-                              slice(plot) %>%
-                              expand(nesting(intercept, fire, wpbr, ba_scaled,
-                                             cwd_dep90_scaled,cwd_mean_scaled),
-                                     dbh = size_metadata$bin_midpoint) %>%
-                              mutate(dbh_fire = dbh*fire,
-                                     dbh_wpbr = dbh*wpbr,
-                                     dbh_ba = dbh*ba_scaled,
-                                     dbh_cwd_dep90 = dbh*cwd_dep90_scaled,
-                                     dbh_cwd_mean = dbh*cwd_mean_scaled) %>%
-                              select(intercept, dbh, fire, wpbr, ba_scaled,
-                                     cwd_dep90_scaled, cwd_mean_scaled, 
-                                     dbh_fire, dbh_wpbr, dbh_ba,
-                                     dbh_cwd_dep90, dbh_cwd_mean) %>%
-                              as.matrix()
                             
-                            X_sf = 
+                            X = 
                               hypothetical_plots %>%
                               slice(plot) %>%
-                              expand(nesting(intercept, fire, wpbr, ba_scaled,
+                              tidyr::expand(nesting(intercept, fire, wpbr, ba_scaled,
                                              cwd_dep90_scaled,cwd_mean_scaled),
                                      dbh = size_metadata$bin_midpoint) %>%
                               mutate(dbh2 = dbh**2,
@@ -133,11 +117,11 @@ A_hypotheticals =
                             
                             # calculate size_from length vector of survival 
                             # probabilities on this plot with this parameter draw
-                            p = boot::inv.logit(as.numeric(X_sf %*% beta_s))
+                            p = boot::inv.logit(as.numeric(X %*% beta_s))
                             
-                            mu = as.numeric(X_g %*% beta_g)
+                            mu = as.numeric(X %*% beta_g)
                             
-                            f = exp(as.numeric(X_sf %*% beta_f))
+                            f = exp(as.numeric(X %*% beta_f))
                             
                             sapply(X = 1:nrow(size_metadata),
                                    FUN = function(class_from){

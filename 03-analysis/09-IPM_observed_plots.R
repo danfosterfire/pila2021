@@ -120,27 +120,11 @@ A_observed =
                      
                      # construct explanatory variable matrix for vital rate 
                      # functions for the current plot
-                     X_g = 
-                       plots.pila %>%
-                       slice(plot) %>%
-                       expand(nesting(intercept, fire, wpbr, ba_scaled,
-                                      cwd_dep90_scaled,cwd_mean_scaled),
-                              dbh = size_metadata$bin_midpoint) %>%
-                       mutate(dbh_fire = dbh*fire,
-                              dbh_wpbr = dbh*wpbr,
-                              dbh_ba = dbh*ba_scaled,
-                              dbh_cwd_dep90 = dbh*cwd_dep90_scaled,
-                              dbh_cwd_mean = dbh*cwd_mean_scaled) %>%
-                       select(intercept, dbh, fire, wpbr, ba_scaled,
-                              cwd_dep90_scaled, cwd_mean_scaled, 
-                              dbh_fire, dbh_wpbr, dbh_ba,
-                              dbh_cwd_dep90, dbh_cwd_mean) %>%
-                       as.matrix()
                      
-                     X_sf = 
+                     X = 
                        plots.pila %>%
                        slice(plot) %>%
-                       expand(nesting(intercept, fire, wpbr, ba_scaled,
+                       tidyr::expand(nesting(intercept, fire, wpbr, ba_scaled,
                                       cwd_dep90_scaled,cwd_mean_scaled),
                               dbh = size_metadata$bin_midpoint) %>%
                        mutate(dbh2 = dbh**2,
@@ -165,20 +149,20 @@ A_observed =
                      # calculate vector of survival probabilities for each 
                      # size class on this plot with this parameter draw
                      p = 
-                       boot::inv.logit(as.numeric(X_sf %*% beta_s) +
+                       boot::inv.logit(as.numeric(X %*% beta_s) +
                                          ecoEffect_s[plots.pila$ecosub.i[plot]]+
                                          plotEffect_s[plots.pila$plot_id.i][plot])
                      
                      # calculate vector of mean size at time 2 for each size 
                      # class on this plot with this parameter draw
-                     mu = as.numeric(X_g %*% beta_g)+
+                     mu = as.numeric(X %*% beta_g)+
                        ecoEffect_g[plots.pila$ecosub.i[plot]]+
                        plotEffect_g[plots.pila$plot_id.i[plot]]
                      
                      # calculate vector of fecundity for each size class on this 
                      # plot with this parameter draw
                      f = 
-                       exp(as.numeric(X_sf %*% beta_f)+
+                       exp(as.numeric(X %*% beta_f)+
                              ecoEffect_f[plots.pila$ecosub.i[plot]])
                      
                      # loop over each "from" size class

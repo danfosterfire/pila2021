@@ -197,6 +197,8 @@ growth_retrodictions_plot2 =
               alpha = 0.2)+
   geom_abline(intercept = 0, slope = 1, color = 'blue')
 
+growth_retrodictions_plot2
+
 growth_retrodictions_plot2+
   coord_cartesian(xlim = c(0, 0.25), ylim = c(0, 0.25))+
   scale_y_continuous(breaks = seq(from = 0, to = 0.254, by = 0.0254))+
@@ -399,7 +401,6 @@ recruitment.retrodictions =
                    return(result)
                  }))
 
-head(recruitment.retrodictions)
 
 recr_retrodictions_plot = 
   recruitment.retrodictions %>%

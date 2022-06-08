@@ -1077,7 +1077,7 @@ sizedist_data =
   
   # expand it to get 1 row per size bin and species (should be 
   # 17232 * 7 spp * 100 bins = 12062400 rows)
-  expand(nesting(plt_cn, prev_plt_cn, plot_id),
+  tidyr::expand(nesting(plt_cn, prev_plt_cn, plot_id),
          species = c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE', 'OTHER'),
          dbh_class = 
              cut(seq(from = 0.5, to = 99.5, by = 1),
@@ -1199,7 +1199,7 @@ tph_data =
   
   # expand it to get 1 row per size bin and species (should be 
   # 17232 * 7 spp * 100 bins = 12062400 rows)
-  expand(nesting(plt_cn, prev_plt_cn, plot_id),
+  tidyr::expand(nesting(plt_cn, prev_plt_cn, plot_id),
          species = c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE', 'OTHER'),
          dbh_class = 
              cut(seq(from = 0.5, to = 99.5, by = 1),
@@ -1312,7 +1312,7 @@ untagged_data =
   select(plt_cn, prev_plt_cn, plot_id) %>%
   
   # expand it to get 1 row per size bin and species 
-  expand(nesting(plt_cn, prev_plt_cn, plot_id),
+  tidyr::expand(nesting(plt_cn, prev_plt_cn, plot_id),
          species = c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE', 'OTHER'),
          dbh_class = 1:100) %>%
 

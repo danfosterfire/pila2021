@@ -135,7 +135,7 @@ recr_data.pila  =
   # filter to only subplots where both initial and remeasurement had manual 
   # greater than or equal to 2
   filter(inv_manual.init >= 2.0 & inv_manual.re >= 2.0) %>%
-    expand(nesting(plt_cn, prev_plt_cn, plot_id, elev_ft, lat, lon,
+    tidyr::expand(nesting(plt_cn, prev_plt_cn, plot_id, elev_ft, lat, lon,
                  ecosubcd, invdate.re, inv_manual.re, macro_break, fire,
                  insects, disease, cutting, invdate.init, inv_manual.init, 
                  ba_ft2ac, cwd_departure90, cwd_mean, ba_scaled, cwd_dep90_scaled,
@@ -520,10 +520,6 @@ tph_lme4_fit = lme4::lmer(data = tph.df,
 summary(tph_lme4_fit)
 
 summary(predict(tph_lme4_fit))
-
-tph_stan_fit = readRDS(here::here('02-data', '03-results', 'real_fits','tph_fit.rds'))
-
-tph_stan_fit$summary()
 
 
 plot_data %>% summary()
