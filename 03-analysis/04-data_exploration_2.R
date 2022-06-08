@@ -12,17 +12,27 @@ library(ggplot2)
 
 
 # load data
-pila_data = readRDS(here::here('02-data',
+mort_list = readRDS(here::here('02-data',
                                '02-for_analysis',
-                               'pila_training.rds'))
+                               'pila_mort_training.rds'))
+
+growth_list = readRDS(here::here('02-data',
+                                 '02-for_analysis',
+                                 'pila_growth_training.rds'))
+
+recr_list = readRDS(here::here('02-data',
+                               '02-for_analysis',
+                               'pila_fecd_training.rds'))
+
 
 #### growth data ###############################################################
 
 growth_data = 
-  pila_data$X_g %>%
+  growth_list$X %>%
   as_tibble()
 
-growth_data$size1_g = pila_data$size1_g
+growth_data$size1 = growth_list$size1
+
 
 names(growth_data)
 # plot X distributions
@@ -40,16 +50,15 @@ lapply(X = c('fire', 'wpbr'),
     geom_bar()
 })
 
-# too few instances of insects = 1
 
 # plot Y distribution
 response_growth = 
   ggplot(data = growth_data,
-       aes(x = size1_g))+
+       aes(x = size1))+
   geom_histogram()+
   theme_minimal()+
   theme(text = element_text(size = 14))+
-  labs(y = 'N trees', x = 'DBH at remeasurement (m)')
+  labs(y = 'N trees', x = 'DBH at remeasurement (cm)')
 
 response_growth
 
@@ -93,13 +102,13 @@ ggplot(data = growth_data,
 lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
        FUN = function(v){
          ggplot(data = growth_data,
-                aes(x = .data[[v]], y = size1_g))+
+                aes(x = .data[[v]], y = size1))+
            geom_point()
        })
 lapply(X = c('fire', 'wpbr'),
        FUN = function(v){
          ggplot(data = growth_data,
-                aes(x = as.factor(.data[[v]]), y = size1_g))+
+                aes(x = as.factor(.data[[v]]), y = size1))+
                     geom_violin()+
                     geom_jitter(width = 0.1, size = 0, height = 0)+
                     geom_boxplot(width = 0.1, position= position_nudge(x = -0.25))
@@ -110,7 +119,7 @@ lapply(X = c('ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
        FUN = function(v){
          ggplot(data = growth_data,
                 aes(x = dbh_m.init, 
-                    y = size1_g, 
+                    y = size1, 
                     color = cut(.data[[v]],
                                breaks = quantile(.data[[v]], probs = c(0, 0.33, 0.66, 1)),
                                include_lowest = TRUE)))+
@@ -122,7 +131,7 @@ lapply(X = c('fire', 'wpbr'),
        FUN = function(v){
          ggplot(data = growth_data,
                 aes(x = dbh_m.init,
-                    y = size1_g,
+                    y = size1,
                     color = as.factor(.data[[v]])))+
            geom_point()+
            geom_smooth(method = 'lm')+
@@ -133,10 +142,10 @@ lapply(X = c('fire', 'wpbr'),
 #### survival data #############################################################
 
 surv_data = 
-  pila_data$X_s %>%
+  mort_list$X %>%
   as_tibble()
 
-surv_data$surv = pila_data$surv
+surv_data$surv = mort_list$surv
 
 names(surv_data)
 # plot X distributions
@@ -155,6 +164,8 @@ explanatory_size =
   theme_minimal()+
   theme(text = element_text(size = 14))+
   labs(x = 'DBH (m)', y = 'N trees')
+
+explanatory_size
 
 ggsave(explanatory_size,
        filename = here::here('04-communication',
@@ -315,10 +326,11 @@ lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
          ggplot(data = surv_data,
                 aes(x = .data[[v]], y = surv))+
            geom_jitter(width = 0, size = 0, height = 0.1)+
-           geom_smooth(method = 'lm', formula = y~x+I(x**2))
+           geom_smooth(method = 'glm', formula = y~x+I(x**2),
+                       method.args = list(family = 'binomial'))
        })
 
-surv_data$ecosub.i = pila_data$ecosub_s
+surv_data$ecosub.i = mort_list$ecosub_s
 
 surv_data %>%
   filter(dbh_m.init>2) %>%
@@ -358,202 +370,57 @@ lapply(X = c('fire', 'wpbr'),
 #### recr data ################################################################
 
 # plot y distribution
-pila_data$cprime
+hist(recr_list$cprime) # oof i am pretty skeptical this is gonna work
 
-hist(pila_data$cprime)
 
 
 # check total TPA on each subplot looks OK
 recr_tpa = 
-  sapply(X = 1:nrow(pila_data$n),
-         FUN = function(subplot){
-           subplot_tpa = sum(pila_data$n[subplot,])
+  sapply(X = 1:ncol(recr_list$n),
+         FUN = function(plot){
+           subplot_tpa = sum(recr_list$n[,plot])
            return(subplot_tpa)
          })
+
+ncol(recr_list$n)
 
 hist(recr_tpa)
 summary(recr_tpa/0.404686)
 
-readRDS(here::here('02-data',
+
+# start with the size distribution data for all 1221 plots where pila was 
+# present at initial or followup
+comparison_tph = 
+  readRDS(here::here('02-data',
            '01-preprocessed',
            'sizedist_data.rds')) %>%
+  # keep only the 967 plots which are in the recruitment training set
   filter(
     is.element(plot_id,
                  readRDS(here::here('02-data',
                    '02-for_analysis',
                    'union_plots.rds')) %>%
                  filter(is.element(plot_id.i,
-                                   pila_data$plotid_r)) %>%
+                                   recr_list$plot_id)) %>%
                  pull(plot_id))
     ) %>%
   filter(species=='PILA') %>%
   group_by(plot_id) %>%
   summarise(tph.init = sum(tpa_unadj.init/0.404686)) %>%
-  ungroup() %>%
-  summary()
+  ungroup()  %>%
+  pull(tph.init)
+
+round(recr_tpa/0.404686,2)==round(comparison_tph,2)
 
 
 
+recr_list$a
 
 
-# check TPA of bigger trees on each subplots
-sapply(X = 1:nrow(pila_data$n),
-       FUN = function(subplot){
-         sum(pila_data$n[subplot,2:100])
-       }) %>%
-  summary()
-
-pila_data$r
-
-pila_data$a
-
-pila_data$M_r
-
-lapply(X = colnames(pila_data$X_r),
+lapply(X = colnames(recr_list$X),
        FUN = function(n){
-         pila_data$X_r %>%
+         recr_list$X %>%
            as.data.frame() %>%
            ggplot(aes(x = .data[[n]]))+
            geom_histogram()
        })
-
-#### tph and BA ################################################################
-
-tph_data = 
-  readRDS(here::here('02-data',
-                     '02-for_analysis',
-                     'tph.rds'))
-
-ba_data = 
-  readRDS(here::here('02-data',
-                     '02-for_analysis',
-                     'ba.rds'))
-
-ba_tph_df = 
-  tph_data$X %>%
-  as_tibble() %>%
-  mutate(delta_tph = tph_data$Y,
-         delta_ba = ba_data$Y,
-         ecosub_id = tph_data$ecosub_id)
-
-# y distribution
-ggplot(data = ba_tph_df,
-       aes(x = delta_tph))+
-  geom_histogram()
-
-ggplot(data = ba_tph_df,
-       aes(x = delta_tph))+
-  geom_histogram()+
-  scale_x_continuous(limits = c(-250, 250))
-
-ggplot(data = ba_tph_df,
-       aes(x = delta_ba))+
-  geom_histogram()
-
-# x distributions
-ggplot(data = ba_tph_df,
-       aes(x = fire))+
-  geom_bar()
-
-ggplot(data = ba_tph_df,
-       aes(x = wpbr))+
-  geom_bar()
-
-ggplot(data = ba_tph_df,
-       aes(x = ba_scaled))+
-  geom_histogram()
-
-ggplot(data = ba_tph_df,
-       aes(x = cwd_dep90_scaled))+
-  geom_histogram()
-
-ggplot(data = ba_tph_df,
-       aes(x = cwd_mean_scaled))+
-  geom_histogram()
-
-# xx relationships
-ggplot(data = ba_tph_df,
-       aes(x = ba_scaled, color = as.factor(fire)))+
-  geom_density()
-
-ggplot(data = ba_tph_df,
-       aes(x = cwd_dep90_scaled, color = as.factor(fire)))+
-  geom_density()
-ggplot(data = ba_tph_df,
-       aes(x = cwd_mean_scaled, color = as.factor(fire)))+
-  geom_density()
-
-ggplot(data = ba_tph_df,
-       aes(x = ba_scaled, color = as.factor(wpbr)))+
-  geom_density()
-
-ggplot(data = ba_tph_df,
-       aes(x = cwd_dep90_scaled, color = as.factor(wpbr)))+
-  geom_density()
-ggplot(data = ba_tph_df,
-       aes(x = cwd_mean_scaled, color = as.factor(wpbr)))+
-  geom_density()
-
-ggplot(data = ba_tph_df,
-       aes(x = ba_scaled, y = cwd_dep90_scaled))+
-  geom_point()
-
-ggplot(data = ba_tph_df,
-       aes(x = ba_scaled, y = cwd_mean_scaled))+
-  geom_point()
-
-ggplot(data = ba_tph_df,
-       aes(x = cwd_dep90_scaled, y = cwd_mean_scaled))+
-  geom_point()
-
-# xy relationships
-ggplot(data = ba_tph_df,
-       aes(x = as.factor(fire), y = delta_tph))+
-  geom_boxplot()+
-  scale_y_continuous(limits = c(-250, 250))
-
-ggplot(data = ba_tph_df,
-       aes(x = as.factor(wpbr), y = delta_tph))+
-  geom_boxplot()+
-  scale_y_continuous(limits = c(-250, 250))
-
-ggplot(data = ba_tph_df,
-       aes(x = ba_scaled, y = delta_tph))+
-  geom_point()+
-  geom_smooth(method = 'lm')
-
-ggplot(data = ba_tph_df,
-       aes(x = cwd_dep90_scaled, y = delta_tph))+
-  geom_point()+
-  geom_smooth(method = 'lm')
-
-ggplot(data = ba_tph_df,
-       aes(x = cwd_mean_scaled, y = delta_tph))+
-  geom_point()+
-  geom_smooth(method = 'lm')
-
-ggplot(data = ba_tph_df,
-       aes(x = as.factor(fire), y = delta_ba))+
-  geom_boxplot()
-
-ggplot(data = ba_tph_df,
-       aes(x = as.factor(wpbr), y = delta_ba))+
-  geom_boxplot()
-
-ggplot(data = ba_tph_df,
-       aes(x = ba_scaled, y = delta_ba))+
-  geom_point()+
-  geom_smooth(method = 'lm')
-
-ggplot(data = ba_tph_df,
-       aes(x = cwd_dep90_scaled, y = delta_ba))+
-  geom_point()+
-  geom_smooth(method = 'lm')
-
-ggplot(data = ba_tph_df,
-       aes(x = cwd_mean_scaled, y = delta_ba))+
-  geom_point()+
-  geom_smooth(method = 'lm')
-
-
-

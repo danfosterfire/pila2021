@@ -24,6 +24,11 @@ plot_data =
                      '01-preprocessed',
                      'plot_data.rds')) 
 
+recruits_data = 
+  readRDS(here::here('02-data',
+                     '01-preprocessed',
+                     'recruits_data.rds'))
+
 #### growth data ###############################################################
 
 growth_data %>%
@@ -106,12 +111,18 @@ ggplot(data = mort_data,
 ggplot(data = mort_data %>% filter(species=='PILA'),
        aes(x = dbh_in.init, y = as.numeric(survived)))+
   #geom_jitter(height = 0.1, width = 0)+
-  geom_smooth(method = 'lm', formula = y~x+I(x**2))+
+  geom_smooth(method = 'glm', formula = y~x+I(x**2), method.args = list(family = 'binomial'))+
   geom_jitter(height = 0.1, width = 0, aes(color = tree_status.re))
 
 # the biggest harvested tree was 59.1" (1.5m); harvests arent what killed the big ones
 
 max(mort_data %>% filter(species=='PILA'&tree_status.re=='harvested') %>% pull(dbh_in.init))
+
+mort_data %>% filter(species=='PILA'&dbh_in.init>=59.1) %>% 
+  group_by(survived) %>%
+  summarise(count = n()) %>%
+  ungroup()
+
 
 #### sizedist data #############################################################
 
@@ -136,16 +147,11 @@ sizedist_data %>%
   group_by(plot_id) %>%
   summarise(tpa_unadj.init = sum(tpa_unadj.init)) %>%
   ungroup() %>%
-  ggplot(aes(x = tpa_unadj.init))+
+  mutate(tph_init = tpa_unadj.init / 0.404686) %>%
+  ggplot(aes(x = tph_init))+
   geom_histogram()
 
-sizedist_data %>%
-  filter(dbh_class >= 2) %>%
-  group_by(plot_id) %>%
-  summarise(tpa_unadj.init = sum(tpa_unadj.init)) %>%
-  ungroup() %>%
-  ggplot(aes(x = tpa_unadj.init*2.47))+
-  geom_histogram()
+
 # looks right in comparison to safford & stevens 2017 modern era data
 
 
@@ -281,6 +287,14 @@ ggplot(data = plot_data,
   geom_bar(position = position_fill()) # disease way more likely when insects true
 
 
+#### recruits data #############################################################
+
+head(recruits_data)
+
+recruits_data %>%
+  ggplot(aes(x = count))+
+  geom_histogram()+
+  facet_wrap(~species, scales = 'free')
 
 
 #### notes #####################################################################
