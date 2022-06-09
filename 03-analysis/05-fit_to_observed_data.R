@@ -9,135 +9,13 @@ library(posterior)
 
 
 # load model data
-pila_surv_training = 
+pila_training = 
   readRDS(here::here('02-data',
                      '02-for_analysis',
-                     'pila_mort_training.rds'))
-
-pila_growth_training = 
-  readRDS(here::here('02-data',
-                     '02-for_analysis',
-                     'pila_growth_training.rds'))
-
-pila_fecd_training = 
-  readRDS(here::here('02-data',
-                     '02-for_analysis',
-                     'fecd_data_pila_usgs.rds'))
-
-#### survival ##################################################################
-
-# build model
-surv_model = cmdstan_model(here::here('03-analysis', 'surv_model.stan'))
-
-# run sampler
-surv_fit = 
-  surv_model$sample(
-    data = pila_surv_training,
-    parallel_chains = 4,
-    output_dir = here::here('02-data', '03-results'),
-    output_basename = 'pila_surv',
-    seed = 110819,
-    adapt_delta = 0.8
-  )
-
-# check summary
-surv_fit$summary()
-
-# check diagnostics
-surv_fit$cmdstan_diagnose()
-
-# parameter pair plots
-mcmc_pairs(surv_fit$draws(variables = c('beta[1]', 'beta[2]', 'beta[3]', 'sigma_plot', 'sigma_ecosub')))
-
-# posterior density plots
-mcmc_dens_overlay(surv_fit$draws(variables = c('beta', 'sigma_plot', 'sigma_ecosub')))
-
-# save fitted model
-surv_fit$save_object(here::here('02-data', '03-results', 'surv_fit.rds'))
-
-# save posterior df
-surv_posterior = as_draws_df(surv_fit$draws())
-
-saveRDS(surv_posterior, here::here('02-data', '03-results', 'surv_post.rds'))
-
-#### growth ####################################################################
-
-# build model
-growth_model = cmdstan_model(here::here('03-analysis', 'growth_model.stan'))
-
-# run sampler
-growth_fit = 
-  growth_model$sample(
-    data = pila_growth_training,
-    parallel_chains = 4,
-    output_dir = here::here('02-data', '03-results'),
-    output_basename = 'pila_growth',
-    seed = 112188,
-    adapt_delta = 0.8,
-  )
-
-# check summary
-growth_fit$summary()
-
-# check diagnostics
-growth_fit$cmdstan_diagnose()
-
-# parameter pair plots
-mcmc_pairs(growth_fit$draws(variables = c('beta[1]', 'beta[2]', 'sigma_plot', 
-                                          'sigma_ecosub', 'sigma_epsilon')))
-
-# posterior density plots
-mcmc_dens_overlay(growth_fit$draws(variables = c('beta', 'sigma_plot', 'sigma_ecosub')))
-
-# save fitted model
-growth_fit$save_object(here::here('02-data', '03-results', 'growth_fit.rds'))
-
-# save posterior df
-growth_posterior = as_draws_df(growth_fit$draws())
-
-saveRDS(growth_posterior, here::here('02-data', '03-results', 'growth_post.rds'))
-
-#### fecundity ###############################################################
-
-# build model
-fecd_model = cmdstan_model(here::here('03-analysis', 'fecd_model.stan'))
-
-# run sampler
-fecd_fit = 
-  fecd_model$sample(
-    data = pila_fecd_training,
-    parallel_chains = 4,
-    output_dir = here::here('02-data', '03-results'),
-    output_basename = 'pila_fecd',
-    seed = 110819,
-    adapt_delta = 0.8,
-  )
-
-# check summary
-fecd_fit$summary()
-
-# check diagnostics
-fecd_fit$cmdstan_diagnose()
-
-# parameter pair plots
-mcmc_pairs(fecd_fit$draws(variables = c('beta[1]', 'beta[2]', 'beta[3]', 'sigma_ecosub')))
-
-# posterior density plots
-mcmc_dens_overlay(fecd_fit$draws(variables = c('beta', 'sigma_ecosub')))
-
-# save fitted model
-fecd_fit$save_object(here::here('02-data', '03-results', 'fecd_fit.rds'))
-
-# save posterior df
-fecd_posterior = as_draws_df(fecd_fit$draws())
-
-saveRDS(fecd_posterior, here::here('02-data', '03-results', 'fecd_post.rds'))
-
+                     'pila_training.rds'))
 
 
 #### build model and run sampler ###############################################
-
-
 
 stan_model = 
   cmdstan_model(here::here('03-analysis', 'model.stan'))

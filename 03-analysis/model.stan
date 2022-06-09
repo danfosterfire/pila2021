@@ -154,7 +154,14 @@ model {
     // size class into the smallest size class;  set "sizeclass_from" to 
     // be 1 everywhere and sizeclass_to to be 1
     for (sizeclass_to in 1:max_recr_class){
-        // equation 12
+        // equation 12:
+        // notes from perry: HERE (1). Instead of pulling g from the size model 
+        // and assumed size of 0.5", just assume a value from some grid in the 
+        // range 0-1, run everything and see how sensitive the results are
+        // alternatively, code g directly as a parameter, and try to estimate 
+        // it, also looking at the observed counts of size classes 1:5
+        // IDEA: MAKE THE 'DBH' OF SIZE CLASS 1 A PARAMETER AND ESTIMATE IT
+        // OR JUST MAKE AN OFFSET A PARAMETER AND ESTIMATE IT
         g[plot, sizeclass_to, 1] = 
          (normal_cdf(u_bounds[sizeclass_to]| mu_gr[1+(M_r*(plot-1))], sigmaEpsilon_g) - 
           normal_cdf(l_bounds[sizeclass_to]| mu_gr[1+(M_r*(plot-1))], sigmaEpsilon_g)) / 
@@ -165,6 +172,7 @@ model {
       // survival in the smallest size class // note: shriver's code has 
       // s[sizeclass_to, plot], which is also unnesessary, because only 
       // growskern[, , sizeclass_from=1] actually gets used
+      // notes from perry: HERE (2) alternative spot to assume values
       growKern[plot,sizeclass_to,1] = g[plot, sizeclass_to,1]*s[1,plot];
     }
     
