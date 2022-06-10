@@ -72,8 +72,8 @@ growth_fit =
     parallel_chains = 4,
     output_dir = here::here('02-data', '03-results'),
     output_basename = 'pila_growth',
-    seed = 112188,
-    adapt_delta = 0.8,
+    seed = 020190,
+    adapt_delta = 0.99,
   )
 
 # check summary
@@ -120,10 +120,10 @@ fecd_fit$summary()
 fecd_fit$cmdstan_diagnose()
 
 # parameter pair plots
-mcmc_pairs(fecd_fit$draws(variables = c('beta[1]', 'beta[2]', 'beta[3]', 'sigma_ecosub')))
+mcmc_pairs(fecd_fit$draws(variables = c('beta[1]', 'beta[2]')))
 
 # posterior density plots
-mcmc_dens_overlay(fecd_fit$draws(variables = c('beta', 'sigma_ecosub')))
+mcmc_dens_overlay(fecd_fit$draws(variables = c('beta')))
 
 # save fitted model
 fecd_fit$save_object(here::here('02-data', '03-results', 'fecd_fit.rds'))

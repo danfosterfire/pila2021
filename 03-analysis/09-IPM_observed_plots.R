@@ -7,73 +7,74 @@ library(data.table)
 #### build transitions #########################################################
 
 # load mcmc results
-posterior = readRDS(here::here('02-data',
+surv_post = readRDS(here::here('02-data', 
                                '03-results',
-                               'real_fits',
-                               'posterior_draws.rds'))
+                               'surv_post.rds'))
+
+growth_post = readRDS(here::here('02-data',
+                                 '03-results',
+                                 'growth_post.rds'))
+
+fecd_post = readRDS(here::here('02-data',
+                               '03-results',
+                               'fecd_post.rds'))
 
 # extract parameters
 beta_s = 
-  posterior %>%
-  select(contains('beta_s')) %>%
+  surv_post %>%
+  select(contains('beta')) %>%
   summarise_all(median) %>%
   as.data.frame() %>%
   as.numeric()
 
 beta_g = 
-  posterior %>%
-  select(contains('beta_g')) %>%
+  growth_post %>%
+  select(contains('beta')) %>%
   summarise_all(median) %>%
   as.data.frame() %>%
   as.numeric()
 
 beta_f = 
-  posterior %>%
-  select(contains('beta_f')) %>%
+  fecd_post %>%
+  select(contains('beta')) %>%
   summarise_all(median) %>%
   as.data.frame() %>%
   as.numeric()
 
 plotEffect_s = 
-  posterior %>%
-  select(contains('plotEffect_s')) %>%
+  surv_post %>%
+  select(contains('effect_plot')) %>%
   summarise_all(median) %>%
   as.data.frame() %>%
   as.numeric()
 
 plotEffect_g = 
-  posterior %>%
-  select(contains('plotEffect_g')) %>%
+  growth_post %>%
+  select(contains('effect_plot')) %>%
   summarise_all(median) %>%
   as.data.frame() %>%
   as.numeric()
 
 
 ecoEffect_s = 
-  posterior %>%
-  select(contains('ecoEffect_s')) %>%
+  surv_post %>%
+  select(contains('effect_ecosub')) %>%
   summarise_all(median) %>%
   as.data.frame() %>%
   as.numeric()
 
 ecoEffect_g = 
-  posterior %>%
-  select(contains('ecoEffect_g')) %>%
+  growth_post %>%
+  select(contains('effect_ecosub')) %>%
   summarise_all(median) %>%
   as.data.frame() %>%
   as.numeric()
 
-ecoEffect_f = 
-  posterior %>%
-  select(contains('ecoEffect_f')) %>%
-  summarise_all(median) %>%
-  as.data.frame() %>%
-  as.numeric()
 
 sigmaEpsilon_g = 
-  posterior %>%
+  growth_post %>%
   summarise_all(median) %>%
-  pull(sigmaEpsilon_g) %>%
+  pull(sigma_epsilon) %>%
   as.numeric()
 
 size_metadata = 
@@ -137,7 +138,7 @@ A_observed =
                               dbh_cwd_dep90, dbh_cwd_mean) %>%
                        as.matrix()
                      
-                     X_sf = 
+                     X_s = 
                        plots.pila %>%
                        slice(plot) %>%
                        expand(nesting(intercept, fire, wpbr, ba_scaled,
@@ -161,11 +162,18 @@ A_observed =
                               dbh_cwd_mean, dbh2_cwd_mean) %>%
                        as.matrix()
                      
+                     X_f = 
+                       plots.pila %>%
+                       slice(plot) %>%
+                       expand(intercept,
+                              dbh = size_metadata$bin_midpoint) %>%
+                       select(intercept, dbh) %>%
+                       as.matrix()
                      
                      # calculate vector of survival probabilities for each 
                      # size class on this plot with this parameter draw
                      p = 
-                       boot::inv.logit(as.numeric(X_sf %*% beta_s) +
+                       boot::inv.logit(as.numeric(X_s %*% beta_s) +
                                          ecoEffect_s[plots.pila$ecosub.i[plot]]+
                                          plotEffect_s[plots.pila$plot_id.i][plot])
                      
@@ -178,8 +186,7 @@ A_observed =
                      # calculate vector of fecundity for each size class on this 
                      # plot with this parameter draw
                      f = 
-                       exp(as.numeric(X_sf %*% beta_f)+
-                             ecoEffect_f[plots.pila$ecosub.i[plot]])
+                       exp(as.numeric(X_f %*% beta_f))
                      
                      # loop over each "from" size class
                      sapply(X = 1:nrow(size_metadata),

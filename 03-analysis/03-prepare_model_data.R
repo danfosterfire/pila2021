@@ -361,19 +361,20 @@ pila_mort_validation =
 
 
 pila_growth_training = 
-  list(K = 12,
+  list(K = 18,
        P = nrow(union_plots),
        E = nrow(union_ecosubs),
        N = nrow(growth_data.pila_training),
        size1 = growth_data.pila_training$dbh_m.re,
        X = 
          as.matrix(growth_data.pila_training[,c('intercept', 'dbh_m.init', 
+                                                'dbh_m2.init',
                                            'fire', 
                                      'wpbr','ba_scaled', 'cwd_dep90_scaled', 
-                                     'cwd_mean_scaled', 'dbh_fire', 
-                                     'dbh_wpbr',
-                                     'dbh_ba', 'dbh_cwd90',
-                                     'dbh_cwdmean')]),
+                                     'cwd_mean_scaled', 'dbh_fire', 'dbh2_fire',
+                                     'dbh_wpbr','dbh2_wpbr',
+                                     'dbh_ba','dbh2_ba', 'dbh_cwd90','dbh2_cwd90',
+                                     'dbh_cwdmean','dbh2_cwdmean')]),
        plot_id = growth_data.pila_training$plot_id.i,
        ecosub_id = growth_data.pila_training$ecosub.i)
 
