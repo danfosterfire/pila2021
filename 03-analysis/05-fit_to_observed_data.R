@@ -20,6 +20,8 @@ pila_training =
 stan_model = 
   cmdstan_model(here::here('03-analysis', 'model.stan'))
 
+pila_training$r = 
+  c(0.99995, 0.00001, 0.00001, 0.00001, 0.00001, rep(0, times = 95))
 
 fitted_model = 
   stan_model$sample(

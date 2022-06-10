@@ -6,7 +6,7 @@ library(tidyverse)
 set.seed(110819)
 
 # use this to control how many bins new recruits can fall into
-max_recr_class = 1
+max_recr_class = 5
 
 # a row for every subplot, columns for the subplot-level covariates like 
 # disturbance data, basal area, and drought

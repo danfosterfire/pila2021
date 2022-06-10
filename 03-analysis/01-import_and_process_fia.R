@@ -1380,7 +1380,7 @@ size_metadata =
          # min macroplot dbh is 24"
          plot_area_ac = 
            c(pi*(6.8**2)*4/43560, # seedlings on microplot
-             rep(pi*(6.8**2)*2/43560, times = 4), # saplings on microplot
+             rep(pi*(6.8**2)*4/43560, times = 4), # saplings on microplot
              rep(pi*(24**2)*4/43560, times = 19), # small trees on subplot
              rep(pi*(58.9**2)*4/43560, times = 76)) # big trees macroplot; 
          # incoorectly assuming that the macroplot dbh is 24" everywhere (it 

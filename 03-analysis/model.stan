@@ -166,6 +166,8 @@ model {
          (normal_cdf(u_bounds[sizeclass_to]| mu_gr[1+(M_r*(plot-1))], sigmaEpsilon_g) - 
           normal_cdf(l_bounds[sizeclass_to]| mu_gr[1+(M_r*(plot-1))], sigmaEpsilon_g)) / 
           (1-normal_cdf(0| mu_gr[1+(M_r*(plot-1))], sigmaEpsilon_g));
+     
+        
 
       // growth kernel is the product of growth into each size class from 
       // the smallest size class, and 

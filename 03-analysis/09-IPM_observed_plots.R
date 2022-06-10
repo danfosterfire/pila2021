@@ -87,9 +87,10 @@ size_metadata =
          dbh_m.mean = dbh_in.mean * 0.0254) 
 
 size_metadata$r = 
-  readRDS(here::here('02-data',
-                       '02-for_analysis',
-                       'pila_training.rds'))$r
+  c(0.99995, 0.00001, 0.00001, 0.00001, 0.00001, rep(0, times = 95))
+#  readRDS(here::here('02-data',
+#                       '02-for_analysis',
+#                       'pila_training.rds'))$r
 
 plots.pila = 
   readRDS(here::here('02-data', '01-preprocessed', 'plot_data.rds'))%>%
