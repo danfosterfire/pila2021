@@ -599,6 +599,7 @@ treelist =
          tree_status = STATUSCD.TYPE,
          species = SPECIES,
          dbh_in = DIA,
+         height_ft = HT,
          tpa_unadj = TPA_UNADJ,
          cclass = CCLCD.TYPE,
          reconcile = RECONCILECD.TYPE,
@@ -949,7 +950,7 @@ mort_data =
   # start with the treelist
   treelist %>%
   
-  select(tre_cn, prev_tre_cn, plt_cn, plot_id, tree_status, species, dbh_in) %>%
+  select(tre_cn, prev_tre_cn, plt_cn, plot_id, tree_status, species, dbh_in, height_ft) %>%
   
   # filter to only trees which were recorded at remeasurement
   filter(!is.na(prev_tre_cn)) %>%
@@ -957,7 +958,7 @@ mort_data =
   # join in the initial size and status
   left_join(.,
             treelist %>%
-              select(tre_cn, plt_cn, tree_status, dbh_in),
+              select(tre_cn, plt_cn, tree_status, dbh_in, height_ft),
             by = c('prev_tre_cn' = 'tre_cn'),
             suffix = c('.re', '.init')) %>%
   
@@ -981,7 +982,8 @@ growth_data =
   # start with the treelist
   treelist %>%
   
-  select(tre_cn, prev_tre_cn, plt_cn, plot_id, tree_status, species, dbh_in) %>%
+  select(tre_cn, prev_tre_cn, plt_cn, plot_id, tree_status, species, dbh_in,
+         height_ft) %>%
   
   # filter to only trees which were recorded at remeasurement
   filter(!is.na(prev_tre_cn)) %>%
@@ -989,7 +991,7 @@ growth_data =
   # join in the initial size and status
   left_join(.,
             treelist %>%
-              select(tre_cn, plt_cn, tree_status, dbh_in),
+              select(tre_cn, plt_cn, tree_status, dbh_in, height_ft),
             by = c('prev_tre_cn' = 'tre_cn'),
             suffix = c('.re', '.init')) %>%
   
@@ -998,69 +1000,6 @@ growth_data =
   filter(tree_status.init == 'live' & tree_status.re=='live') 
 
 
-#### recruits as >= 1" #########################################################
-
-new_recruits = 
-  treelist %>%
-  filter(is.element(plt_cn, plot_data$plt_cn) & 
-           is.na(prev_tre_cn)) %>%
-  left_join(plot_data %>%
-              select(plt_cn, prev_plt_cn, plot_id, invdate.re, invdate.init)) %>%
-  filter(dbh_in < 5)
-
-summary(new_recruits)
-
-hist(new_recruits$dbh_in)
-
-head(treelist)
-
-# start with a frame of all the plots and size classes
-recruits_data = 
-  plot_data %>%
-  
-  select(plt_cn, prev_plt_cn, plot_id) %>%
-  
-  # expand it to get 1 row per size bin and species 
-  expand(nesting(plt_cn, prev_plt_cn, plot_id),
-         species = c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE', 'OTHER'),
-         dbh_class = 1:100) %>%
-
-  # add in the counts for the smallest size class from the seedlings 
-  # data for the remeasurement
-  left_join(seedlings %>%
-              mutate(dbh_class = 1) %>%
-              select(plt_cn, plot_id, species, dbh_class,
-                     count_little = count),
-            by = c('plt_cn' = 'plt_cn',
-                   'plot_id' = 'plot_id',
-                   'species' = 'species',
-                   'dbh_class' = 'dbh_class')) %>%
-  
-  # add in the counts from the bigger size classes from the trees data 
-  # for the remeasurement, **BUT ONLY INCLUDING UNTAGGED TREES**
-  left_join(treelist %>%
-              filter(is.na(prev_tre_cn) & tree_status=='live') %>%
-              mutate(dbh_class = cut(dbh_in,
-                                    breaks = 
-                                      seq(from = 0, to = 100, by = 1),
-                                    labels = FALSE,
-                                    right = FALSE),
-                     count_big = 1) %>%
-              select(plt_cn, plot_id, species, dbh_class, count_big) %>%
-              group_by(plt_cn, plot_id, species, dbh_class) %>%
-              summarise(count_big = sum(count_big, na.rm = TRUE)) %>%
-              ungroup(),
-            by = c('plt_cn' = 'plt_cn',
-                   'plot_id' = 'plot_id',
-                   'species' = 'species',
-                   'dbh_class' = 'dbh_class')) %>%
-  
-  # fill in the missings with 0s
-  mutate(count_little = ifelse(is.na(count_little), 0, count_little),
-         count_big = ifelse(is.na(count_big), 0, count_big),
-         count = count_little+count_big) %>%
-  
-  select(plot_id, species, dbh_class, count)
 
 #### make size distribution data frame #########################################
 
@@ -1079,46 +1018,46 @@ sizedist_data =
   # 17232 * 7 spp * 100 bins = 12062400 rows)
   tidyr::expand(nesting(plt_cn, prev_plt_cn, plot_id),
          species = c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE', 'OTHER'),
-         dbh_class = 
-             cut(seq(from = 0.5, to = 99.5, by = 1),
-                 breaks = seq(from = 0, to = 100, by = 1),
+         height_class = 
+             cut(seq(from = 2.5, to = 267.5, by = 5),
+                 breaks = seq(0, 270, 5),
                  labels = FALSE,
                  right = FALSE)) %>%
   
   # add in the counts for the smallest size class from the seedlings 
   # data for the remeasurement
   left_join(seedlings %>%
-              mutate(dbh_class = 1) %>%
-              select(plt_cn, plot_id, species, dbh_class, 
+              mutate(height_class = 1) %>%
+              select(plt_cn, plot_id, species, height_class, 
                      tpa_unadj_little = tpa_unadj),
             by = c('plt_cn' = 'plt_cn',
                    'plot_id' = 'plot_id',
                    'species' = 'species',
-                   'dbh_class' = 'dbh_class')) %>%
+                   'height_class' = 'height_class')) %>%
   
   # add in the counts for the smallest size class from the seedlings 
   # data for the initial measurement
   left_join(seedlings %>%
-              mutate(dbh_class = 1) %>%
-              select(plt_cn, plot_id, species, dbh_class, 
+              mutate(height_class = 1) %>%
+              select(plt_cn, plot_id, species, height_class, 
                      tpa_unadj_little = tpa_unadj),
             by = c('prev_plt_cn' = 'plt_cn',
                    'plot_id' = 'plot_id',
                    'species' = 'species',
-                   'dbh_class' = 'dbh_class'),
+                   'height_class' = 'height_class'),
             suffix = c('.re', '.init')) %>%
   
   # add in the counts for the other size classes from an aggregated 
   # treelist 
   left_join(treelist %>%
               filter(tree_status == 'live')  %>%
-              mutate(dbh_class = cut(dbh_in,
+              mutate(height_class = cut(height_ft,
                                     breaks = 
-                                      seq(from = 0, to = 100, by = 1),
+                                      seq(from = 0, to = 270, by = 5),
                                     labels = FALSE,
                                     right = FALSE)) %>%
-              select(plt_cn, plot_id, species, dbh_class, tpa_unadj) %>%
-              group_by(plt_cn, plot_id, species, dbh_class) %>%
+              select(plt_cn, plot_id, species, height_class, tpa_unadj) %>%
+              group_by(plt_cn, plot_id, species, height_class) %>%
               # note that TPA-unadj is for summed subplots; to get tpa for 
               # an individual subplot need to multiply by four
               summarise(tpa_unadj_big = sum(tpa_unadj, na.rm = TRUE)) %>%
@@ -1126,23 +1065,23 @@ sizedist_data =
             by = c('plt_cn' = 'plt_cn',
                    'plot_id' = 'plot_id',
                    'species' = 'species',
-                   'dbh_class' = 'dbh_class')) %>%
+                   'height_class' = 'height_class')) %>%
   
   left_join(treelist %>%
               filter(tree_status == 'live') %>%
-              mutate(dbh_class = cut(dbh_in,
+              mutate(height_class = cut(height_ft,
                                      breaks = 
-                                       seq(from = 0, to = 100, by = 1),
+                                       seq(from = 0, to = 270, by = 5),
                                      labels = FALSE,
                                      right = FALSE)) %>%
-              select(plt_cn, plot_id, species, dbh_class, tpa_unadj) %>%
-              group_by(plt_cn, plot_id, species, dbh_class) %>%
+              select(plt_cn, plot_id, species, height_class, tpa_unadj) %>%
+              group_by(plt_cn, plot_id, species, height_class) %>%
               summarise(tpa_unadj_big = sum(tpa_unadj, na.rm = TRUE)) %>%
               ungroup(),
             by = c('prev_plt_cn' = 'plt_cn',
                    'plot_id' = 'plot_id',
                    'species' = 'species',
-                   'dbh_class' = 'dbh_class'),
+                   'height_class' = 'height_class'),
             suffix = c('.re', '.init')) %>%
   
   
@@ -1163,7 +1102,7 @@ sizedist_data =
                                 0,
                                 tpa_unadj_big.re),
          tpa_unadj.re = tpa_unadj_little.re+tpa_unadj_big.re) %>%
-  select(plt_cn, prev_plt_cn, plot_id, species, dbh_class,
+  select(plt_cn, prev_plt_cn, plot_id, species, height_class,
          tpa_unadj.init, tpa_unadj.re)
 
 
@@ -1183,7 +1122,7 @@ test =
             tpa_unadj.re = sum(tpa_unadj.re)) %>%
   ungroup() %>%
   filter(tpa_unadj.init==0)
-
+test
 treelist %>% filter(plt_cn =='24988722010900' & species=='PILA')  %>% print(width = Inf)
 treelist %>% filter(subp_id=='6-2-105-93474-3' & species=='PILA')  %>% print(width = Inf)
 plots %>% filter(plot_id=='6-2-105-93474')
@@ -1191,105 +1130,6 @@ plots %>% filter(plot_id=='6-2-105-93474')
 
 treelist %>% filter(tre_cn == '24988786010900') %>% print(width = Inf)
 
-tph_data = 
-  
-  plot_data %>%
-
-  select(plt_cn, prev_plt_cn, plot_id) %>%
-  
-  # expand it to get 1 row per size bin and species (should be 
-  # 17232 * 7 spp * 100 bins = 12062400 rows)
-  tidyr::expand(nesting(plt_cn, prev_plt_cn, plot_id),
-         species = c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE', 'OTHER'),
-         dbh_class = 
-             cut(seq(from = 0.5, to = 99.5, by = 1),
-                 breaks = seq(from = 0, to = 100, by = 1),
-                 labels = FALSE,
-                 right = FALSE)) %>%
-  
-  # add in the counts for the smallest size class from the seedlings 
-  # data for the remeasurement
-  left_join(seedlings %>%
-              mutate(dbh_class = 1) %>%
-              select(plt_cn, plot_id, species, dbh_class, 
-                     tpa_unadj_little = tpa_unadj),
-            by = c('plt_cn' = 'plt_cn',
-                   'plot_id' = 'plot_id',
-                   'species' = 'species',
-                   'dbh_class' = 'dbh_class')) %>%
-  
-  # add in the counts for the smallest size class from the seedlings 
-  # data for the initial measurement
-  left_join(seedlings %>%
-              mutate(dbh_class = 1) %>%
-              select(plt_cn, plot_id, species, dbh_class, 
-                     tpa_unadj_little = tpa_unadj),
-            by = c('prev_plt_cn' = 'plt_cn',
-                   'plot_id' = 'plot_id',
-                   'species' = 'species',
-                   'dbh_class' = 'dbh_class'),
-            suffix = c('.re', '.init')) %>%
-  
-  # add in the counts for the other size classes from an aggregated 
-  # treelist 
-  left_join(treelist %>%
-              filter(tree_status == 'live')  %>%
-              mutate(dbh_class = cut(dbh_in,
-                                    breaks = 
-                                      seq(from = 0, to = 100, by = 1),
-                                    labels = FALSE,
-                                    right = FALSE)) %>%
-              select(plt_cn, plot_id, species, dbh_class, tpa_unadj) %>%
-              group_by(plt_cn, plot_id, species, dbh_class) %>%
-              # note that TPA-unadj is for summed subplots; to get tpa for 
-              # an individual subplot need to multiply by four
-              summarise(tpa_unadj_big = sum(tpa_unadj, na.rm = TRUE)) %>%
-              ungroup(),
-            by = c('plt_cn' = 'plt_cn',
-                   'plot_id' = 'plot_id',
-                   'species' = 'species',
-                   'dbh_class' = 'dbh_class')) %>%
-  
-  left_join(treelist %>%
-              filter(tree_status == 'live') %>%
-              mutate(dbh_class = cut(dbh_in,
-                                     breaks = 
-                                       seq(from = 0, to = 100, by = 1),
-                                     labels = FALSE,
-                                     right = FALSE)) %>%
-              select(plt_cn, plot_id, species, dbh_class, tpa_unadj) %>%
-              group_by(plt_cn, plot_id, species, dbh_class) %>%
-              summarise(tpa_unadj_big = sum(tpa_unadj, na.rm = TRUE)) %>%
-              ungroup(),
-            by = c('prev_plt_cn' = 'plt_cn',
-                   'plot_id' = 'plot_id',
-                   'species' = 'species',
-                   'dbh_class' = 'dbh_class'),
-            suffix = c('.re', '.init')) %>%
-  
-  
-  
-  # fill in the NAs with 0s
-  mutate(tpa_unadj_little.init = ifelse(is.na(tpa_unadj_little.init),
-                                   0,
-                                   tpa_unadj_little.init),
-         tpa_unadj_big.init = ifelse(is.na(tpa_unadj_big.init),
-                                0,
-                                tpa_unadj_big.init),
-         tpa_unadj.init = tpa_unadj_little.init+tpa_unadj_big.init,
-         
-         tpa_unadj_little.re = ifelse(is.na(tpa_unadj_little.re),
-                                   0,
-                                   tpa_unadj_little.re),
-         tpa_unadj_big.re = ifelse(is.na(tpa_unadj_big.re),
-                                0,
-                                tpa_unadj_big.re),
-         tpa_unadj.re = tpa_unadj_little.re+tpa_unadj_big.re) %>%
-  select(plt_cn, prev_plt_cn, plot_id, species, dbh_class,
-         tpa_unadj.init, tpa_unadj.re) #%>%
-  
-  # ditch the smallest size class, which was counted inconsistently
-  #filter(dbh_class > 1)
 
   
 
@@ -1314,44 +1154,44 @@ untagged_data =
   # expand it to get 1 row per size bin and species 
   tidyr::expand(nesting(plt_cn, prev_plt_cn, plot_id),
          species = c('ABCO', 'CADE27', 'PILA', 'PIPO', 'PSME', 'QUKE', 'OTHER'),
-         dbh_class = 1:100) %>%
+         height_class = 1:54) %>%
 
   # add in the counts for the smallest size class from the seedlings 
   # data for the remeasurement
   left_join(seedlings %>%
-              mutate(dbh_class = 1) %>%
-              select(plt_cn, plot_id, species, dbh_class,
+              mutate(height_class = 1) %>%
+              select(plt_cn, plot_id, species, height_class,
                      count_little = count),
             by = c('plt_cn' = 'plt_cn',
                    'plot_id' = 'plot_id',
                    'species' = 'species',
-                   'dbh_class' = 'dbh_class')) %>%
+                   'height_class' = 'height_class')) %>%
   
   # add in the counts from the bigger size classes from the trees data 
   # for the remeasurement, **BUT ONLY INCLUDING UNTAGGED TREES**
   left_join(treelist %>%
               filter(is.na(prev_tre_cn) & tree_status=='live') %>%
-              mutate(dbh_class = cut(dbh_in,
+              mutate(height_class = cut(height_ft,
                                     breaks = 
-                                      seq(from = 0, to = 100, by = 1),
+                                      seq(from = 0, to = 270, by = 5),
                                     labels = FALSE,
                                     right = FALSE),
                      count_big = 1) %>%
-              select(plt_cn, plot_id, species, dbh_class, count_big) %>%
-              group_by(plt_cn, plot_id, species, dbh_class) %>%
+              select(plt_cn, plot_id, species, height_class, count_big) %>%
+              group_by(plt_cn, plot_id, species, height_class) %>%
               summarise(count_big = sum(count_big, na.rm = TRUE)) %>%
               ungroup(),
             by = c('plt_cn' = 'plt_cn',
                    'plot_id' = 'plot_id',
                    'species' = 'species',
-                   'dbh_class' = 'dbh_class')) %>%
+                   'height_class' = 'height_class')) %>%
   
   # fill in the missings with 0s
   mutate(count_little = ifelse(is.na(count_little), 0, count_little),
          count_big = ifelse(is.na(count_big), 0, count_big),
          count = count_little+count_big) %>%
   
-  select(plot_id, species, dbh_class, count)
+  select(plot_id, species, height_class, count)
 
 
 #### size classes metadata #####################################################
@@ -1362,13 +1202,13 @@ untagged_data =
 # of each bin
 size_metadata = 
   data.frame(bin_midpoint = 
-               seq(from = 0.5, to = 99.5, by = 1)) %>%
+               seq(from = 2.5, to = 267.5, by = 5)) %>%
   mutate(bin_id = cut(bin_midpoint,
-                      breaks = seq(from = 0, to = 100, by = 1),
+                      breaks = seq(from = 0, to = 270, by = 5),
                       labels = FALSE,
                       right = FALSE),
-         bin_lower = seq(from = 0, to = 99, by = 1),
-         bin_upper = seq(from = 1, to = 100, by = 1),
+         bin_lower = seq(from = 0, to = 265, by = 5),
+         bin_upper = seq(from = 5, to = 270, by = 5),
          
          # <5" dbh are measured on a 6.8' radius (.00333ac) microcplot
          # >= 5" dbh measured on a 24' radius (0.0415ac) subplot
@@ -1378,38 +1218,26 @@ size_metadata =
          # diameter is inconsistent, because we only need this info for the 
          # size classes included as responses in the recruitment submodel; 
          # min macroplot dbh is 24"
+         # assuming everything under 5' height is a seedling, and thus on a 
+         # microplot.
+         # call the others all 99 (we dont use them and they're not consistent, 
+         # but need values included for the stan code)
          plot_area_ac = 
            c(pi*(6.8**2)*4/43560, # seedlings on microplot
-             rep(pi*(6.8**2)*4/43560, times = 4), # saplings on microplot
-             rep(pi*(24**2)*4/43560, times = 19), # small trees on subplot
-             rep(pi*(58.9**2)*4/43560, times = 76)) # big trees macroplot; 
+             rep(99, times = 53)) # big trees macroplot; 
          # incoorectly assuming that the macroplot dbh is 24" everywhere (it 
          # varies) but it doesn't matter because this data doesn't get used 
          # anywhere; just cant have it be NA because stan wants the vector for 
          # the small classes
-         ) %>%
+         )
   
-  # get the median size of all live trees within each size class
-  left_join(
-    treelist %>%
-    filter(tree_status=='live') %>%
-    select(dbh_in) %>%
-    bind_rows(seedlings %>%
-              uncount(count) %>%
-              mutate(dbh_in = 0) %>%
-              select(dbh_in)) %>%
-    mutate(bin_id = cut(dbh_in,
-                      breaks = seq(from = 0, to = 100, by = 1),
-                      labels = FALSE,
-                      right = FALSE)) %>%
-    group_by(bin_id) %>%
-    summarise(dbh_in.mean = mean(dbh_in, na.rm = TRUE)) %>%
-    ungroup())
 
 
 # to avoid evicting big trees, the upper bound for the largest size class 
 # needs to be really high
-size_metadata[size_metadata$bin_id==100,'bin_upper'] = 400
+size_metadata[size_metadata$bin_id==54,'bin_upper'] = 1000
+
+size_metadata
 
 #### write results #############################################################
 
@@ -1479,7 +1307,3 @@ saveRDS(size_metadata,
                    '01-preprocessed',
                    'size_metadata.rds'))
 
-saveRDS(tph_data,
-        here::here('02-data',
-                   '01-preprocessed',
-                   'tph_data.rds'))

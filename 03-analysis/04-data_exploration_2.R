@@ -25,13 +25,13 @@ growth_data =
 growth_data$size1_g = pila_data$size1_g
 
 growth_data %>%
-ggplot(aes(x = dbh_m.init, y = size1_g-dbh_m.init))+
+ggplot(aes(x = height_scaled.init, y = size1_g-height_scaled.init))+
   geom_point()+
   geom_smooth(method = 'lm', formula = y ~ x + I(x**2))
 
 names(growth_data)
 # plot X distributions
-lapply(X = c('dbh_m.init','ba_scaled',
+lapply(X = c('height_scaled.init','ba_scaled',
              'cwd_dep90_scaled', 'cwd_mean_scaled'),
        FUN = function(v){
          ggplot(data = growth_data,
@@ -50,11 +50,11 @@ lapply(X = c('fire', 'wpbr'),
 # plot Y distribution
 response_growth = 
   ggplot(data = growth_data,
-       aes(x = size1_g))+
+       aes(x = size1_g*270*0.3048))+
   geom_histogram()+
   theme_minimal()+
   theme(text = element_text(size = 14))+
-  labs(y = 'N trees', x = 'DBH at remeasurement (m)')
+  labs(y = 'N trees', x = 'Height at remeasurement (m)')
 
 response_growth
 
@@ -66,9 +66,9 @@ ggsave(response_growth,
        height = 2.5, width = 5.5, units = 'in')
 
 # plot XX distributions
-lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
+lapply(X = c('height_scaled.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
        FUN = function(v_i){
-         lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
+         lapply(X = c('height_scaled.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
                 FUN = function(v_j){
                   ggplot(data = growth_data,
                          aes(x = .data[[v_i]], y = .data[[v_j]]))+
@@ -76,7 +76,7 @@ lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
                 })
        })
 # looks fine
-lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
+lapply(X = c('height_scaled.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
        FUN = function(v_i){
          lapply(X = c('fire', 'wpbr'),
                 FUN = function(v_j){
@@ -95,7 +95,7 @@ ggplot(data = growth_data,
 
 
 # plot XY distributions
-lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
+lapply(X = c('height_scaled.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
        FUN = function(v){
          ggplot(data = growth_data,
                 aes(x = .data[[v]], y = size1_g))+
@@ -114,7 +114,7 @@ lapply(X = c('fire', 'wpbr'),
 lapply(X = c('ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
        FUN = function(v){
          ggplot(data = growth_data,
-                aes(x = dbh_m.init, 
+                aes(x = height_scaled.init, 
                     y = size1_g, 
                     color = cut(.data[[v]],
                                breaks = quantile(.data[[v]], probs = c(0, 0.33, 0.66, 1)),
@@ -126,7 +126,7 @@ lapply(X = c('ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
 lapply(X = c('fire', 'wpbr'),
        FUN = function(v){
          ggplot(data = growth_data,
-                aes(x = dbh_m.init,
+                aes(x = height_scaled.init,
                     y = size1_g,
                     color = as.factor(.data[[v]])))+
            geom_point()+
@@ -145,7 +145,7 @@ surv_data$surv = pila_data$surv
 
 names(surv_data)
 # plot X distributions
-lapply(X = c('dbh_m.init','ba_scaled',
+lapply(X = c('height_scaled.init','ba_scaled',
              'cwd_dep90_scaled', 'cwd_mean_scaled'),
        FUN = function(v){
          ggplot(data = surv_data,
@@ -155,11 +155,13 @@ lapply(X = c('dbh_m.init','ba_scaled',
 
 explanatory_size = 
   ggplot(data = surv_data,
-         aes(x = dbh_m.init))+
+         aes(x = height_scaled.init*270*0.3048))+
   geom_histogram()+
   theme_minimal()+
   theme(text = element_text(size = 14))+
-  labs(x = 'DBH (m)', y = 'N trees')
+  labs(x = 'Height (m)', y = 'N trees')
+
+explanatory_size
 
 ggsave(explanatory_size,
        filename = here::here('04-communication',
@@ -277,9 +279,9 @@ ggsave(response_surv,
        height = 2.5, width = 5.5, units = 'in')
 
 # plot XX distributions
-lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
+lapply(X = c('height_scaled.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
        FUN = function(v_i){
-         lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
+         lapply(X = c('height_scaled.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
                 FUN = function(v_j){
                   ggplot(data = surv_data,
                          aes(x = .data[[v_i]], y = .data[[v_j]]))+
@@ -287,7 +289,7 @@ lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
                 })
        })
 # looks fine
-lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
+lapply(X = c('height_scaled.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
        FUN = function(v_i){
          lapply(X = c('fire', 'wpbr'),
                 FUN = function(v_j){
@@ -306,7 +308,7 @@ ggplot(data = surv_data,
 
 
 # plot XY distributions
-lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
+lapply(X = c('height_scaled.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
        FUN = function(v){
          ggplot(data = surv_data,
                 aes(y = .data[[v]], x = as.factor(surv)))+
@@ -315,7 +317,7 @@ lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
            geom_boxplot(width = 0.1, position = position_nudge(x = -0.25))
        })
 
-lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
+lapply(X = c('height_scaled.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
        FUN = function(v){
          ggplot(data = surv_data,
                 aes(x = .data[[v]], y = surv))+
@@ -326,7 +328,7 @@ lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
 surv_data$ecosub.i = pila_data$ecosub_s
 
 surv_data %>%
-  filter(dbh_m.init>2) %>%
+  filter(height_scaled.init>0.9) %>%
   print(width = Inf)
 
 lapply(X = c('fire', 'wpbr'),
@@ -340,7 +342,7 @@ lapply(X = c('fire', 'wpbr'),
 lapply(X = c('ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
        FUN = function(v){
          ggplot(data = surv_data,
-                aes(x = dbh_m.init, 
+                aes(x = height_scaled.init, 
                     y = surv, 
                     color = cut(.data[[v]],
                                breaks = c(-10, -1, 1, 10),
@@ -352,7 +354,7 @@ lapply(X = c('ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
 lapply(X = c('fire', 'wpbr'),
        FUN = function(v){
          ggplot(data = surv_data,
-                aes(x = dbh_m.init,
+                aes(x = height_scaled.init,
                     y = surv,
                     color = as.factor(.data[[v]])))+
            geom_jitter(width = 0, height = 0.1, size = 0)+
@@ -404,7 +406,7 @@ readRDS(here::here('02-data',
 # check TPA of bigger trees on each subplots
 sapply(X = 1:nrow(pila_data$n),
        FUN = function(subplot){
-         sum(pila_data$n[subplot,2:100])
+         sum(pila_data$n[subplot,2:54])
        }) %>%
   summary()
 

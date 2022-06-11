@@ -35,44 +35,47 @@ unique(growth_data$tree_status.re)
 nrow(growth_data) == length(unique(growth_data$tre_cn))
 
 ggplot(data = growth_data,
-       aes(x = dbh_in.init))+
+       aes(x = height_ft.init))+
   geom_histogram()
 
 ggplot(data = growth_data,
-       aes(x = dbh_in.re))+
+       aes(x = height_ft.re))+
   geom_histogram()
 
-growth_data %>% filter(is.na(dbh_in.re)) %>% print(width = Inf)
+growth_data %>% filter(is.na(height_ft.re)) %>% print(width = Inf)
 
-summary(growth_data$dbh_in.re)
+summary(growth_data$height_ft.re)
 
 ggplot(data = growth_data,
-       aes(x = dbh_in.re-dbh_in.init))+
+       aes(x = height_ft.re-height_ft.init))+
   geom_histogram()
 
 ggplot(data = growth_data,
        aes(x = species))+
   geom_bar()
 
-growth_data %>% filter(dbh_in.re-dbh_in.init < -50) %>% print(width = Inf)
+growth_data %>% filter(height_ft.re-height_ft.init < -50) %>% print(width = Inf)
 
 ggplot(data = growth_data,
-       aes(x = dbh_in.init, color = species))+
+       aes(x = height_ft.init, color = species))+
   geom_density()+
   theme_minimal()
 
 ggplot(data = growth_data,
-       aes(x = dbh_in.re, color = species))+
+       aes(x = height_ft.re, color = species))+
   geom_density()+
   theme_minimal()
 
 ggplot(data = growth_data,
-       aes(x = dbh_in.re-dbh_in.init, color = species))+
+       aes(x = height_ft.re-height_ft.init, color = species))+
   geom_density()+
   theme_minimal()+
   scale_x_continuous(limits = c(-5, 10))
 
-
+ggplot(data = growth_data,
+       aes(x = height_ft.init, y = height_ft.re-height_ft.init))+
+  geom_point(size = 0)+
+  geom_smooth(method = 'lm', formula = y~x+I(x**2))
 
 #### mortality data ############################################################
 
@@ -104,14 +107,14 @@ ggplot(data = mort_data,
 # how many of the big trees that died were harvested?
 
 ggplot(data = mort_data %>% filter(species=='PILA'),
-       aes(x = dbh_in.init, y = as.numeric(survived)))+
+       aes(x = height_ft.init, y = as.numeric(survived)))+
   #geom_jitter(height = 0.1, width = 0)+
   geom_smooth(method = 'lm', formula = y~x+I(x**2))+
   geom_jitter(height = 0.1, width = 0, aes(color = tree_status.re))
 
 # the biggest harvested tree was 59.1" (1.5m); harvests arent what killed the big ones
 
-max(mort_data %>% filter(species=='PILA'&tree_status.re=='harvested') %>% pull(dbh_in.init))
+max(mort_data %>% filter(species=='PILA'&tree_status.re=='harvested') %>% pull(height_ft.init))
 
 #### sizedist data #############################################################
 
@@ -121,12 +124,11 @@ summary(sizedist_data)
 
 ggplot(data = 
          sizedist_data %>%
-         group_by(plot_id, dbh_class) %>%
+         group_by(plot_id, height_class) %>%
          summarise(tpa_unadj.init = sum(tpa_unadj.init)) %>%
          ungroup(),
-       aes(x = factor(dbh_class), y = tpa_unadj.init))+
-  geom_boxplot(outlier.shape = NA)+
-  scale_y_continuous(limits = c(0, 100))
+       aes(x = factor(height_class), y = tpa_unadj.init))+
+  geom_boxplot()
 
 # this LOOKS like a lot of zeros, but the bins are so small that most of them 
 # are empty the vast majority of the time. spot-checking individual plots confirms 
@@ -140,7 +142,7 @@ sizedist_data %>%
   geom_histogram()
 
 sizedist_data %>%
-  filter(dbh_class >= 2) %>%
+  filter(height_class >= 2) %>%
   group_by(plot_id) %>%
   summarise(tpa_unadj.init = sum(tpa_unadj.init)) %>%
   ungroup() %>%

@@ -21,12 +21,12 @@ tph_vector =
 
   sizedist_data %>%
       filter(species=='PILA') %>%
-      group_by(dbh_class) %>%
+      group_by(height_class) %>%
       summarise(mean_tpa.init = mean(tpa_unadj.init),
                 se_tpa.init = sd(tpa_unadj.init)/sqrt(n())) %>%
       ungroup() %>%
       mutate(source = 'subset') %>%
-  arrange(dbh_class) %>%
+  arrange(height_class) %>%
   mutate(tph = mean_tpa.init / 0.404686) %>%
   pull(tph)
 
@@ -211,7 +211,7 @@ sizedist_to_project =
                        '02-for_analysis',
                        'union_plots.rds'))
   ) %>%
-  arrange(plot_id.i, dbh_class)
+  arrange(plot_id.i, height_class)
   
 
 sizedist_to_project$nprime = 
@@ -219,7 +219,7 @@ sizedist_to_project$nprime =
          FUN = function(p){
            post_distribution = 
              A_observed[,,p] %*%
-             matrix(nrow = 100, ncol = 1,
+             matrix(nrow = 54, ncol = 1,
                     data = sizedist_to_project[sizedist_to_project$plot_id.i==p,]$tpa_unadj.init)
            
            return(post_distribution)
@@ -261,17 +261,17 @@ sizedist_to_project %>%
 
 sizedist_to_project = 
   sizedist_to_project %>%
-  left_join(
-    data.frame(dbh_class = 1:100,
-               dbh_m = seq(from = 0.0127, to = 2.5273, by = 0.0254)) %>%
-      mutate(ba_m2 = pi*((dbh_m/2)**2))
-  ) %>%
+  #left_join(
+  #  data.frame(dbh_class = 1:100,
+  #             dbh_m = seq(from = 0.0127, to = 2.5273, by = 0.0254)) %>%
+  #    mutate(ba_m2 = pi*((dbh_m/2)**2))
+  #) %>%
   mutate(tph_init = tpa_unadj.init/0.404686,
          tph_re = tpa_unadj.re / 0.404686,
-         tph_pred = nprime / 0.404686) %>%
-  mutate(ba_m2ha_init = ba_m2*tph_init,
-         ba_m2ha_re = ba_m2*tph_re,
-         ba_m2ha_pred = ba_m2*tph_pred)
+         tph_pred = nprime / 0.404686)# %>%
+  #mutate(ba_m2ha_init = ba_m2*tph_init,
+  #       ba_m2ha_re = ba_m2*tph_re,
+  #       ba_m2ha_pred = ba_m2*tph_pred)
 
 sizedist_to_project %>%
   group_by(plot_id) %>%
@@ -289,20 +289,21 @@ sizedist_to_project %>%
 head(sizedist_to_project)
 
 sizedist_to_project %>%
-  group_by(dbh_class) %>%
+  group_by(height_class) %>%
   summarise(tph_init = mean(tph_init),
             tph_re = mean(tph_re),
             tph_pred = mean(tph_pred),
-            ba_init = mean(ba_m2ha_init),
-            ba_re = mean(ba_m2ha_re),
-            ba_pred = mean(ba_m2ha_pred)) %>%
+            #ba_init = mean(ba_m2ha_init),
+            #ba_re = mean(ba_m2ha_re),
+            #ba_pred = mean(ba_m2ha_pred)
+            ) %>%
   ungroup() %>%
-  pivot_longer(cols = c(-dbh_class),
+  pivot_longer(cols = c(-height_class),
                names_to = c('stat', 'timestep'),
                values_to = 'value',
                names_sep = '_') %>%
   filter(stat == 'tph') %>%
-  ggplot(aes(x = dbh_class, y = value, color = timestep))+
+  ggplot(aes(x = height_class, y = value, color = timestep))+
   geom_point()+
   theme_minimal()+
   geom_smooth(method= 'loess')
