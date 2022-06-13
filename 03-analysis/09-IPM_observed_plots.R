@@ -84,13 +84,13 @@ size_metadata =
   # convert to metric
   mutate(bin_midpoint = bin_midpoint * 0.0254,
          bin_lower = bin_lower * 0.0254,
-         bin_upper = bin_upper * 0.0254,
-         dbh_m.mean = dbh_in.mean * 0.0254) 
+         bin_upper = bin_upper * 0.0254) 
 
 size_metadata$r = 
-  readRDS(here::here('02-data',
-                       '02-for_analysis',
-                       'pila_training.rds'))$r
+  #readRDS(here::here('02-data',
+  #                     '02-for_analysis',
+  #                     'pila_training.rds'))$r
+  c(1, rep(0, times = 98))
 
 plots.pila = 
   readRDS(here::here('02-data', '01-preprocessed', 'plot_data.rds'))%>%
@@ -127,15 +127,22 @@ A_observed =
                        expand(nesting(intercept, fire, wpbr, ba_scaled,
                                       cwd_dep90_scaled,cwd_mean_scaled),
                               dbh = size_metadata$bin_midpoint) %>%
-                       mutate(dbh_fire = dbh*fire,
+                       mutate(dbh2 = dbh**2,
+                              dbh_fire = dbh*fire,
+                              dbh2_fire = dbh2*fire,
                               dbh_wpbr = dbh*wpbr,
+                              dbh2_wpbr = dbh2*wpbr,
                               dbh_ba = dbh*ba_scaled,
+                              dbh2_ba = dbh2*ba_scaled,
                               dbh_cwd_dep90 = dbh*cwd_dep90_scaled,
-                              dbh_cwd_mean = dbh*cwd_mean_scaled) %>%
-                       select(intercept, dbh, fire, wpbr, ba_scaled,
+                              dbh2_cwd_dep90 = dbh2*cwd_dep90_scaled,
+                              dbh_cwd_mean = dbh*cwd_mean_scaled,
+                              dbh2_cwd_mean = dbh2*cwd_mean_scaled) %>%
+                       select(intercept, dbh, dbh2, fire, wpbr, ba_scaled,
                               cwd_dep90_scaled, cwd_mean_scaled, 
-                              dbh_fire, dbh_wpbr, dbh_ba,
-                              dbh_cwd_dep90, dbh_cwd_mean) %>%
+                              dbh_fire,dbh2_fire, dbh_wpbr, dbh2_wpbr,dbh_ba,
+                              dbh2_ba, dbh_cwd_dep90,dbh2_cwd_dep90, 
+                              dbh_cwd_mean, dbh2_cwd_mean) %>%
                        as.matrix()
                      
                      X_s = 

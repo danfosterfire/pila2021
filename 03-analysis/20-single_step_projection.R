@@ -12,6 +12,7 @@ tph_data =
                      '01-preprocessed',
                      'tph_data.rds'))
 
+
 sizedist_data = 
   readRDS(here::here('02-data',
                      '01-preprocessed',
@@ -51,7 +52,7 @@ nprime_hypotheticals =
   array(dim = list(dim(A_hypotheticals)[1],
                    dim(A_hypotheticals)[3],
                    dim(A_hypotheticals)[4]),
-        dimnames = list(dbh_class = 1:100,
+        dimnames = list(dbh_class = 1:99,
                         plot = 1:9,
                         draw = 1:4000),
         data = 
@@ -63,7 +64,7 @@ nprime_hypotheticals =
                             
                             post_distribution = 
                               A_hypotheticals[,,p,draw] %*%
-                              matrix(nrow = 100, ncol = 1, data = tph_vector)
+                              matrix(nrow = 99, ncol = 1, data = tph_vector)
                             
                             return(post_distribution)
                             
@@ -77,9 +78,9 @@ nprime_hypotheticals =
 hypothetical_results_df = 
   expand.grid(plot = 1:9,
               draw = 1:4000,
-              dbh_class = 1:100) %>%
+              dbh_class = 1:99) %>%
   left_join(
-    data.frame(dbh_class = 1:100,
+    data.frame(dbh_class = 1:99,
                tph_initial = tph_vector)
   ) %>%
   arrange(plot, draw, dbh_class)
@@ -118,7 +119,8 @@ tph_figure =
   theme_minimal()+
   theme(axis.text.y = element_blank())+
   labs(y = 'Posterior Density',
-       x = 'Stem density (trees / ha)')
+       x = 'Stem density (trees / ha)')+
+  scale_x_continuous(limits = c(0, 75))
 
 tph_figure
 
@@ -161,7 +163,8 @@ ba_figure =
   theme_minimal()+
   theme(axis.text.y = element_blank())+
   labs(y = 'Posterior Density',
-       x = 'Basal Area (m^2 / ha)')
+       x = 'Basal Area (m^2 / ha)')+
+  scale_x_continuous(limits = c(0, 7))
 
 ba_figure
 
@@ -188,16 +191,6 @@ posterior %>%
 
 #### multiply transition matrix by initial size distribution: observed plots ###
 
-head(sizedist_data)
-
-readRDS(here::here('02-data',
-                   '02-for_analysis',
-                   'union_ecosubs.rds'))
-
-readRDS(here::here('02-data',
-                   '01-preprocessed',
-                   'plot_data.rds'))
-
 # start with the size distribution data
 sizedist_to_project = 
   sizedist_data %>%
@@ -219,7 +212,7 @@ sizedist_to_project$nprime =
          FUN = function(p){
            post_distribution = 
              A_observed[,,p] %*%
-             matrix(nrow = 100, ncol = 1,
+             matrix(nrow = 99, ncol = 1,
                     data = sizedist_to_project[sizedist_to_project$plot_id.i==p,]$tpa_unadj.init)
            
            return(post_distribution)
@@ -256,8 +249,8 @@ sizedist_to_project %>%
   geom_point(size = 0, alpha = 0.5)+
   geom_abline(intercept = 0, slope = 1, color = 'red')+
   geom_smooth(method = 'lm')+
-  theme_minimal()+
-  coord_cartesian(xlim = c(0, 2500), ylim = c(0, 2500))
+  theme_minimal()
+  #coord_cartesian(xlim = c(0, 2500), ylim = c(0, 2500))
 
 sizedist_to_project = 
   sizedist_to_project %>%
@@ -303,9 +296,9 @@ sizedist_to_project %>%
                names_sep = '_') %>%
   filter(stat == 'tph') %>%
   ggplot(aes(x = dbh_class, y = value, color = timestep))+
-  geom_point()+
+  #geom_point()+
   theme_minimal()+
-  geom_smooth(method= 'loess')
+  geom_line(lwd = 1)
 
 
 #### scratch ###################################################################

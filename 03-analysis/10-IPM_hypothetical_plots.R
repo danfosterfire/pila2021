@@ -18,10 +18,20 @@ hypothetical_plots =
                       'Low Drought', 'High Drought', 'Wet Site', 'Dry Site'))
 
 # load mcmc results
-posterior = readRDS(here::here('02-data',
+posterior_s = readRDS(here::here('02-data',
                                '03-results',
-                               'real_fits',
-                               'posterior_draws.rds'))
+                               'surv_post.rds'))
+
+posterior_g = readRDS(here::here('02-data',
+                               '03-results',
+                               'growth_post.rds'))
+
+posterior_f = readRDS(here::here('02-data',
+                               '03-results',
+                               'fecd_post.rds'))
+
+
+
 
 size_metadata = 
   readRDS(here::here('02-data',
@@ -30,14 +40,13 @@ size_metadata =
   # convert to metric
   mutate(bin_midpoint = bin_midpoint * 0.0254,
          bin_lower = bin_lower * 0.0254,
-         bin_upper = bin_upper * 0.0254,
-         dbh_m.mean = dbh_in.mean * 0.0254) 
+         bin_upper = bin_upper * 0.0254) 
 
 size_metadata$r = 
-  readRDS(here::here('02-data',
-                       '02-for_analysis',
-                       'pila_training.rds'))$r
-
+  #readRDS(here::here('02-data',
+  #                     '02-for_analysis',
+  #                     'pila_training.rds'))$r
+  c(1, rep(0, times = 98))
 
 #### transitions ###############################################################
 
@@ -46,41 +55,41 @@ A_hypotheticals =
   array(dim = c(nrow(size_metadata), # sizeclass to
                 nrow(size_metadata), # sizeclass from
                 nrow(hypothetical_plots), # plots
-                nrow(posterior)), # posterior draws
+                nrow(posterior_s)), # posterior draws
         dimnames = list('class_to' = 1:nrow(size_metadata),
                         'class_from' = 1:nrow(size_metadata),
                         'plot' = 1:nrow(hypothetical_plots),
-                        'draw' = 1:nrow(posterior)),
+                        'draw' = 1:nrow(posterior_s)),
         data = 
-          sapply(X = 1:nrow(posterior),
+          sapply(X = 1:nrow(posterior_s),
                  FUN = function(draw){
                    
                    # get beta_s for the current draw
                    beta_s = 
-                     posterior %>%
-                     select(contains('beta_s')) %>%
+                     posterior_s %>%
+                     select(contains('beta')) %>%
                      slice(draw) %>%
                      as.data.frame() %>%
                      as.numeric()
                    
                    beta_g = 
-                     posterior %>%
-                     select(contains('beta_g')) %>%
+                     posterior_g %>%
+                     select(contains('beta')) %>%
                      slice(draw) %>%
                      as.data.frame() %>%
                      as.numeric()
                    
                    beta_f = 
-                     posterior %>%
-                     select(contains('beta_f')) %>%
+                     posterior_f %>%
+                     select(contains('beta')) %>%
                      slice(draw) %>%
                      as.data.frame() %>%
                      as.numeric()
                    
                    sigmaEpsilon_g = 
-                     posterior %>%
+                     posterior_g %>%
                      slice(draw) %>%
-                     pull(sigmaEpsilon_g) %>%
+                     pull(sigma_epsilon) %>%
                      as.numeric()
                    
                    sapply(X = 1:nrow(hypothetical_plots),
@@ -89,23 +98,6 @@ A_hypotheticals =
                             # construct explanatory variable matrix for survival 
                             # for the current plot
                             X_g = 
-                              hypothetical_plots %>%
-                              slice(plot) %>%
-                              expand(nesting(intercept, fire, wpbr, ba_scaled,
-                                             cwd_dep90_scaled,cwd_mean_scaled),
-                                     dbh = size_metadata$bin_midpoint) %>%
-                              mutate(dbh_fire = dbh*fire,
-                                     dbh_wpbr = dbh*wpbr,
-                                     dbh_ba = dbh*ba_scaled,
-                                     dbh_cwd_dep90 = dbh*cwd_dep90_scaled,
-                                     dbh_cwd_mean = dbh*cwd_mean_scaled) %>%
-                              select(intercept, dbh, fire, wpbr, ba_scaled,
-                                     cwd_dep90_scaled, cwd_mean_scaled, 
-                                     dbh_fire, dbh_wpbr, dbh_ba,
-                                     dbh_cwd_dep90, dbh_cwd_mean) %>%
-                              as.matrix()
-                            
-                            X_sf = 
                               hypothetical_plots %>%
                               slice(plot) %>%
                               expand(nesting(intercept, fire, wpbr, ba_scaled,
@@ -131,13 +123,59 @@ A_hypotheticals =
                               as.matrix()
                             
                             
+                            X_s = 
+                              hypothetical_plots %>%
+                              slice(plot) %>%
+                              expand(nesting(intercept, fire, wpbr, ba_scaled,
+                                             cwd_dep90_scaled,cwd_mean_scaled),
+                                     dbh = size_metadata$bin_midpoint) %>%
+                              mutate(dbh2 = dbh**2,
+                                     dbh_fire = dbh*fire,
+                                     dbh2_fire = dbh2*fire,
+                                     dbh_wpbr = dbh*wpbr,
+                                     dbh2_wpbr = dbh2*wpbr,
+                                     dbh_ba = dbh*ba_scaled,
+                                     dbh2_ba = dbh2*ba_scaled,
+                                     dbh_cwd_dep90 = dbh*cwd_dep90_scaled,
+                                     dbh2_cwd_dep90 = dbh2*cwd_dep90_scaled,
+                                     dbh_cwd_mean = dbh*cwd_mean_scaled,
+                                     dbh2_cwd_mean = dbh2*cwd_mean_scaled) %>%
+                              select(intercept, dbh, dbh2, fire, wpbr, ba_scaled,
+                                     cwd_dep90_scaled, cwd_mean_scaled, 
+                                     dbh_fire, dbh2_fire, dbh_wpbr, dbh2_wpbr, 
+                                     dbh_ba, dbh2_ba,
+                                     dbh_cwd_dep90, dbh2_cwd_dep90,
+                                     dbh_cwd_mean, dbh2_cwd_mean) %>%
+                              as.matrix()
+                            
+                            X_f = 
+                              hypothetical_plots %>%
+                              slice(plot) %>%
+                              expand(nesting(intercept, fire, wpbr, ba_scaled,
+                                             cwd_dep90_scaled,cwd_mean_scaled),
+                                     dbh = size_metadata$bin_midpoint) %>%
+                              mutate(dbh2 = dbh**2,
+                                     dbh_fire = dbh*fire,
+                                     dbh2_fire = dbh2*fire,
+                                     dbh_wpbr = dbh*wpbr,
+                                     dbh2_wpbr = dbh2*wpbr,
+                                     dbh_ba = dbh*ba_scaled,
+                                     dbh2_ba = dbh2*ba_scaled,
+                                     dbh_cwd_dep90 = dbh*cwd_dep90_scaled,
+                                     dbh2_cwd_dep90 = dbh2*cwd_dep90_scaled,
+                                     dbh_cwd_mean = dbh*cwd_mean_scaled,
+                                     dbh2_cwd_mean = dbh2*cwd_mean_scaled) %>%
+                              select(intercept, dbh) %>%
+                              as.matrix()
+                            
+                            
                             # calculate size_from length vector of survival 
                             # probabilities on this plot with this parameter draw
-                            p = boot::inv.logit(as.numeric(X_sf %*% beta_s))
+                            p = boot::inv.logit(as.numeric(X_s %*% beta_s))
                             
                             mu = as.numeric(X_g %*% beta_g)
                             
-                            f = exp(as.numeric(X_sf %*% beta_f))
+                            f = exp(as.numeric(X_f %*% beta_f))
                             
                             sapply(X = 1:nrow(size_metadata),
                                    FUN = function(class_from){

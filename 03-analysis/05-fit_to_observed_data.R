@@ -62,6 +62,9 @@ saveRDS(surv_posterior, here::here('02-data', '03-results', 'surv_post.rds'))
 
 #### growth ####################################################################
 
+library(posterior)
+library(bayesplot)
+
 # build model
 growth_model = cmdstan_model(here::here('03-analysis', 'growth_model.stan'))
 
@@ -72,8 +75,15 @@ growth_fit =
     parallel_chains = 4,
     output_dir = here::here('02-data', '03-results'),
     output_basename = 'pila_growth',
-    seed = 020190,
-    adapt_delta = 0.99,
+    seed = 112188,
+    adapt_delta = 0.9,
+    init = 
+      list(
+        list('beta' = c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)),
+        list('beta' = c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)),
+        list('beta' = c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)),
+        list('beta' = c(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+      )
   )
 
 # check summary

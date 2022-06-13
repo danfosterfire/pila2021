@@ -4,24 +4,23 @@ library(cmdstanr)
 library(posterior)
 library(bayesplot)
 
+#### survival ##################################################################
+
 fitted_model = readRDS(here::here('02-data',
                                   '03-results',
-                                  'real_fits',
-                                  'pila.rds'))
-
-pila_training = readRDS(here::here('02-data',
-                                   '02-for_analysis',
-                                   'pila_training.rds'))
-
-#### survival ##################################################################
+                                  'surv_fit.rds'))
 
 samples = as_draws_df(fitted_model$draws())
 
+pila_training = readRDS(here::here('02-data',
+                                   '02-for_analysis',
+                                   'pila_mort_training.rds'))
+
 # simulating one data set per draw
 
-samples.beta_s = samples %>% select(contains('beta_s'))
-samples.ecoEffect_s = samples %>% select(contains('ecoEffect_s')) %>% as.data.frame()
-samples.plotEffect_s = samples %>% select(contains('plotEffect_s')) %>% as.data.frame()
+samples.beta_s = samples %>% select(contains('beta'))
+samples.ecoEffect_s = samples %>% select(contains('effect_ecosub')) %>% as.data.frame()
+samples.plotEffect_s = samples %>% select(contains('effect_plot')) %>% as.data.frame()
 
 
 mort_retrodictions = 
@@ -30,16 +29,16 @@ mort_retrodictions =
                  FUN = function(i){
                    beta_s = as.numeric(samples.beta_s[i,])
                    logitp = 
-                     as.numeric(pila_training$X_s %*% beta_s)+
-                     as.numeric(samples.ecoEffect_s[i,])[pila_training$ecosub_s]+
-                     as.numeric(samples.plotEffect_s[i,])[pila_training$plotid_s]
+                     as.numeric(pila_training$X %*% beta_s)+
+                     as.numeric(samples.ecoEffect_s[i,])[pila_training$ecosub_id]+
+                     as.numeric(samples.plotEffect_s[i,])[pila_training$plot_id]
                    p = boot::inv.logit(logitp)
-                   surv_sim = rbinom(n = pila_training$N_s, 
+                   surv_sim = rbinom(n = pila_training$N, 
                                  size = 1, 
                                  prob = p)
                    
                    result = 
-                     pila_training$X_s %>% 
+                     pila_training$X %>% 
                      as_tibble() %>%
                      rownames_to_column('tree_id')
                    result$logitp = logitp
@@ -63,16 +62,16 @@ do.call('bind_rows',
                FUN = function(i){
                  beta_s = as.numeric(samples.beta_s[i,])
                  logitp = 
-                   as.numeric(pila_training$X_s %*% beta_s)+
-                   as.numeric(samples.ecoEffect_s[i,])[pila_training$ecosub_s]+
-                   as.numeric(samples.plotEffect_s[i,])[pila_training$plotid_s]
+                   as.numeric(pila_training$X %*% beta_s)+
+                   as.numeric(samples.ecoEffect_s[i,])[pila_training$ecosub_id]+
+                   as.numeric(samples.plotEffect_s[i,])[pila_training$plot_id]
                  p = boot::inv.logit(logitp)
-                 surv_sim = rbinom(n = pila_training$N_s, 
-                               size = 1, 
-                               prob = p)
+                 surv_sim = rbinom(n = pila_training$N, 
+                                   size = 1, 
+                                   prob = p)
                  
                  result = 
-                   pila_training$X_s %>% 
+                   pila_training$X %>% 
                    as_tibble() %>%
                    rownames_to_column('tree_id')
                  result$logitp = logitp
@@ -133,30 +132,43 @@ ggsave(surv_retrodictions_plot,
 
 #### growth ####################################################################
 
-samples.beta_g = samples %>% select(contains('beta_g'))
-samples.ecoEffect_g = samples %>% select(contains('ecoEffect_g')) %>% as.data.frame()
-samples.plotEffect_g = samples %>% select(contains('plotEffect_g')) %>% as.data.frame()
+
+fitted_model = readRDS(here::here('02-data',
+                                  '03-results',
+                                  'growth_fit.rds'))
+
+samples = as_draws_df(fitted_model$draws())
+
+pila_training = readRDS(here::here('02-data',
+                                   '02-for_analysis',
+                                   'pila_growth_training.rds'))
+
+
+
+samples.beta_g = samples %>% select(contains('beta'))
+samples.ecoEffect_g = samples %>% select(contains('effect_ecosub')) %>% as.data.frame()
+samples.plotEffect_g = samples %>% select(contains('effect_plot')) %>% as.data.frame()
 growth_retrodictions = 
   do.call('bind_rows',
           lapply(X = 1:nrow(samples),
                  FUN = function(i){
                    beta_g = as.numeric(samples.beta_g[i,])
                    mu = 
-                     as.numeric(pila_training$X_g %*% beta_g)+
-                     as.numeric(samples.ecoEffect_g[i,])[pila_training$ecosub_g]+
-                     as.numeric(samples.plotEffect_g[i,])[pila_training$plotid_g]
-                   size1_sim = truncnorm::rtruncnorm(n = pila_training$N_g,
+                     as.numeric(pila_training$X %*% beta_g)+
+                     as.numeric(samples.ecoEffect_g[i,])[pila_training$ecosub_id]+
+                     as.numeric(samples.plotEffect_g[i,])[pila_training$plot_id]
+                   size1_sim = truncnorm::rtruncnorm(n = pila_training$N,
                                                      a = 0,
                                                      mean = mu,
-                                                     sd = samples$sigmaEpsilon_g[i])
+                                                     sd = samples$sigma_epsilon[i])
                    
                    result = 
-                     pila_training$X_g %>% 
+                     pila_training$X %>% 
                      as_tibble() %>%
                      rownames_to_column('tree_id')
                    result$mu = mu
                    result$size1_sim = size1_sim
-                   result$size1_true = pila_training$size1_g
+                   result$size1_true = pila_training$size1
                    result$iter = i
                    return(result)
                  }))
@@ -196,6 +208,8 @@ growth_retrodictions_plot2 =
   geom_ribbon(aes(x = size1_sim.50, ymin = size1_sim.025, ymax = size1_sim.975, y = size1_sim.50),
               alpha = 0.2)+
   geom_abline(intercept = 0, slope = 1, color = 'blue')
+
+growth_retrodictions_plot2
 
 growth_retrodictions_plot2+
   coord_cartesian(xlim = c(0, 0.25), ylim = c(0, 0.25))+
