@@ -485,6 +485,47 @@ basal_area_plot =
 
 basal_area_plot
 
+head(plot_data)
+
+hist(plot_data$pila_ba_m2ha.re-plot_data$pila_ba_m2ha.init)
+
+plot_data$pila_ba_delta = plot_data$pila_ba_m2ha.re-plot_data$pila_ba_m2ha.init
+
+libary(lme4)
+library(glmmTMB)
+ba_delta_fit = glmmTMB(data = plot_data,
+                          pila_ba_delta ~ fire+wpbr+ba_scaled+cwd_dep90_scaled+cwd_mean_scaled+(1|ecosubcd))
+
+summary(ba_delta_fit)
+
+library(DHARMa)
+
+plotResiduals(ba_delta_fit)
+
+plot_data$resid =resid(ba_delta_fit)
+
+plot_data$predicted = predict(ba_delta_fit)
+
+ggplot(plot_data,
+       aes(x = resid))+
+  geom_histogram()
+
+ggplot(plot_data,
+       aes(y = resid, x = predicted))+
+  geom_point()+
+  geom_smooth(method = 'lm')
+
+ggplot(plot_data,
+       aes(y = resid**2, x = predicted))+
+  geom_point()+
+  geom_smooth(method = 'lm')
+
+plot_data %>%
+  select(plot_id, pila_ba_m2ha.init, pila_ba_m2ha.re) %>%
+  pivot_longer(cols = (-plot_id),
+               names_to = c('desc', 'timestep'),
+               names_sep = '\\.',
+               values_to = 'value')
 
 
 sizedist_data.pila %>%
