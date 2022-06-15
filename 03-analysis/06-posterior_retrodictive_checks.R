@@ -224,191 +224,60 @@ ggsave(growth_retrodictions_plot2,
 
 #### recruitment ###############################################################
 
+fitted_model = readRDS(here::here('02-data',
+                                  '03-results',
+                                  'fecd_fit.rds'))
 
-samples.beta_f = samples %>% select(contains('beta_f'))
-samples.ecoEffect_f = samples %>% select(contains('ecoEFfect_f'))
+samples = as_draws_df(fitted_model$draws())
+
+pila_training = readRDS(here::here('02-data',
+                                   '02-for_analysis',
+                                   'pila_fecd_training.rds'))
+
+samples.beta_f = samples %>% select(contains('beta'))
 
 recruitment.retrodictions = 
   do.call('bind_rows',
           lapply(X = 1:nrow(samples),
                  FUN = function(i){
                    beta_f = as.numeric(samples.beta_f[i,])
-                   beta_g = as.numeric(samples.beta_g[i,])
-                   beta_s = as.numeric(samples.beta_s[i,])
                    
                    logf = 
-                     as.numeric(pila_training$X_r %*% beta_f)+
-                     as.numeric(samples.ecoEffect_f[i,])[pila_training$ecosub_r]
-                   
-                   mu = 
-                     as.numeric(pila_training$X_rg %*% beta_g)+
-                     as.numeric(samples.ecoEffect_g[i,])[pila_training$ecosub_r]+
-                     as.numeric(samples.plotEffect_g[i,])[pila_training$plotid_r]
-                   
-                   logitp = 
-                     as.numeric(pila_training$X_r %*% beta_s)+
-                     as.numeric(samples.ecoEffect_s[i,])[pila_training$ecosub_r]+
-                     as.numeric(samples.plotEffect_s[i,])[pila_training$plotid_r]
-                   
-                   s = 
-                     matrix(nrow = 1, ncol = pila_training$P_r, byrow = TRUE,
-                            data = 
-                              sapply(X = 1:pila_training$P_r,
-                                     FUN = function(subplot){
-                                       boot::inv.logit(logitp[1+(pila_training$M_r*(subplot-1))])
-                                     }))
-                   
-                   g = 
-                     matrix(nrow = pila_training$max_recr_class, ncol = pila_training$P_r, byrow = FALSE,
-                            data = 
-                              sapply(X = 1:pila_training$P_r,
-                                     FUN = function(subplot){
-                                       sapply(X = 1:pila_training$max_recr_class,
-                                              FUN = function(sizeclass_to){
-                                                (pnorm(pila_training$u_bounds[sizeclass_to],
-                                                      mean = mu[1+(pila_training$M_r*(subplot-1))],
-                                                      sd = samples$sigmaEpsilon_g[i])-
-                                                   pnorm(pila_training$l_bounds[sizeclass_to],
-                                                         mean = mu[1+(pila_training$M_r*(subplot-1))],
-                                                         sd = samples$sigmaEpsilon_g[i])) / 
-                                                  (1-pnorm(0,
-                                                           mean = mu[1+(pila_training$M_r*(subplot-1))],
-                                                           sd = samples$sigmaEpsilon_g[i]))
-                                              })
-                                     }))
-                   
-                   # growth kernel from sizeclass 1
-                   growKern = 
-                     matrix(nrow = pila_training$P_r, ncol = 2, byrow = TRUE,
-                            data = 
-                              sapply(X = 1:pila_training$P_r,
-                                     FUN = function(subplot){
-                                       sapply(X = 1:pila_training$max_recr_class,
-                                              FUN = function(sizeclass_to){
-                                                s[1,subplot]*g[sizeclass_to,subplot]
-                                              })
-                                     }))
+                     as.numeric(pila_training$X %*% beta_f)
                    
                    f = 
-                     matrix(nrow = pila_training$M_r, ncol = pila_training$P_r, 
+                     matrix(nrow = pila_training$M, ncol = pila_training$P, 
                             byrow = FALSE,
                             data = 
-                              sapply(X = 1:pila_training$P_r,
-                                     FUN = function(subplot){
-                                       sapply(X = 1:pila_training$M_r,
+                              sapply(X = 1:pila_training$P,
+                                     FUN = function(plot){
+                                       sapply(X = 1:pila_training$M,
                                               FUN = function(sizeclass_from){
-                                                exp(logf[sizeclass_from+(pila_training$M_r*(subplot-1))])
+                                                exp(logf[sizeclass_from+(pila_training$M*(plot-1))])
                                               })
                                      }))
-                   
-                   recKern = 
-                     array(dim = 
-                             c(pila_training$P_r,
-                               pila_training$max_recr_class,
-                               pila_training$M_r),
-                           dimnames = 
-                             list(subplot = 1:pila_training$P_r,
-                                  sizeclass_to = 1:pila_training$max_recr_class,
-                                  sizeclass_from = 1:pila_training$M_r),
-                           data = 
-                             sapply(X = 1:pila_training$M_r,
-                                    FUN = function(sizeclass_from){
-                                      sapply(X = 1:pila_training$max_recr_class,
-                                             FUN = function(sizeclass_to){
-                                               sapply(X = 1:pila_training$P_r,
-                                                      FUN = function(subplot){
-                                                        pila_training$r[sizeclass_to]*
-                                                          f[sizeclass_from,subplot]
-                                                      })
-                                             })
-                                    }))
-                   
-                   A = 
-                     array(dim = 
-                             c(pila_training$P_r,
-                               pila_training$max_recr_class,
-                               pila_training$M_r),
-                           dimnames = 
-                             list(subplot = 1:pila_training$P_r,
-                                  sizeclass_to = 1:pila_training$max_recr_class,
-                                  sizeclass_from = 1:pila_training$M_r),
-                           data = 
-                             sapply(X = 1:pila_training$M_r,
-                                    FUN = function(sizeclass_from){
-                                      sapply(X = 1:pila_training$max_recr_class,
-                                             FUN = function(sizeclass_to){
-                                               sapply(X = 1:pila_training$P_r,
-                                                      FUN = function(subplot){
-                                                        if(sizeclass_from == 1){
-                                                          growKern[subplot, sizeclass_to]+
-                                                            recKern[subplot, sizeclass_to, sizeclass_from]
-                                                        } else {
-                                                          recKern[subplot,sizeclass_to,sizeclass_from]
-                                                        }
-                                                      })
-                                             })
-                                    }))
-                   
                    nprime = 
-                     matrix(nrow = pila_training$P_r, ncol = pila_training$max_recr_class, byrow = TRUE,
-                            data = 
-                              sapply(X = 1:pila_training$P_r,
-                                     FUN = function(subplot){
-                                       sapply(X = 1:pila_training$max_recr_class,
-                                              FUN = function(sizeclass){
-                                                as.numeric(A[subplot,sizeclass,] %*% 
-                                                             pila_training$n[subplot,])
-                                              })
-                                     }))
+                     sapply(X = 1:pila_training$P,
+                            FUN = function(plot){
+                              sum(f[,plot])
+                            })
                    
                    cprime_pred = 
-                     matrix(nrow = pila_training$max_recr_class, ncol = pila_training$P_r, byrow = FALSE,
-                            data = 
-                              sapply(X = 1:pila_training$P_r,
-                                     FUN = function(subplot){
-                                       sapply(X = 1:pila_training$max_recr_class,
-                                              FUN = function(sizeclass){
-                                                rnbinom(n = 1,
-                                                        mu = 
-                                                          nprime[subplot,sizeclass]*
-                                                          pila_training$a[sizeclass],
-                                                        size = samples$kappa_r[i])
-                                              })
-                                     }))
+                     rnbinom(n = length(nprime),
+                             mu = nprime*pila_training$a,
+                             size = samples$kappa[i])
                    
                    result = 
-                     expand.grid(subplot = 1:pila_training$P_r,
-                                 sizeclass = 1:pila_training$max_recr_class) %>%
-                     as_tibble() %>%
-                     arrange(subplot,sizeclass)
+                     data.frame(plot = 1:pila_training$P)
+                     as_tibble()
                    
                    result$density_pred = 
-                     sapply(X = 1:pila_training$P_r,
-                            FUN = function(subplot){
-                              sapply(X = 1:pila_training$max_recr_class,
-                                     FUN = function(sizeclass){
-                                       nprime[subplot,sizeclass]*pila_training$a[sizeclass]
-                                     })
-                            }) %>%
+                     nprime %>%
                      as.numeric()
                    result$count_sim = 
-                     sapply(X = 1:pila_training$P_r,
-                            FUN = function(subplot){
-                              sapply(X = 1:pila_training$max_recr_class,
-                                     FUN = function(sizeclass){
-                                       cprime_pred[sizeclass,subplot]
-                                     })
-                            }) %>%
-                     as.integer()
+                     cprime_pred
                    result$count_true = 
-                     sapply(X = 1:pila_training$P_r,
-                            FUN = function(subplot){
-                              sapply(X = 1:pila_training$max_recr_class,
-                                     FUN = function(sizeclass){
-                                       pila_training$cprime[sizeclass,subplot]
-                                     })
-                            }) %>%
-                     as.integer()
+                     pila_training$cprime
                    result$iter = i
                    return(result)
                  }))
@@ -429,7 +298,7 @@ recr_retrodictions_plot
 
 recr_retrodictions_plot2 = 
   recruitment.retrodictions %>%
-  group_by(subplot,sizeclass, count_true) %>%
+  group_by(plot, count_true) %>%
   summarise(density_pred.50 = quantile(density_pred,probs = 0.5),
             count_sim.975 = quantile(count_sim, probs = 0.975),
             count_sim.025 = quantile(count_sim, probs = 0.025),
@@ -437,7 +306,7 @@ recr_retrodictions_plot2 =
   ungroup() %>%
   ggplot(aes(x = density_pred.50, y = count_sim.50))+
   geom_abline(intercept = 0, slope = 1, color = 'blue')+
-  geom_ribbon(aes(ymin = count_sim.025, ymax = count_sim.975),
+  geom_errorbar(aes(ymin = count_sim.025, ymax = count_sim.975),
               alpha = 0.2)+
   geom_point(aes(y = count_true))+
   theme_minimal()
@@ -446,7 +315,7 @@ recr_retrodictions_plot2 =
 recr_retrodictions_plot2
 
 # looks good
-ggsave(recr_retrodictions_plot2,
+ggsave(recr_retrodictions_plot,
        filename = here::here('04-communication',
                              'figures',
                              'manuscript',

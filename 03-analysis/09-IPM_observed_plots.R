@@ -86,11 +86,7 @@ size_metadata =
          bin_lower = bin_lower * 0.0254,
          bin_upper = bin_upper * 0.0254) 
 
-size_metadata$r = 
-  #readRDS(here::here('02-data',
-  #                     '02-for_analysis',
-  #                     'pila_training.rds'))$r
-  c(1, rep(0, times = 98))
+head(size_metadata)
 
 plots.pila = 
   readRDS(here::here('02-data', '01-preprocessed', 'plot_data.rds'))%>%
@@ -174,7 +170,7 @@ A_observed =
                        slice(plot) %>%
                        expand(intercept,
                               dbh = size_metadata$bin_midpoint) %>%
-                       select(intercept, dbh) %>%
+                       select(intercept) %>%
                        as.matrix()
                      
                      # calculate vector of survival probabilities for each 

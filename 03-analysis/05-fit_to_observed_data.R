@@ -22,7 +22,7 @@ pila_growth_training =
 pila_fecd_training = 
   readRDS(here::here('02-data',
                      '02-for_analysis',
-                     'fecd_data_pila_usgs.rds'))
+                     'pila_fecd_training.rds'))
 
 #### survival ##################################################################
 
@@ -129,8 +129,6 @@ fecd_fit$summary()
 # check diagnostics
 fecd_fit$cmdstan_diagnose()
 
-# parameter pair plots
-mcmc_pairs(fecd_fit$draws(variables = c('beta[1]', 'beta[2]')))
 
 # posterior density plots
 mcmc_dens_overlay(fecd_fit$draws(variables = c('beta')))

@@ -119,8 +119,7 @@ tph_figure =
   theme_minimal()+
   theme(axis.text.y = element_blank())+
   labs(y = 'Posterior Density',
-       x = 'Stem density (trees / ha)')+
-  scale_x_continuous(limits = c(0, 75))
+       x = 'Stem density (trees / ha)')
 
 tph_figure
 
@@ -134,8 +133,8 @@ ggsave(tph_figure,
 ba_figure = 
   hypothetical_results_df %>%
   left_join(
-    data.frame(dbh_class = 1:100,
-               dbh_m = seq(from = 0.0127, to = 2.5273, by = 0.0254)) %>%
+    data.frame(dbh_class = 1:99,
+               dbh_m = seq(from = 0.0127+0.0254, to = 2.5273, by = 0.0254)) %>%
       mutate(ba_m2 = pi*((dbh_m/2)**2))
   ) %>%
   mutate(ba_m2ha.initial = ba_m2*tph_initial,
@@ -163,8 +162,7 @@ ba_figure =
   theme_minimal()+
   theme(axis.text.y = element_blank())+
   labs(y = 'Posterior Density',
-       x = 'Basal Area (m^2 / ha)')+
-  scale_x_continuous(limits = c(0, 7))
+       x = 'Basal Area (m^2 / ha)')
 
 ba_figure
 
@@ -174,19 +172,6 @@ ggsave(ba_figure,
                              'manuscript',
                              'projected_ba.png'),
        height = 7.5, width = 4, units = 'in')
-
-#### checking random effects distribution ######################################
-
-posterior = readRDS(here::here('02-data', 
-                               '03-results',
-                               'real_fits',
-                               'posterior_draws.rds'))
-
-posterior %>%
-  select(contains('ecoEffect_f')) %>%
-  summarise_all(median) %>%
-  as.numeric() %>%
-  hist()
 
 
 #### multiply transition matrix by initial size distribution: observed plots ###
@@ -255,8 +240,8 @@ sizedist_to_project %>%
 sizedist_to_project = 
   sizedist_to_project %>%
   left_join(
-    data.frame(dbh_class = 1:100,
-               dbh_m = seq(from = 0.0127, to = 2.5273, by = 0.0254)) %>%
+    data.frame(dbh_class = 1:99,
+               dbh_m = seq(from = 0.0381, to = 2.5273, by = 0.0254)) %>%
       mutate(ba_m2 = pi*((dbh_m/2)**2))
   ) %>%
   mutate(tph_init = tpa_unadj.init/0.404686,
@@ -300,6 +285,41 @@ sizedist_to_project %>%
   theme_minimal()+
   geom_line(lwd = 1)
 
+plot_data = readRDS(here::here('02-data',
+                               '01-preprocessed',
+                               'plot_data.rds'))
+
+head(plot_data)
+
+projections = 
+  sizedist_to_project %>%
+  left_join(plot_data %>%
+              select(plot_id, 
+                     ecosubcd,
+                     fire, wpbr, ba_ft2ac, cwd_departure90, cwd_mean))
+
+projections%>%
+  group_by(dbh_class,fire) %>%
+  summarise(tph_init = mean(tph_init),
+            tph_re = mean(tph_re),
+            tph_pred = mean(tph_pred),
+            ba_init = mean(ba_m2ha_init),
+            ba_re = mean(ba_m2ha_re),
+            ba_pred = mean(ba_m2ha_pred)) %>%
+  ungroup() %>%
+  pivot_longer(cols = c('tph_init', 'tph_re', 'tph_pred', 
+                        'ba_init', 'ba_re', 'ba_pred'),
+               names_to = c('stat', 'timestep'),
+               values_to = 'value',
+               names_sep = '_') %>%
+  filter(stat == 'tph') %>%
+  ggplot(aes(x = dbh_class, y = value, color = timestep))+
+  #geom_point()+
+  theme_minimal()+
+  geom_line(lwd = 1)+
+  facet_grid(.~fire)
+
+head(projections)
 
 #### scratch ###################################################################
 

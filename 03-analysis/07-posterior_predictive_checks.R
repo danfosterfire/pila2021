@@ -1,40 +1,44 @@
 library(here)
 library(tidyverse)
+library(cmdstanr)
 library(posterior)
-fitted_model = readRDS(here::here('02-data',
-                                  '03-results',
-                                  'real_fits',
-                                  'pila.rds'))
-
-pila_validation = readRDS(here::here('02-data',
-                                   '02-for_analysis',
-                                   'pila_validation.rds'))
+library(bayesplot)
 
 #### survival ##################################################################
 
+fitted_model = readRDS(here::here('02-data',
+                                  '03-results',
+                                  'surv_fit.rds'))
+
 samples = as_draws_df(fitted_model$draws())
+
+pila_validation = readRDS(here::here('02-data',
+                                   '02-for_analysis',
+                                   'pila_mort_validation.rds'))
 
 # simulating one data set per draw
 
-samples.beta_s = samples %>% select(contains('beta_s'))
-samples.ecoEffect_s = samples %>% select(contains('ecoEffect_s')) %>% as.data.frame()
-samples.plotEffect_s = samples %>% select(contains('plotEffect_s')) %>% as.data.frame()
-mort_predictions = 
+samples.beta_s = samples %>% select(contains('beta'))
+samples.ecoEffect_s = samples %>% select(contains('effect_ecosub')) %>% as.data.frame()
+samples.plotEffect_s = samples %>% select(contains('effect_plot')) %>% as.data.frame()
+
+
+mort_retrodictions = 
   do.call('bind_rows',
           lapply(X = 1:nrow(samples),
                  FUN = function(i){
                    beta_s = as.numeric(samples.beta_s[i,])
                    logitp = 
-                     as.numeric(pila_validation$X_s %*% beta_s)+
-                     as.numeric(samples.ecoEffect_s[i,])[pila_validation$ecosub_s]+
-                     as.numeric(samples.plotEffect_s[i,])[pila_validation$plotid_s]
+                     as.numeric(pila_validation$X %*% beta_s)+
+                     as.numeric(samples.ecoEffect_s[i,])[pila_validation$ecosub_id]+
+                     as.numeric(samples.plotEffect_s[i,])[pila_validation$plot_id]
                    p = boot::inv.logit(logitp)
-                   surv_sim = rbinom(n = pila_validation$N_s, 
-                                 size = 1, 
-                                 prob = p)
+                   surv_sim = rbinom(n = pila_validation$N, 
+                                     size = 1, 
+                                     prob = p)
                    
                    result = 
-                     pila_validation$X_s %>% 
+                     pila_validation$X %>% 
                      as_tibble() %>%
                      rownames_to_column('tree_id')
                    result$logitp = logitp
@@ -43,31 +47,74 @@ mort_predictions =
                    result$surv_true = pila_validation$surv
                    result$iter = i
                    return(result)
-                 }))  %>%
+                 })) %>%
   group_by(tree_id, surv_true) %>%
   summarise(p.50 = quantile(p, 0.5),
-            surv_sim = mean(surv_sim),
             p.mean = mean(p),
             p.025 = quantile(p, 0.025),
             p.975 = quantile(p, 0.975)) %>%
   ungroup() %>%
   mutate(r = dense_rank(p.mean),
-         r_bin = cut(r, breaks = seq(0, nrow(.)+1, length.out = 10)))
+         r_bin = cut(r, breaks = seq(0, nrow(.)+1, length.out = 20)))
 
-head(mort_predictions)
-surv_predictons_plot = 
+do.call('bind_rows',
+        lapply(X = 1:nrow(samples),
+               FUN = function(i){
+                 beta_s = as.numeric(samples.beta_s[i,])
+                 logitp = 
+                   as.numeric(pila_validation$X %*% beta_s)+
+                   as.numeric(samples.ecoEffect_s[i,])[pila_validation$ecosub_id]+
+                   as.numeric(samples.plotEffect_s[i,])[pila_validation$plot_id]
+                 p = boot::inv.logit(logitp)
+                 surv_sim = rbinom(n = pila_validation$N, 
+                                   size = 1, 
+                                   prob = p)
+                 
+                 result = 
+                   pila_validation$X %>% 
+                   as_tibble() %>%
+                   rownames_to_column('tree_id')
+                 result$logitp = logitp
+                 result$p = p
+                 result$surv_sim = surv_sim
+                 result$surv_true = pila_validation$surv
+                 result$iter = i
+                 return(result)
+               })) %>%
+  group_by(tree_id, dbh_m.init, surv_true) %>%
+  summarise(p.50 = quantile(p, 0.5),
+            p.mean = mean(p),
+            p.025 = quantile(p, 0.025),
+            p.975 = quantile(p, 0.975)) %>%
+  ungroup() %>%
+  mutate(dbh_class = cut(dbh_m.init, breaks = seq(from = 0, to = 2.54, by = 0.0254),
+                         labels = FALSE)) %>%
+  group_by(dbh_class) %>%
+  summarise(p.real = mean(surv_true),
+            p.50 = mean(p.50),
+            p.mean = mean(p.mean),
+            p.025 = mean(p.025),
+            p.975 = mean(p.975)) %>%
+  ungroup() %>%
+  ggplot(aes(x = as.factor(dbh_class)))+
+  geom_point(aes(y = p.real), color = 'red')+
+  geom_point(aes(y = p.mean), color = 'black')+
+  geom_errorbar(aes(ymin = p.025, ymax = p.975), width = 0.2)
+
+head(mort_retrodictions)
+surv_retrodictions_plot = 
   ggplot(
-  data = mort_predictions,
-  aes(x = r, y = surv_true))+
-  geom_jitter(height = 0.1, width = 0, size = 1, color = 'red')+
-  theme_minimal()+  
-  geom_point(data = mort_predictions,
+    data = mort_retrodictions,
+    aes(x = r, y = surv_true))+
+  geom_jitter(height = 0.1, width = 0, size = 0, color = 'red')+
+  theme_minimal()+
+  geom_point(data = mort_retrodictions,
              aes(x = r, y = p.mean))+
-  geom_ribbon(data = mort_predictions,
+  geom_ribbon(data = mort_retrodictions,
               aes(x = r, ymin = p.025, ymax = p.975, y = p.50),
               alpha = 0.2)+
   geom_point(data = 
-               mort_predictions %>% 
+               mort_retrodictions %>% 
                group_by(r_bin) %>%
                summarise(surv_true = sum(surv_true)/n(),
                          r = mean(r)) %>%
@@ -75,53 +122,67 @@ surv_predictons_plot =
              aes(x = r, y = surv_true),
              color = 'blue', pch = 4)
 
-surv_predictons_plot
 
-ggsave(surv_predictons_plot,
+surv_retrodictions_plot
+# looks pretty good
+ggsave(surv_retrodictions_plot,
        filename = here::here('04-communication',
                              'figures',
                              'manuscript',
-                             'predictions_s.png'))
+                             'retrodictions_s.png'))
 
 #### growth ####################################################################
 
-samples.beta_g = samples %>% select(contains('beta_g'))
-samples.ecoEffect_g = samples %>% select(contains('ecoEffect_g')) %>% as.data.frame()
-samples.plotEffect_g = samples %>% select(contains('plotEffect_g')) %>% as.data.frame()
-growth_predictions = 
+
+fitted_model = readRDS(here::here('02-data',
+                                  '03-results',
+                                  'growth_fit.rds'))
+
+samples = as_draws_df(fitted_model$draws())
+
+pila_validation = readRDS(here::here('02-data',
+                                   '02-for_analysis',
+                                   'pila_growth_validation.rds'))
+
+
+
+samples.beta_g = samples %>% select(contains('beta'))
+samples.ecoEffect_g = samples %>% select(contains('effect_ecosub')) %>% as.data.frame()
+samples.plotEffect_g = samples %>% select(contains('effect_plot')) %>% as.data.frame()
+growth_retrodictions = 
   do.call('bind_rows',
           lapply(X = 1:nrow(samples),
                  FUN = function(i){
                    beta_g = as.numeric(samples.beta_g[i,])
                    mu = 
-                     as.numeric(pila_validation$X_g %*% beta_g)+
-                     as.numeric(samples.ecoEffect_g[i,])[pila_validation$ecosub_g]+
-                     as.numeric(samples.plotEffect_g[i,])[pila_validation$plotid_g]
-                   size1_sim = truncnorm::rtruncnorm(n = pila_validation$N_g,
+                     as.numeric(pila_validation$X %*% beta_g)+
+                     as.numeric(samples.ecoEffect_g[i,])[pila_validation$ecosub_id]+
+                     as.numeric(samples.plotEffect_g[i,])[pila_validation$plot_id]
+                   size1_sim = truncnorm::rtruncnorm(n = pila_validation$N,
                                                      a = 0,
                                                      mean = mu,
-                                                     sd = samples$sigmaEpsilon_g[i])
+                                                     sd = samples$sigma_epsilon[i])
                    
                    result = 
-                     pila_validation$X_g %>% 
+                     pila_validation$X %>% 
                      as_tibble() %>%
                      rownames_to_column('tree_id')
                    result$mu = mu
                    result$size1_sim = size1_sim
-                   result$size1_true = pila_validation$size1_g
+                   result$size1_true = pila_validation$size1
                    result$iter = i
                    return(result)
                  }))
 
-growth_predictions_plot = 
+growth_retrodictions_plot = 
   ggplot(data = 
-         growth_predictions %>%
-         group_by(tree_id,size1_true) %>%
-         summarise(size1_sim.50 = quantile(size1_sim, 0.5),
-                   size1_sim.025 = quantile(size1_sim, 0.025),
-                   size1_sim.975 = quantile(size1_sim, 0.975)) %>%
-         ungroup() %>%
-         mutate(r = dense_rank(size1_sim.50)))+
+           growth_retrodictions %>%
+           group_by(tree_id,size1_true) %>%
+           summarise(size1_sim.50 = quantile(size1_sim, 0.5),
+                     size1_sim.025 = quantile(size1_sim, 0.025),
+                     size1_sim.975 = quantile(size1_sim, 0.975)) %>%
+           ungroup() %>%
+           mutate(r = dense_rank(size1_sim.50)))+
   geom_point(aes(x = r, y = size1_true),size = 0)+
   theme_minimal()+
   geom_line(aes(x = r, y = size1_sim.50), color = 'blue')+
@@ -129,255 +190,135 @@ growth_predictions_plot =
               alpha = 0.2)+
   labs(x = 'rank (simulated size)', y = 'Size at remeasure')
 
+growth_retrodictions_plot
+
 # model is slightly overpredicting size of the smallest trees, missing some variation
 # in size
 
-growth_predictions_plot2 = 
+growth_retrodictions_plot2 = 
   ggplot(data = 
-         growth_predictions %>%
-         group_by(tree_id,size1_true) %>%
-         summarise(size1_sim.50 = quantile(size1_sim, 0.5),
-                   size1_sim.025 = quantile(size1_sim, 0.025),
-                   size1_sim.975 = quantile(size1_sim, 0.975)) %>%
-         ungroup() %>%
-         mutate(r = dense_rank(size1_sim.50)))+
-  geom_point(aes(x = size1_sim.50, y = size1_true),size = 1)+
+           growth_retrodictions %>%
+           group_by(tree_id,size1_true) %>%
+           summarise(size1_sim.50 = quantile(size1_sim, 0.5),
+                     size1_sim.025 = quantile(size1_sim, 0.025),
+                     size1_sim.975 = quantile(size1_sim, 0.975)) %>%
+           ungroup() %>%
+           mutate(r = dense_rank(size1_sim.50)))+
+  geom_point(aes(x = size1_sim.50, y = size1_true),size = 0)+
   theme_minimal()+
   geom_ribbon(aes(x = size1_sim.50, ymin = size1_sim.025, ymax = size1_sim.975, y = size1_sim.50),
               alpha = 0.2)+
   geom_abline(intercept = 0, slope = 1, color = 'blue')
 
-growth_predictions_plot2
+growth_retrodictions_plot2
 
-# looks great
-ggsave(growth_predictions_plot2,
+growth_retrodictions_plot2+
+  coord_cartesian(xlim = c(0, 0.25), ylim = c(0, 0.25))+
+  scale_y_continuous(breaks = seq(from = 0, to = 0.254, by = 0.0254))+
+  scale_x_continuous(breaks = seq(from = 0, to = 2.54, by = 0.0254))
+
+ggsave(growth_retrodictions_plot2,
        filename = here::here('04-communication',
                              'figures',
                              'manuscript',
-                             'predictions_g.png'))
+                             'retrodictions_g.png'))
+
 #### recruitment ###############################################################
 
+fitted_model = readRDS(here::here('02-data',
+                                  '03-results',
+                                  'fecd_fit.rds'))
 
-samples.beta_f = samples %>% select(contains('beta_f'))
-samples.ecoEffect_f = samples %>% select(contains('ecoEFfect_f'))
+samples = as_draws_df(fitted_model$draws())
 
-recruitment.predictions = 
+pila_validation = readRDS(here::here('02-data',
+                                   '02-for_analysis',
+                                   'pila_fecd_validation.rds'))
+
+samples.beta_f = samples %>% select(contains('beta'))
+
+recruitment.retrodictions = 
   do.call('bind_rows',
           lapply(X = 1:nrow(samples),
                  FUN = function(i){
                    beta_f = as.numeric(samples.beta_f[i,])
-                   beta_g = as.numeric(samples.beta_g[i,])
-                   beta_s = as.numeric(samples.beta_s[i,])
                    
                    logf = 
-                     as.numeric(pila_validation$X_r %*% beta_f)+
-                     as.numeric(samples.ecoEffect_f[i,])[pila_validation$ecosub_r]
-                   
-                   mu = 
-                     as.numeric(pila_validation$X_rg %*% beta_g)+
-                     as.numeric(samples.ecoEffect_g[i,])[pila_validation$ecosub_r]+
-                     as.numeric(samples.plotEffect_g[i,])[pila_validation$plotid_r]
-                   
-                   logitp = 
-                     as.numeric(pila_validation$X_r %*% beta_s)+
-                     as.numeric(samples.ecoEffect_s[i,])[pila_validation$ecosub_r]+
-                     as.numeric(samples.plotEffect_s[i,])[pila_validation$plotid_r]
-                   
-                   s = 
-                     matrix(nrow = 1, ncol = pila_validation$P_r, byrow = TRUE,
-                            data = 
-                              sapply(X = 1:pila_validation$P_r,
-                                     FUN = function(subplot){
-                                       boot::inv.logit(logitp[1+(pila_validation$M_r*(subplot-1))])
-                                     }))
-                   
-                   g = 
-                     matrix(nrow = pila_validation$max_recr_class, ncol = pila_validation$P_r, byrow = FALSE,
-                            data = 
-                              sapply(X = 1:pila_validation$P_r,
-                                     FUN = function(subplot){
-                                       sapply(X = 1:pila_validation$max_recr_class,
-                                              FUN = function(sizeclass_to){
-                                                (pnorm(pila_validation$u_bounds[sizeclass_to],
-                                                      mean = mu[1+(pila_validation$M_r*(subplot-1))],
-                                                      sd = samples$sigmaEpsilon_g[i])-
-                                                   pnorm(pila_validation$l_bounds[sizeclass_to],
-                                                         mean = mu[1+(pila_validation$M_r*(subplot-1))],
-                                                         sd = samples$sigmaEpsilon_g[i])) / 
-                                                  (1-pnorm(0,
-                                                           mean = mu[1+(pila_validation$M_r*(subplot-1))],
-                                                           sd = samples$sigmaEpsilon_g[i]))
-                                              })
-                                     }))
-                   
-                   # growth kernel from sizeclass 1
-                   growKern = 
-                     matrix(nrow = pila_validation$P_r, ncol = pila_validation$max_recr_class, byrow = TRUE,
-                            data = 
-                              sapply(X = 1:pila_validation$P_r,
-                                     FUN = function(subplot){
-                                       sapply(X = 1:pila_validation$max_recr_class,
-                                              FUN = function(sizeclass_to){
-                                                s[1,subplot]*g[sizeclass_to,subplot]
-                                              })
-                                     }))
+                     as.numeric(pila_validation$X %*% beta_f)
                    
                    f = 
-                     matrix(nrow = pila_validation$M_r, ncol = pila_validation$P_r, 
+                     matrix(nrow = pila_validation$M, ncol = pila_validation$P, 
                             byrow = FALSE,
                             data = 
-                              sapply(X = 1:pila_validation$P_r,
-                                     FUN = function(subplot){
-                                       sapply(X = 1:pila_validation$M_r,
+                              sapply(X = 1:pila_validation$P,
+                                     FUN = function(plot){
+                                       sapply(X = 1:pila_validation$M,
                                               FUN = function(sizeclass_from){
-                                                exp(logf[sizeclass_from+(pila_validation$M_r*(subplot-1))])
+                                                exp(logf[sizeclass_from+(pila_validation$M*(plot-1))])
                                               })
                                      }))
-                   
-                   recKern = 
-                     array(dim = 
-                             c(pila_validation$P_r,
-                               pila_validation$max_recr_class,
-                               pila_validation$M_r),
-                           dimnames = 
-                             list(subplot = 1:pila_validation$P_r,
-                                  sizeclass_to = 1:pila_validation$max_recr_class,
-                                  sizeclass_from = 1:pila_validation$M_r),
-                           data = 
-                             sapply(X = 1:pila_validation$M_r,
-                                    FUN = function(sizeclass_from){
-                                      sapply(X = 1:pila_validation$max_recr_class,
-                                             FUN = function(sizeclass_to){
-                                               sapply(X = 1:pila_validation$P_r,
-                                                      FUN = function(subplot){
-                                                        pila_validation$r[sizeclass_to]*
-                                                          f[sizeclass_from,subplot]
-                                                      })
-                                             })
-                                    }))
-                   
-                   A = 
-                     array(dim = 
-                             c(pila_validation$P_r,
-                               pila_validation$max_recr_class,
-                               pila_validation$M_r),
-                           dimnames = 
-                             list(subplot = 1:pila_validation$P_r,
-                                  sizeclass_to = 1:pila_validation$max_recr_class,
-                                  sizeclass_from = 1:pila_validation$M_r),
-                           data = 
-                             sapply(X = 1:pila_validation$M_r,
-                                    FUN = function(sizeclass_from){
-                                      sapply(X = 1:pila_validation$max_recr_class,
-                                             FUN = function(sizeclass_to){
-                                               sapply(X = 1:pila_validation$P_r,
-                                                      FUN = function(subplot){
-                                                        if(sizeclass_from == 1){
-                                                          growKern[subplot, sizeclass_to]+
-                                                            recKern[subplot, sizeclass_to, sizeclass_from]
-                                                        } else {
-                                                          recKern[subplot,sizeclass_to,sizeclass_from]
-                                                        }
-                                                      })
-                                             })
-                                    }))
-                   
                    nprime = 
-                     matrix(nrow = pila_validation$P_r, ncol = pila_validation$max_recr_class, byrow = TRUE,
-                            data = 
-                              sapply(X = 1:pila_validation$P_r,
-                                     FUN = function(subplot){
-                                       sapply(X = 1:pila_validation$max_recr_class,
-                                              FUN = function(sizeclass){
-                                                as.numeric(A[subplot,sizeclass,] %*% 
-                                                             pila_validation$n[subplot,])
-                                              })
-                                     }))
+                     sapply(X = 1:pila_validation$P,
+                            FUN = function(plot){
+                              sum(f[,plot])
+                            })
                    
                    cprime_pred = 
-                     matrix(nrow = pila_validation$max_recr_class, ncol = pila_validation$P_r, byrow = FALSE,
-                            data = 
-                              sapply(X = 1:pila_validation$P_r,
-                                     FUN = function(subplot){
-                                       sapply(X = 1:pila_validation$max_recr_class,
-                                              FUN = function(sizeclass){
-                                                rnbinom(n = 1,
-                                                        mu = 
-                                                          nprime[subplot,sizeclass]*
-                                                          pila_validation$a[sizeclass],
-                                                        size = samples$kappa_r[i])
-                                              })
-                                     }))
+                     rnbinom(n = length(nprime),
+                             mu = nprime*pila_validation$a,
+                             size = samples$kappa[i])
                    
                    result = 
-                     expand.grid(subplot = 1:pila_validation$P_r,
-                                 sizeclass = 1:pila_validation$max_recr_class) %>%
-                     as_tibble() %>%
-                     arrange(subplot,sizeclass)
+                     data.frame(plot = 1:pila_validation$P)
+                   as_tibble()
                    
                    result$density_pred = 
-                     sapply(X = 1:pila_validation$P_r,
-                            FUN = function(subplot){
-                              sapply(X = 1:pila_validation$max_recr_class,
-                                     FUN = function(sizeclass){
-                                       nprime[subplot,sizeclass]*pila_validation$a[sizeclass]
-                                     })
-                            }) %>%
+                     nprime %>%
                      as.numeric()
                    result$count_sim = 
-                     sapply(X = 1:pila_validation$P_r,
-                            FUN = function(subplot){
-                              sapply(X = 1:pila_validation$max_recr_class,
-                                     FUN = function(sizeclass){
-                                       cprime_pred[sizeclass,subplot]
-                                     })
-                            }) %>%
-                     as.integer()
+                     cprime_pred
                    result$count_true = 
-                     sapply(X = 1:pila_validation$P_r,
-                            FUN = function(subplot){
-                              sapply(X = 1:pila_validation$max_recr_class,
-                                     FUN = function(sizeclass){
-                                       pila_validation$cprime[sizeclass,subplot]
-                                     })
-                            }) %>%
-                     as.integer()
+                     pila_validation$cprime
                    result$iter = i
                    return(result)
                  }))
 
-head(recruitment.predictions)
+head(recruitment.retrodictions)
 
-recruitment.predictions %>%
+recr_retrodictions_plot = 
+  recruitment.retrodictions %>%
   pivot_longer(cols = c('count_sim', 'count_true'),
                names_to = 'source', values_to = 'count') %>%
   ggplot(aes(x = count, fill = source))+
   geom_bar(position = position_dodge())+
-  scale_x_continuous(limits = c(-1, 10))+
+  #scale_x_continuous(limits = c(-1, 10))+
   theme_minimal()
 
+recr_retrodictions_plot
 # looks good
 
-recruitment_predictions_plot = 
-  recruitment.predictions %>%
-  group_by(subplot,sizeclass, count_true) %>%
+recr_retrodictions_plot2 = 
+  recruitment.retrodictions %>%
+  group_by(plot, count_true) %>%
   summarise(density_pred.50 = quantile(density_pred,probs = 0.5),
             count_sim.975 = quantile(count_sim, probs = 0.975),
             count_sim.025 = quantile(count_sim, probs = 0.025),
             count_sim.50 = quantile(count_sim, probs = 0.5)) %>%
   ungroup() %>%
-  ggplot(aes(x = density_pred.50, y = count_true))+
+  ggplot(aes(x = density_pred.50, y = count_sim.50))+
   geom_abline(intercept = 0, slope = 1, color = 'blue')+
-  geom_ribbon(aes(ymin = count_sim.025, ymax = count_sim.975),
-              alpha = 0.2)+
+  geom_errorbar(aes(ymin = count_sim.025, ymax = count_sim.975),
+                alpha = 0.2)+
   geom_point(aes(y = count_true))+
   theme_minimal()
 
-recruitment_predictions_plot
+
+recr_retrodictions_plot2
+
 # looks good
-ggsave(recruitment_predictions_plot,
+ggsave(recr_retrodictions_plot,
        filename = here::here('04-communication',
                              'figures',
                              'manuscript',
-                             'predictions_r.png'))
+                             'retrodictions_r.png'))
 

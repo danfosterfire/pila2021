@@ -399,14 +399,13 @@ pila_growth_validation =
 #### prepare fecudnity training and validation #################################
 
 pila_fecd_training = 
-  list(K = 3,
+  list(K = 1,
        N = nrow(recr_data.pila_training),
        E = nrow(union_ecosubs),
        P = length(unique(recr_data.pila_training$plot_id.i)),
        M = max(size_metadata$bin_id),
        X = 
-          as.matrix(recr_data.pila_training[,c('intercept', 'dbh_m.init', 
-                                               'dbh_m2.init')]),
+          as.matrix(recr_data.pila_training[,c('intercept')]),
        plot_id = recr_data.pila_training$plot_id.i,
        ecosub_id = recr_data.pila_training$ecosub.i,
        cprime = 
@@ -430,8 +429,7 @@ pila_fecd_validation =
        P = length(unique(recr_data.pila_validation$plot_id.i)),
        M = max(size_metadata$bin_id),
        X = 
-          as.matrix(recr_data.pila_validation[,c('intercept', 'dbh_m.init', 
-                                               'dbh_m2.init')]),
+          as.matrix(recr_data.pila_validation[,c('intercept')]),
        plot_id = recr_data.pila_validation$plot_id.i,
        ecosub_id = recr_data.pila_validation$ecosub.i,
        cprime = 

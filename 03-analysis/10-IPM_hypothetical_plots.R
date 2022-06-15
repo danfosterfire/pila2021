@@ -42,12 +42,6 @@ size_metadata =
          bin_lower = bin_lower * 0.0254,
          bin_upper = bin_upper * 0.0254) 
 
-size_metadata$r = 
-  #readRDS(here::here('02-data',
-  #                     '02-for_analysis',
-  #                     'pila_training.rds'))$r
-  c(1, rep(0, times = 98))
-
 #### transitions ###############################################################
 
 
@@ -165,7 +159,7 @@ A_hypotheticals =
                                      dbh2_cwd_dep90 = dbh2*cwd_dep90_scaled,
                                      dbh_cwd_mean = dbh*cwd_mean_scaled,
                                      dbh2_cwd_mean = dbh2*cwd_mean_scaled) %>%
-                              select(intercept, dbh) %>%
+                              select(intercept) %>%
                               as.matrix()
                             
                             
