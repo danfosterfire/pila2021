@@ -42,6 +42,13 @@ size_metadata =
          bin_lower = bin_lower * 0.0254,
          bin_upper = bin_upper * 0.0254) 
 
+size_metadata = 
+  data.frame(bin_id = 1:199,
+             bin_lower = seq(from = 0.0254, to = 2.54, by = 0.0254/2),
+             bin_upper = seq(from = 0.0254+(0.0254/2), to = 2.54+(0.0254/2), 
+                             by = 0.0254/2)) %>%
+  mutate(bin_midpoint = (bin_lower+bin_upper)/2)
+
 #### transitions ###############################################################
 
 
