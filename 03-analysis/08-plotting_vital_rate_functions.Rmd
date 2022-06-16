@@ -162,16 +162,22 @@ beta_g_names =
   data.frame(
       param = c('beta[1]', 'beta[2]', 'beta[3]', 'beta[4]', 'beta[5]',
                 'beta[6]', 'beta[7]', 'beta[8]', 'beta[9]', 'beta[10]',
-                'beta[11]', 'beta[12]'),
-      data_name = c('intercept', 'dbh_m.init', 'fire', 
-              'wpbr','ba_scaled', 'cwd_dep90_scaled', 
-              'cwd_mean_scaled', 'dbh_fire', 
-              'dbh_wpbr', 'dbh_ba', 'dbh_cwd90', 'dbh_cwdmean'),
-      position = str_pad(1:12, width = 2, side = 'left', pad = '0'),
+                'beta[11]', 'beta[12]', 'beta[13]', 'beta[14]',
+                'beta[15]', 'beta[16]', 'beta[17]', 'beta[18]'),
+      data_name = c('intercept', 'dbh_m.init', 
+                                           'dbh_m2.init', 'fire', 
+                                     'wpbr','ba_scaled', 'cwd_dep90_scaled', 
+                                     'cwd_mean_scaled', 'dbh_fire', 'dbh2_fire',
+                                     'dbh_wpbr','dbh2_wpbr',
+                                     'dbh_ba', 'dbh2_ba', 'dbh_cwd90','dbh2_cwd90',
+                                     'dbh_cwdmean', 'dbh2_cwdmean'),
+      position = str_pad(1:18, width = 2, side = 'left', pad = '0'),
       pretty_name = 
-          c('Intercept','DBH (m)','Fire','WPBR','Basal Area',
-            'Drought','Site Dryness','DBH x Fire','DBH x WPBR',
-            'DBH x BA','DBH x Drought','DBH x Dryness'))
+          c('Intercept','DBH (m)','DBH^2 (m)', 'Fire','WPBR','Basal Area',
+            'Drought','Site Dryness','DBH x Fire', 'DBH^2 x Fire', 
+            'DBH x WPBR', 'DBH^2 x WPBR', 
+            'DBH x BA', 'DBH^2 x BA', 'DBH x Drought', 'DBH^2 x Drought', 
+            'DBH x Dryness', 'DBH^2 x Dryness'))
 
 pretty_beta_g_labels = 
   beta_g_names$pretty_name
@@ -383,7 +389,7 @@ summary_g =
               bind_rows(
                 data.frame(param = c('sigma_plot', 'sigma_ecosub',
                                      'sigma_epsilon'),
-                       position = c('13', '14', '15'),
+                       position = c('19', '20', '21'),
                        pretty_name = c('SD Plots', 'SD Ecoregions', 'SD Residual'))
               ),
             by = c('variable' = 'param')) %>%
@@ -476,7 +482,7 @@ predict_survival_fixeff =
 ## the subplot-level mean (so like the average subplot))
 size_fixeff_s = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0, to = 1.25, by = 0.01),
+            'dbh_m.init' = seq(from  = 0.0254, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
@@ -518,7 +524,7 @@ size_fixeff_s =
 # size X fire
 fire_fixeff_s = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0, to = 1.25, by = 0.01),
+            'dbh_m.init' = seq(from  = 0.0254, to = 1.25, by = 0.01),
             'fire' = c(0,1),
             'wpbr' = 0,
             'ba_scaled' = 0,
@@ -564,7 +570,7 @@ fire_fixeff_s =
 # size X wpbr
 wpbr_fixeff_s = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0, to = 1.25, by = 0.01),
+            'dbh_m.init' = seq(from  = 0.0254, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = c(0,1),
             'ba_scaled' = 0,
@@ -610,7 +616,7 @@ wpbr_fixeff_s =
 # size X Basal area
 ba_fixeff_s = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0, to = 1.25, by = 0.01),
+            'dbh_m.init' = seq(from  = 0.0254, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = c(-1,1),
@@ -656,7 +662,7 @@ ba_fixeff_s =
 # size X drought
 drought_fixeff_s = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0, to = 1.25, by = 0.01),
+            'dbh_m.init' = seq(from  = 0.0254, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
@@ -702,7 +708,7 @@ drought_fixeff_s =
 # size X dryness
 dryness_fixeff_s = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0, to = 1.25, by = 0.01),
+            'dbh_m.init' = seq(from  = 0.0254, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
@@ -828,7 +834,7 @@ predict_grow_fixeff =
 ## the subplot-level mean (so like the average subplot))
 size_fixeff_g = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0, to = 1.25, by = 0.01),
+            'dbh_m.init' = seq(from  = 0.0254, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
@@ -867,10 +873,12 @@ size_fixeff_g =
   theme(legend.position = 'bottom')+
   scale_y_continuous(limits = c(-0.01, 0.07))
 
+size_fixeff_g+geom_hline(yintercept = 0.044)
+
 # size X fire
 fire_fixeff_g = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0, to = 1.25, by = 0.01),
+            'dbh_m.init' = seq(from  = 0.0254, to = 1.25, by = 0.01),
             'fire' = c(0,1),
             'wpbr' = 0,
             'ba_scaled' = 0,
@@ -916,7 +924,7 @@ fire_fixeff_g =
 # size X wpbr
 wpbr_fixeff_g = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0, to = 1.25, by = 0.01),
+            'dbh_m.init' = seq(from  = 0.0254, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = c(0,1),
             'ba_scaled' = 0,
@@ -963,7 +971,7 @@ wpbr_fixeff_g =
 # size X Basal area
 ba_fixeff_g = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0, to = 1.25, by = 0.01),
+            'dbh_m.init' = seq(from  = 0.0254, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = c(-1,1),
@@ -1010,7 +1018,7 @@ ba_fixeff_g =
 # size X drought
 drought_fixeff_g = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0, to = 1.25, by = 0.01),
+            'dbh_m.init' = seq(from  = 0.0254, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,
@@ -1057,7 +1065,7 @@ drought_fixeff_g =
 # size X dryness
 dryness_fixeff_g = 
   expand.grid('intercept' = 1,
-            'dbh_m.init' = seq(from = 0, to = 1.25, by = 0.01),
+            'dbh_m.init' = seq(from  = 0.0254, to = 1.25, by = 0.01),
             'fire' = 0,
             'wpbr' = 0,
             'ba_scaled' = 0,

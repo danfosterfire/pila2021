@@ -52,6 +52,6 @@ model {
   
   // likelihood
   for (i in 1:N){
-    size1[i] ~ normal(mu[i], sigma_epsilon) T[0,];
+    size1[i] ~ normal(mu[i], sigma_epsilon) T[0.0254,];
   }
 }

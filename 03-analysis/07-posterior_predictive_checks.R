@@ -23,7 +23,7 @@ samples.ecoEffect_s = samples %>% select(contains('effect_ecosub')) %>% as.data.
 samples.plotEffect_s = samples %>% select(contains('effect_plot')) %>% as.data.frame()
 
 
-mort_retrodictions = 
+mort_predictions = 
   do.call('bind_rows',
           lapply(X = 1:nrow(samples),
                  FUN = function(i){
@@ -101,20 +101,20 @@ do.call('bind_rows',
   geom_point(aes(y = p.mean), color = 'black')+
   geom_errorbar(aes(ymin = p.025, ymax = p.975), width = 0.2)
 
-head(mort_retrodictions)
-surv_retrodictions_plot = 
+head(mort_predictions)
+surv_predictions_plot = 
   ggplot(
-    data = mort_retrodictions,
+    data = mort_predictions,
     aes(x = r, y = surv_true))+
-  geom_jitter(height = 0.1, width = 0, size = 0, color = 'red')+
+  geom_jitter(height = 0.1, width = 0, size = 1, color = 'red')+
   theme_minimal()+
-  geom_point(data = mort_retrodictions,
+  geom_point(data = mort_predictions,
              aes(x = r, y = p.mean))+
-  geom_ribbon(data = mort_retrodictions,
+  geom_ribbon(data = mort_predictions,
               aes(x = r, ymin = p.025, ymax = p.975, y = p.50),
               alpha = 0.2)+
   geom_point(data = 
-               mort_retrodictions %>% 
+               mort_predictions %>% 
                group_by(r_bin) %>%
                summarise(surv_true = sum(surv_true)/n(),
                          r = mean(r)) %>%
@@ -123,13 +123,14 @@ surv_retrodictions_plot =
              color = 'blue', pch = 4)
 
 
-surv_retrodictions_plot
+surv_predictions_plot
 # looks pretty good
-ggsave(surv_retrodictions_plot,
+ggsave(surv_predictions_plot,
        filename = here::here('04-communication',
                              'figures',
                              'manuscript',
-                             'retrodictions_s.png'))
+                             'predictions_s.png'),
+       height = 4.5, width = 6, units = 'in')
 
 #### growth ####################################################################
 
@@ -149,7 +150,7 @@ pila_validation = readRDS(here::here('02-data',
 samples.beta_g = samples %>% select(contains('beta'))
 samples.ecoEffect_g = samples %>% select(contains('effect_ecosub')) %>% as.data.frame()
 samples.plotEffect_g = samples %>% select(contains('effect_plot')) %>% as.data.frame()
-growth_retrodictions = 
+growth_predictions = 
   do.call('bind_rows',
           lapply(X = 1:nrow(samples),
                  FUN = function(i){
@@ -159,7 +160,7 @@ growth_retrodictions =
                      as.numeric(samples.ecoEffect_g[i,])[pila_validation$ecosub_id]+
                      as.numeric(samples.plotEffect_g[i,])[pila_validation$plot_id]
                    size1_sim = truncnorm::rtruncnorm(n = pila_validation$N,
-                                                     a = 0,
+                                                     a = 0.0254,
                                                      mean = mu,
                                                      sd = samples$sigma_epsilon[i])
                    
@@ -174,9 +175,9 @@ growth_retrodictions =
                    return(result)
                  }))
 
-growth_retrodictions_plot = 
+growth_predictions_plot = 
   ggplot(data = 
-           growth_retrodictions %>%
+           growth_predictions %>%
            group_by(tree_id,size1_true) %>%
            summarise(size1_sim.50 = quantile(size1_sim, 0.5),
                      size1_sim.025 = quantile(size1_sim, 0.025),
@@ -190,14 +191,14 @@ growth_retrodictions_plot =
               alpha = 0.2)+
   labs(x = 'rank (simulated size)', y = 'Size at remeasure')
 
-growth_retrodictions_plot
+growth_predictions_plot
 
 # model is slightly overpredicting size of the smallest trees, missing some variation
 # in size
 
-growth_retrodictions_plot2 = 
+growth_predictions_plot2 = 
   ggplot(data = 
-           growth_retrodictions %>%
+           growth_predictions %>%
            group_by(tree_id,size1_true) %>%
            summarise(size1_sim.50 = quantile(size1_sim, 0.5),
                      size1_sim.025 = quantile(size1_sim, 0.025),
@@ -210,18 +211,19 @@ growth_retrodictions_plot2 =
               alpha = 0.2)+
   geom_abline(intercept = 0, slope = 1, color = 'blue')
 
-growth_retrodictions_plot2
+growth_predictions_plot2
 
-growth_retrodictions_plot2+
+growth_predictions_plot2+
   coord_cartesian(xlim = c(0, 0.25), ylim = c(0, 0.25))+
   scale_y_continuous(breaks = seq(from = 0, to = 0.254, by = 0.0254))+
   scale_x_continuous(breaks = seq(from = 0, to = 2.54, by = 0.0254))
 
-ggsave(growth_retrodictions_plot2,
+ggsave(growth_predictions_plot2,
        filename = here::here('04-communication',
                              'figures',
                              'manuscript',
-                             'retrodictions_g.png'))
+                             'predictions_g.png'),
+       height = 4.5, width = 6, units = 'in')
 
 #### recruitment ###############################################################
 
@@ -237,7 +239,7 @@ pila_validation = readRDS(here::here('02-data',
 
 samples.beta_f = samples %>% select(contains('beta'))
 
-recruitment.retrodictions = 
+recruitment.predictions = 
   do.call('bind_rows',
           lapply(X = 1:nrow(samples),
                  FUN = function(i){
@@ -283,10 +285,10 @@ recruitment.retrodictions =
                    return(result)
                  }))
 
-head(recruitment.retrodictions)
+head(recruitment.predictions)
 
-recr_retrodictions_plot = 
-  recruitment.retrodictions %>%
+recr_predictions_plot = 
+  recruitment.predictions %>%
   pivot_longer(cols = c('count_sim', 'count_true'),
                names_to = 'source', values_to = 'count') %>%
   ggplot(aes(x = count, fill = source))+
@@ -294,11 +296,11 @@ recr_retrodictions_plot =
   #scale_x_continuous(limits = c(-1, 10))+
   theme_minimal()
 
-recr_retrodictions_plot
+recr_predictions_plot
 # looks good
 
-recr_retrodictions_plot2 = 
-  recruitment.retrodictions %>%
+recr_predictions_plot2 = 
+  recruitment.predictions %>%
   group_by(plot, count_true) %>%
   summarise(density_pred.50 = quantile(density_pred,probs = 0.5),
             count_sim.975 = quantile(count_sim, probs = 0.975),
@@ -313,12 +315,12 @@ recr_retrodictions_plot2 =
   theme_minimal()
 
 
-recr_retrodictions_plot2
+recr_predictions_plot2
 
 # looks good
-ggsave(recr_retrodictions_plot,
+ggsave(recr_predictions_plot,
        filename = here::here('04-communication',
                              'figures',
                              'manuscript',
-                             'retrodictions_r.png'))
+                             'predictions_r.png'))
 

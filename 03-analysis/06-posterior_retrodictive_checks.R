@@ -106,7 +106,7 @@ surv_retrodictions_plot =
   ggplot(
   data = mort_retrodictions,
   aes(x = r, y = surv_true))+
-  geom_jitter(height = 0.1, width = 0, size = 0, color = 'red')+
+  geom_jitter(height = 0.1, width = 0, size = 1, color = 'red')+
   theme_minimal()+
   geom_point(data = mort_retrodictions,
              aes(x = r, y = p.mean))+
@@ -128,7 +128,8 @@ ggsave(surv_retrodictions_plot,
        filename = here::here('04-communication',
                              'figures',
                              'manuscript',
-                             'retrodictions_s.png'))
+                             'retrodictions_s.png'),
+       height = 4.5, width = 6, units = 'in')
 
 #### growth ####################################################################
 
@@ -158,7 +159,7 @@ growth_retrodictions =
                      as.numeric(samples.ecoEffect_g[i,])[pila_training$ecosub_id]+
                      as.numeric(samples.plotEffect_g[i,])[pila_training$plot_id]
                    size1_sim = truncnorm::rtruncnorm(n = pila_training$N,
-                                                     a = 0,
+                                                     a = 0.0254,
                                                      mean = mu,
                                                      sd = samples$sigma_epsilon[i])
                    
@@ -220,7 +221,8 @@ ggsave(growth_retrodictions_plot2,
        filename = here::here('04-communication',
                              'figures',
                              'manuscript',
-                             'retrodictions_g.png'))
+                             'retrodictions_g.png'),
+       height = 4.5, width = 6, units = 'in')
 
 #### recruitment ###############################################################
 

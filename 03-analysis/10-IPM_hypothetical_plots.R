@@ -181,7 +181,7 @@ A_hypotheticals =
                                            pnorm(size_metadata$bin_lower,
                                                  mu[class_from],
                                                  sigmaEpsilon_g))/
-                                          (1-pnorm(0,
+                                          (1-pnorm(0.0254,
                                                 mu[class_from],
                                                 sigmaEpsilon_g)))
                                      
