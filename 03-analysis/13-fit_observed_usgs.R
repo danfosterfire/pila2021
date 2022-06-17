@@ -8,67 +8,139 @@ library(bayesplot)
 library(posterior)
 
 
-# load model data
-pila_data = 
-  readRDS(here::here('02-data',
-                     '02-for_analysis',
-                     'usgs',
-                     'pila_data.rds'))
+
+surv_data = readRDS(here::here('02-data',
+                               '02-for_analysis',
+                               'surv_data_pila_usgs.rds'))
+
+growth_data = readRDS(here::here('02-data',
+                                 '02-for_analysis',
+                                 'growth_data_pila_usgs.rds'))
+
+fecd_data = readRDS(here::here('02-data',
+                               '02-for_analysis',
+                               'fecd_data_pila_usgs.rds'))
 
 
-#### build model and run sampler ###############################################
+#### survival ##################################################################
 
-stan_model = 
-  cmdstan_model(here::here('03-analysis', 'model_usgs.stan'))
+# build model
+surv_model = cmdstan_model(here::here('03-analysis', 'surv_model_usgs.stan'))
 
-
-fitted_model = 
-  stan_model$sample(
-    data = pila_data,
+# run sampler
+surv_fit = 
+  surv_model$sample(
+    data = surv_data,
     parallel_chains = 4,
     output_dir = here::here('02-data', '03-results', 'real_fits', 'usgs'),
-    output_basename = 'pila',
-    seed = 110819)
+    output_basename = 'pila_surv',
+    seed = 110819
+  )
+
+# model diagnostics
+surv_fit$cmdstan_diagnose()
+
+surv_fit$summary()
+
+mcmc_pairs(surv_fit$draws(variables = c('beta', 'sigma_plot')))
+
+mcmc_dens_overlay(surv_fit$draws(variables = c('beta', 'sigma_plot')))
+
+surv_fit$save_object(here::here('02-data', 
+                                '03-results',
+                                'real_fits',
+                                'usgs',
+                                'surv_fit_usgs.rds'))
+
+surv_posterior = as_draws_df(surv_fit$draws())
+
+saveRDS(surv_posterior,
+        here::here('02-data', 
+                   '03-results',
+                   'real_fits',
+                   'usgs',
+                   'surv_posterior_usgs.rds'))
 
 
-#### model diagnostics #########################################################
+#### growth ####################################################################
 
-fitted_model$summary(c('beta_s',  'sigmaPlot_s',
-                       'beta_g', 'sigmaPlot_g', 'sigmaEpsilon_g',
-                       'beta_f', 'sigmaPlot_f', 'kappa_f', 
-                       'mu_r', 'sigmaEpsilon_r')) %>% 
-  print(n = Inf)
+# build model
+growth_model = cmdstan_model(here::here('03-analysis', 'growth_model_usgs.stan'))
 
-# I think it's ok for there to be some correlation in the parameter esitmates 
-# between the intercept and the size effect? the parameters are only weakly 
-# identified but I don't have a good a priori reason to want to set beta_size 
-# to 1
-mcmc_pairs(fitted_model$draws(),
-           pars = c('beta_g[1]', 'beta_g[2]','sigmaEpsilon_g', 'sigmaPlot_g'))
+# run sampler
+growth_fit = 
+  growth_model$sample(
+    data = growth_data,
+    parallel_chains = 4,
+    output_dir = here::here('02-data', '03-results', 'real_fits', 'usgs'),
+    output_basename = 'pila_growth',
+    seed = 110819
+  )
 
-mcmc_pairs(fitted_model$draws(),
-           pars = c('beta_s[1]', 'beta_s[2]', 'beta_s[3]', 'sigmaPlot_s'))
+# model diagnostics
+growth_fit$cmdstan_diagnose()
 
-mcmc_pairs(fitted_model$draws(),
-           pars = c('beta_f[1]', 'beta_f[2]', 'beta_f[3]', 'sigmaPlot_f', 'kappa_f'))
+growth_fit$summary()
 
-mcmc_pairs(fitted_model$draws(),
-           pars = c('beta_s[1]', 'beta_g[1]', 'beta_f[1]'))
+mcmc_pairs(growth_fit$draws(variables = c('beta', 'sigma_plot')))
 
-mcmc_pairs(fitted_model$draws(),
-           pars = c('mu_r', 'sigmaEpsilon_r'))
+mcmc_dens_overlay(growth_fit$draws(variables = c('beta', 'sigma_plot')))
 
-mcmc_dens_overlay(fitted_model$draws(variables = 
-                                       c('beta_s', 'sigmaPlot_s')))
+growth_fit$save_object(here::here('02-data', 
+                                '03-results',
+                                'real_fits',
+                                'usgs',
+                                'growth_fit_usgs.rds'))
 
-mcmc_dens_overlay(fitted_model$draws(variables = 
-                                       c('beta_g', 'sigmaPlot_s', 'sigmaEpsilon_g')))
+growth_posterior = as_draws_df(growth_fit$draws())
 
-mcmc_dens_overlay(fitted_model$draws(variables = 
-                                       c('beta_f', 'sigmaPlot_f', 'kappa_f')))
+saveRDS(growth_posterior,
+        here::here('02-data', 
+                   '03-results',
+                   'real_fits',
+                   'usgs',
+                   'growth_posterior_usgs.rds'))
 
-mcmc_dens_overlay(fitted_model$draws(variables = c('mu_r', 'sigmaEpsilon_r')))
 
-fitted_model$cmdstan_diagnose()
+#### survival ##################################################################
 
-fitted_model$save_object(here::here('02-data', '03-results', 'real_fits', 'usgs', 'pila.rds'))
+# build model
+fecd_model = cmdstan_model(here::here('03-analysis', 'fecd_model_usgs.stan'))
+
+# run sampler
+fecd_fit = 
+  fecd_model$sample(
+    data = fecd_data,
+    parallel_chains = 4,
+    output_dir = here::here('02-data', '03-results', 'real_fits', 'usgs'),
+    output_basename = 'pila_fecd',
+    seed = 110819,
+    adapt_delta = 0.95
+  )
+
+# model diagnostics
+fecd_fit$cmdstan_diagnose()
+
+fecd_fit$summary()
+
+mcmc_pairs(fecd_fit$draws(variables = c('beta', 'sigma_plot')))
+
+mcmc_dens_overlay(fecd_fit$draws(variables = c('beta', 'sigma_plot')))
+
+fecd_fit$save_object(here::here('02-data', 
+                                '03-results',
+                                'real_fits',
+                                'usgs',
+                                'fecd_fit_usgs.rds'))
+
+fecd_posterior = as_draws_df(fecd_fit$draws())
+
+saveRDS(fecd_posterior,
+        here::here('02-data', 
+                   '03-results',
+                   'real_fits',
+                   'usgs',
+                   'fecd_posterior_usgs.rds'))
+
+
+

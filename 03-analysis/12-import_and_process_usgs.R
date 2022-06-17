@@ -137,10 +137,21 @@ individual_data =
   
   # get rid of trees which are dead at the start of a census, or which haven't 
   # had a followup census
-  filter(status_0=='live' & !is.na(year_T)) %>%
+  filter(status_0=='live' & year_0 <= 2011) %>%
+  
+  mutate(status_T = ifelse(is.na(status_T), 'dead', status_T)) %>%
   
   # get rid of the 5-year cycle censuses, which are obs_0 2, 4, 6, and 8
   filter(is.element(obs_0, c(1, 3, 5, 7)))
+
+
+individual_data %>%
+  mutate(status_T = status_T=='live') %>%
+  group_by(plot, year_0) %>%
+  summarise(status_T = mean(status_T)) %>%
+  ungroup() %>%
+  arrange(desc(status_T)) %>%
+  print(n = Inf)
 
 #### size metadata #############################################################
 
@@ -516,6 +527,27 @@ fecundity_data.pila =
                         pull(pc)))
 
 
+#### recruit size distribution #################################################
+
+head(individual_recruits.pila)
+
+recr_size_kernel = 
+  individual_recruits.pila %>%
+  mutate(dbh_class = cut(dbh_recr,
+                         breaks = seq(0.0254, 2.54, 0.0254),
+                         right = FALSE,
+                         labels = FALSE),
+         count = 1) %>%
+  group_by(spp,dbh_class) %>%
+  summarise(count = sum(count)) %>%
+  ungroup() %>%
+  left_join(group_by(.,spp) %>%
+              summarise(total = sum(count)) %>%
+              ungroup()) %>%
+  mutate(p = count / total) %>%
+  pull(p)
+
+
 #### add indices ###############################################################
 
 unique_plots.pila = 
@@ -557,15 +589,15 @@ fecundity_data.pila =
 
 survival_data.pila = 
   individual_data.pila %>%
-  left_join(census_data,
+  left_join(census_data %>%
+              select(-year_T),
             by = c('plot' = 'plot',
                    'year_0' = 'year_0',
-                   'year_T' = 'year_T',
                    'obs_0' = 'census')) %>%
   filter(burned_0T == FALSE) %>%
   mutate(intercept = 1,
          year_scaled = year_0 - 1982,
-         dbh_0.m = dbh_0 * 0.01,
+         dbh_0.m = dbh_0,
          dbh2_0.m = dbh_0.m**2,
          dbh_fire = dbh_0.m * burned_0T,
          dbh_wpbr = dbh_0.m * wpbr,
@@ -591,22 +623,20 @@ growth_data.pila =
   filter(burned_0T == FALSE) %>%
   mutate(intercept = 1,
          year_scaled = year_0-1982,
-         dbh_0.m = dbh_0 * 0.01,
-         dbh_T.m = dbh_T * 0.01,
+         dbh_0.m = dbh_0,
+         dbh2_0.m = dbh_0.m**2,
+         dbh_T.m = dbh_T,
          dbh_fire = dbh_0.m * burned_0T,
          dbh_wpbr = dbh_0.m * wpbr,
          dbh_ba = dbh_0.m * ba_scaled,
          dbh_cwd = dbh_0.m * cwd_scaled,
          dbh_year = dbh_0.m * year_scaled) %>%
   select(plot, plot_id.i, tree_id, spp, obs_0, year_0, status_0, 
-         year_T, status_T, dbh_T.m, intercept, dbh_0.m, year_scaled, fire = burned_0T, wpbr,
+         year_T, status_T, dbh_T.m, intercept, dbh_0.m, dbh2_0.m, year_scaled, fire = burned_0T, wpbr,
          ba_scaled, cwd_scaled, dbh_fire, dbh_wpbr, dbh_ba, dbh_cwd, dbh_year)
 
 head(growth_data.pila)
 
-ggplot(data = survival_data.pila,
-       aes(x = fire))+
-  geom_bar()
 
 #### fecundity data ############################################################
 
@@ -651,13 +681,13 @@ individual_recruits.pila =
 #### fecundity model data ######################################################
 
 fecd_model_data_pila = 
-  list(K = 2,
+  list(K = 1,
        P = length(unique(fecundity_data.pila$plot)),
        N = nrow(fecundity_data.pila),
        M = nrow(size_metadata),
        C = nrow(recruit_counts.pila),
        cprime = recruit_counts.pila$count,
-       X = fecundity_data.pila[,c('intercept', 'dbh_0.m')] %>%
+       X = fecundity_data.pila[,c('intercept')] %>%
          as.matrix(),
        plot_id = fecundity_data.pila$plot_id.i,
        n = matrix(nrow = nrow(size_metadata),
@@ -665,6 +695,28 @@ fecd_model_data_pila =
                   data = fecundity_data.pila$tph_0,
                   byrow = FALSE),
        a = recruit_counts.pila$areaha)
+
+#### growth model data #########################################################
+
+growth_model_data_pila = 
+  list(K = 3,
+       P = length(unique(growth_data.pila$plot)),
+       N = nrow(growth_data.pila),
+       size1 = growth_data.pila$dbh_T.m,
+       X = growth_data.pila[,c('intercept', 'dbh_0.m', 'dbh2_0.m')] %>%
+         as.matrix(),
+       plot_id = growth_data.pila$plot_id.i)
+
+#### survival model data #######################################################
+
+surv_model_data_pila = 
+  list(K = 3, 
+       P = length(unique(survival_data.pila$plot)),
+       N = nrow(survival_data.pila),
+       surv = as.integer(survival_data.pila$status_T=='live'),
+       X = survival_data.pila[,c('intercept', 'dbh_0.m', 'dbh2_0.m')] %>%
+         as.matrix(),
+       plot_id = survival_data.pila$plot_id.i)
 
 #### data exploration ##########################################################
 
@@ -701,9 +753,69 @@ sapply(X = 1:fecd_model_data_pila$M,
 
 hist(fecd_model_data_pila$a)
 
+# X distribution
+growth_data.pila %>%
+  ggplot(aes(x = dbh_0.m))+
+  geom_histogram()
+
+# Y distribution
+growth_data.pila %>%
+  ggplot(aes(x = dbh_T.m))+
+  geom_histogram()
+
+# XY relationship
+growth_data.pila %>%
+  ggplot(aes(x = dbh_0.m, y = dbh_T.m))+
+  geom_point()
+
+growth_data.pila %>%
+  ggplot(aes(x = dbh_0.m, y = dbh_T.m-dbh_0.m))+
+  geom_point()+
+  geom_smooth(method = 'lm', formula  = y~x+I(x**2))
+
+# X distribution
+survival_data.pila %>%
+  ggplot(aes(x = dbh_0.m))+
+  geom_histogram()
+
+max(survival_data.pila$dbh_0.m)
+
+# y distribution
+survival_data.pila %>%
+  ggplot(aes(x = status_T))+
+  geom_bar()
+
+# XY relationship
+survival_data.pila %>%
+  mutate(status_T = as.integer(status_T=='live')) %>%
+  ggplot(aes(x = dbh_0.m, y = status_T))+
+  geom_jitter(height = 0.1, width = 0, size = 0, color = 'red')+
+  geom_smooth(method = 'glm', method.args = list(family = 'binomial'),
+              formula = y~x+I(x**2))+
+  theme_minimal()
 
 #### write results #############################################################
 saveRDS(fecd_model_data_pila,
         here::here('02-data',
                    '02-for_analysis',
                    'fecd_data_pila_usgs.rds'))
+
+saveRDS(surv_model_data_pila,
+        here::here('02-data',
+                   '02-for_analysis',
+                   'surv_data_pila_usgs.rds'))
+
+saveRDS(growth_model_data_pila,
+        here::here('02-data',
+                   '02-for_analysis',
+                   'growth_data_pila_usgs.rds'))
+
+saveRDS(unique_plots.pila,
+        here::here('02-data',
+                   '01-preprocessed',
+                   'unique_plots_usgs.rds'))
+
+saveRDS(recr_size_kernel,
+        here::here('02-data',
+                   '01-preprocessed',
+                   'recr_size_kernel_usgs.rds'))
