@@ -123,12 +123,53 @@ tph_figure =
 
 tph_figure
 
+tph_figure_ppt = 
+  hypothetical_results_df %>%
+  group_by(plot, draw) %>%
+  summarise(tph_initial = sum(tph_initial),
+            tph_post = sum(tph_post),
+            tph_delta = sum(tph_post-tph_initial)) %>%
+  ungroup() %>%
+  left_join(
+    data.frame(plot = 1:9,
+             name = c('Undisturbed', 'Fire', 'WPBR', 'Low BA', 'High BA',
+                      'Low Drought', 'High Drought', 'Wet Site', 'Dry Site'))
+  ) %>%  
+  mutate(name = factor(name, levels = 
+                         c('Undisturbed', 'Fire', 'WPBR', 'Low BA', 'High BA',
+                           'Low Drought', 'High Drought', 'Wet Site', 'Dry Site'))) %>%
+  ggplot(aes(y = tph_post))+
+  geom_density(fill = 'lightgrey')+
+  facet_grid(.~name)+
+  geom_hline(aes(yintercept = tph_initial),
+             lty = 2, lwd = 1, col = 'red')+
+  theme_minimal()+
+  theme(axis.text.x = element_blank(),
+        text = element_text(size = 16))+
+  labs(y = 'Stem density (trees / ha)',
+       x = 'Posterior density')
+
+tph_figure_ppt
+
+ggsave(tph_figure_ppt,
+       filename = 
+         here::here('04-communication',
+                    'figures',
+                    'powerpoint',
+                    'projected_tph.png'),
+       height = 4, width = 11, units = 'in')
+
+
 ggsave(tph_figure,
        filename = here::here('04-communication',
                              'figures',
                              'manuscript',
                              'projected_tph.png'),
        height = 7.5, width = 4, units = 'in')
+
+tph_figure_ppt = 
+  
+
 
 ba_figure = 
   hypothetical_results_df %>%

@@ -263,7 +263,7 @@ hypothetical_lambdas_plot.ppt =
   ggplot(data = 
            hypothetical_lambdas_full,
          aes(x = lambda))+
-  geom_density(lwd = 1, fill = 'lightgrey')+
+  geom_density( fill = 'lightgrey')+
   geom_vline(xintercept = 1, color = 'red', lty = 2, lwd = 1)+
   theme_minimal()+
   facet_grid(.~subp_id, scales = 'free_x',
