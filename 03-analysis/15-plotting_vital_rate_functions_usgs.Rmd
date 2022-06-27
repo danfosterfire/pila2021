@@ -14,17 +14,53 @@ library(bayesplot)
 library(cowplot)
 library(ggspatial)
 library(basemaps)
+
 # load observed data
-pila_data = readRDS(here::here('02-data', '02-for_analysis','usgs', 'pila_data.rds'))
+surv_data = readRDS(here::here('02-data',
+                               '02-for_analysis',
+                               'surv_data_pila_usgs.rds'))
 
-# load mcmc results
-pila_fit = readRDS(here::here('02-data', '03-results', 'real_fits','usgs', 'pila.rds'))
+growth_data = readRDS(here::here('02-data',
+                                 '02-for_analysis',
+                                 'growth_data_pila_usgs.rds'))
 
-samples = as_draws_df(pila_fit$draws())
+fecd_data = readRDS(here::here('02-data',
+                               '02-for_analysis',
+                               'fecd_data_pila_usgs.rds'))
 
-betas_s = samples %>% select(contains('beta_s'))
-betas_g = samples %>% select(contains('beta_g'))
-betas_f = samples %>% select(contains('beta_f'))
+
+# load fitted models
+surv_fit = readRDS(here::here('02-data',
+                              '03-results',
+                              'real_fits',
+                              'usgs',
+                              'surv_fit_usgs.rds'))
+
+growth_fit = 
+  readRDS(here::here('02-data',
+                     '03-results',
+                     'real_fits',
+                     'usgs',
+                     'growth_fit_usgs.rds'))
+
+fecd_fit = 
+  readRDS(here::here('02-data',
+                     '03-results',
+                     'real_fits',
+                     'usgs',
+                     'fecd_fit_usgs.rds'))
+
+
+
+
+
+samples_s = as_draws_df(surv_fit$draws())
+samples_g = as_draws_df(growth_fit$draws())
+samples_f = as_draws_df(fecd_fit$draws())
+
+betas_s = samples_s %>% select(contains('beta'))
+betas_g = samples_g %>% select(contains('beta'))
+betas_f = samples_f %>% select(contains('beta'))
 
 
 ```
@@ -37,11 +73,11 @@ betas_f = samples %>% select(contains('beta_f'))
 
 beta_s_names =   
   data.frame(
-      param = c('beta_s[1]', 'beta_s[2]'),
-      data_name = c('intercept', 'dbh_0.m'),
-      position = str_pad(1:2, width = 2, side = 'left', pad = '0'),
+      param = c('beta[1]', 'beta[2]', 'beta[3]'),
+      data_name = c('intercept', 'dbh_0.m', 'dbh2_0.m'),
+      position = str_pad(1:3, width = 2, side = 'left', pad = '0'),
       pretty_name = 
-          c('Intercept','DBH (m)'))
+          c('Intercept','DBH (m)', 'DBH^2 (m^2)'))
 
 pretty_beta_s_labels = 
   beta_s_names$pretty_name
@@ -74,13 +110,13 @@ ggsave(beta_s_priorvpost,
                              'figures',
                              'report',
                              'beta_s_priorvpost_usgs.png'), 
-       height = 6.5, width = 4, units = 'in')
+       height = 4, width = 6.5, units = 'in')
 
 
 sigmaPlot_s_priorvpost = 
-  samples %>%
-  select(sigmaPlot_s) %>%
-  ggplot(aes(x = sigmaPlot_s))+
+  samples_s %>%
+  select(sigma_plot) %>%
+  ggplot(aes(x = sigma_plot))+
   geom_density(lwd = 1)+
   geom_density(data = 
                  data.frame(prior = truncnorm::rtruncnorm(n = 1000, a = 0, mean = 0, sd = 5)),
@@ -94,7 +130,7 @@ ggsave(sigmaPlot_s_priorvpost,
        filename = here::here('04-communication',
                   'figures',
                   'report',
-                  'sigmas_s_priorvpost_usgs.png'), height = 6.5, width = 4, units = 'in')
+                  'sigmas_s_priorvpost_usgs.png'), height = 4, width = 6.5, units = 'in')
 
 
 ```
@@ -104,11 +140,12 @@ ggsave(sigmaPlot_s_priorvpost,
 ```{r}
 beta_g_names =   
   data.frame(
-      param = c('beta_g[1]', 'beta_g[2]'),
-      data_name = c('intercept', 'dbh_0.m'),
-      position = str_pad(1:2, width = 2, side = 'left', pad = '0'),
+      param = c('beta[1]', 'beta[2]', 'beta[3]'),
+      data_name = c('intercept', 'dbh_0.m', 'dbh2_0.m'),
+      position = str_pad(1:3, width = 2, side = 'left', pad = '0'),
       pretty_name = 
-          c('Intercept','DBH (m)'))
+          c('Intercept','DBH (m)', 'DBH^2 (m^2)'))
+
 
 pretty_beta_g_labels = 
   beta_g_names$pretty_name
@@ -141,12 +178,12 @@ ggsave(beta_g_priorvpost,
        filename = here::here('04-communication',
                              'figures',
                              'report',
-                             'beta_g_priorvpost_usgs.png'), height = 6.5, width = 4, units = 'in')
+                             'beta_g_priorvpost_usgs.png'), height = 4, width = 6.5, units = 'in')
 
 sigmaPlot_g_priorvpost = 
-  samples %>%
-  select(sigmaPlot_g) %>%
-  ggplot(aes(x = sigmaPlot_g))+
+  samples_g %>%
+  select(sigma_plot) %>%
+  ggplot(aes(x = sigma_plot))+
   geom_density(lwd = 1)+
   geom_density(data = 
                  data.frame(prior = truncnorm::rtruncnorm(n = 1000, a = 0, mean = 0, sd = 5)),
@@ -155,9 +192,9 @@ sigmaPlot_g_priorvpost =
 
 
 sigmaEpsilon_g_priorvpost = 
-  samples %>%
-  select(sigmaEpsilon_g) %>%
-  ggplot(aes(x = sigmaEpsilon_g))+
+  samples_g %>%
+  select(sigma_epsilon) %>%
+  ggplot(aes(x = sigma_epsilon))+
   geom_density(lwd = 1)+
   geom_density(data = 
                  data.frame(prior = truncnorm::rtruncnorm(n = 1000, a = 0, mean = 0, sd = 5)),
@@ -168,11 +205,13 @@ sigmas_g_priorvpost =
   plot_grid(sigmaPlot_g_priorvpost,
             sigmaEpsilon_g_priorvpost)
 
+sigmas_g_priorvpost
+
 ggsave(sigmas_g_priorvpost,
        filename = here::here('04-communication',
                              'figures',
                              'report',
-                             'sigmas_g_priorvpost_usgs.png'), height = 6.5, width = 4, units = 'in')
+                             'sigmas_g_priorvpost_usgs.png'), height = 4, width = 6.5, units = 'in')
 
 ```
 
@@ -181,11 +220,11 @@ ggsave(sigmas_g_priorvpost,
 ```{r}
 beta_f_names =   
   data.frame(
-      param = c('beta_f[1]', 'beta_f[2]'),
-      data_name = c('intercept', 'dbh_0.m'),
-      position = str_pad(1:2, width = 2, side = 'left', pad = '0'),
+      param = c('beta[1]'),
+      data_name = c('intercept'),
+      position = str_pad(1:1, width = 2, side = 'left', pad = '0'),
       pretty_name = 
-          c('Intercept','DBH (m)'))
+          c('Intercept'))
 
 pretty_beta_f_labels = 
   beta_f_names$pretty_name
@@ -218,7 +257,7 @@ ggsave(beta_f_priorvpost,
        filename = here::here('04-communication',
                              'figures',
                              'report',
-                             'beta_f_priorvpost_usgs.png'), height = 6.5, width = 4, units = 'in')
+                             'beta_f_priorvpost_usgs.png'), height = 4, width = 6.5, units = 'in')
 
 half_cauchy_samples = 
   sapply(X = 1:1000,
@@ -231,9 +270,9 @@ half_cauchy_samples =
          })
 
 kappa_r_priorvpost = 
-  samples %>%
-  select(kappa_f) %>%
-  ggplot(aes(x = kappa_f))+
+  samples_f %>%
+  select(kappa) %>%
+  ggplot(aes(x = kappa))+
   geom_density(lwd = 1)+
   theme_minimal()+
   geom_density(
@@ -245,9 +284,9 @@ kappa_r_priorvpost =
 
 kappa_r_priorvpost
 sigmaPlot_f_priorvpost = 
-  samples %>%
-  select(sigmaPlot_f) %>%
-  ggplot(aes(x = sigmaPlot_f))+
+  samples_f %>%
+  select(sigma_plot) %>%
+  ggplot(aes(x = sigma_plot))+
   geom_density(lwd = 1)+
   geom_density(data = 
                  data.frame(prior = truncnorm::rtruncnorm(n = 1000, a = 0, mean = 0, sd = 5)),
@@ -256,67 +295,37 @@ sigmaPlot_f_priorvpost =
 
 sigmaPlot_f_priorvpost
 
+ggsave(sigmaPlot_f_priorvpost,
+       filename = here::here('04-communication',
+                             'figures',
+                             'report',
+                             'sigmaPlot_f_priorvpost_usgs.png'),
+       height = 4, width = 6.5, units = 'in')
+
 ggsave(kappa_r_priorvpost,
        filename = here::here('04-communication',
                              'figures',
                              'report',
                              'kappa_r_priorvpost_usgs.png'), 
-       height = 6.5, width = 4, units = 'in')
+       height = 4, width = 6.5, units = 'in')
 
 ```
 
 
-## Recruit size
 
-```{r}
-mu_r_priorvpost = 
-  samples %>%
-  ggplot(aes(x = mu_r))+
-  geom_density(lwd = 1)+
-  geom_density(data = 
-                 data.frame(prior = rnorm(n = 1000, mean = 0, sd = 5)),
-               aes(x = prior), color = 'red')+
-  theme_minimal()
-  
-sigmaEpsilon_r_priorvpost = 
-  samples %>%
-  ggplot(aes(x = sigmaEpsilon_r))+
-  geom_density(lwd = 1)+
-  geom_density(data = 
-                 data.frame(prior = truncnorm::rtruncnorm(n = 1000, a = 0, mean = 0, sd = 5)),
-               aes(x = prior), color = 'red')+
-  theme_minimal()
-
-recrsize_priorvpost = 
-  plot_grid(mu_r_priorvpost, sigmaEpsilon_r_priorvpost)
-
-recrsize_priorvpost
-ggsave(recrsize_priorvpost,
-       filename = here::here('04-communication',
-                             'figures',
-                             'report',
-                             'recrsize_priorvpost.png'), 
-       height = 6.5, width = 4, units = 'in')
-
-
-```
 
 # Plotting parameters
 
 ## Survival
 
 ```{r}
-mcmc_intervals(samples,
-               pars = c('beta_s[1]',
-                        'beta_s[2]',
-                        'sigmaPlot_s'))
 
 summary_s = 
-  pila_fit$summary(variables = c('beta_s', 'sigmaPlot_s')) %>%
+  surv_fit$summary(variables = c('beta', 'sigma_plot')) %>%
   left_join(beta_s_names %>%
               bind_rows(
-                data.frame(param = c('sigmaPlot_s'),
-                       position = c('3'),
+                data.frame(param = c('sigma_plot'),
+                       position = c('4'),
                        pretty_name = c('SD Plots'))
               ),
             by = c('variable' = 'param')) %>%
@@ -336,47 +345,7 @@ write.csv(summary_s,
                      'summary_s.csv'),
           row.names = FALSE)
 
-pretty_params_s = 
-  samples %>%
-  select(sigmaPlot_s, contains('beta_s')) %>%
-  pivot_longer(cols = everything(), names_to = 'param', values_to = 'value') %>%
-  left_join(beta_s_names %>%
-              bind_rows(
-                data.frame(param = c('sigmaPlot_s'),
-                       position = c('03'),
-                       pretty_name = c('SD Plots'))
-              ))
 
-paramvalues_s = 
-  ggplot(
-  data = 
-    pretty_params_s %>%
-    group_by(param, position, pretty_name) %>%
-    summarise(value.05 = quantile(value, probs = 0.05),
-              value.25 = quantile(value, probs = 0.25),
-              value.50 = quantile(value, probs = 0.5),
-              value.75 = quantile(value, probs = 0.75),
-              value.95 = quantile(value, probs = 0.95)) %>%
-    ungroup() %>%
-    mutate(pretty_name = 
-             factor(pretty_name, 
-                    levels = c('Intercept', 'DBH (m)','SD Plots'))))+
-  geom_vline(xintercept = 0, lty = 2, color = 'grey', lwd = 1)+
-  geom_segment(aes(y = pretty_name, yend = pretty_name, x = value.05, xend = value.95),
-               color = 'deepskyblue1', lwd = 1)+
-  geom_segment(aes(y = pretty_name, yend = pretty_name, x = value.25, xend = value.75),
-               color = 'deepskyblue3', lwd = 2)+
-  geom_point(aes(x = value.50, y = pretty_name), size = 4)+
-  theme_minimal()+
-  labs(x = 'Value', y = 'Parameter (Survival)')
-
-paramvalues_s
-ggsave(paramvalues_s,
-       filename = here::here('04-communication',
-                             'figures', 
-                             'report',
-                             'paramvalues_s_usgs.png'),
-       height = 4, width = 6.5, units = 'in')
 ```
 
 
@@ -388,13 +357,13 @@ ggsave(paramvalues_s,
 
 
 summary_g = 
-  pila_fit$summary(variables = c('beta_g', 'sigmaPlot_g',
-                                 'sigmaEpsilon_g')) %>%
+  growth_fit$summary(variables = c('beta', 'sigma_plot',
+                                 'sigma_epsilon')) %>%
   left_join(beta_g_names %>%
               bind_rows(
-                data.frame(param = c('sigmaPlot_g', 
-                                     'sigmaEpsilon_g'),
-                       position = c('03', '04'),
+                data.frame(param = c('sigma_plot', 
+                                     'sigma_epsilon'),
+                       position = c('04', '05'),
                        pretty_name = c('SD Plots', 'SD Residual'))
               ),
             by = c('variable' = 'param')) %>%
@@ -419,21 +388,14 @@ write.csv(summary_g,
 ## Fecundity
 
 ```{r}
-mcmc_intervals(samples,
-               pars = c('beta_f[1]',
-                        'beta_f[2]',
-                        'sigmaPlot_f'))
-
-mcmc_intervals(samples, pars = 'kappa_f')
-
 
 summary_f = 
-  pila_fit$summary(variables = c('beta_f', 'sigmaPlot_f', 'kappa_f')) %>%
+  fecd_fit$summary(variables = c('beta', 'sigma_plot', 'kappa')) %>%
   left_join(beta_f_names %>%
               bind_rows(
-                data.frame(param = c('sigmaPlot_f', 
-                                     'kappa_f'),
-                       position = c('03', '04'),
+                data.frame(param = c('sigma_plot', 
+                                     'kappa'),
+                       position = c('02', '03'),
                        pretty_name = c('SD Plots', 'NB Dispersion'))
               ),
             by = c('variable' = 'param')) %>%
