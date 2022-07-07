@@ -138,6 +138,13 @@ lapply(X = c('fire', 'wpbr'),
            theme(legend.position = 'bottom')
        })
 
+#### this one ##################################################################
+ggplot(data = growth_data,
+       aes(x = dbh_m.init, y = size1-dbh_m.init))+
+  geom_point(size = 1)+
+  geom_smooth(method = 'lm',
+              formula = y~x+I(x**2))+
+  theme_minimal()
 
 #### survival data #############################################################
 
@@ -321,6 +328,7 @@ lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
            geom_boxplot(width = 0.1, position = position_nudge(x = -0.25))
        })
 
+#### this one ###################################################
 lapply(X = c('dbh_m.init', 'ba_scaled', 'cwd_dep90_scaled', 'cwd_mean_scaled'),
        FUN = function(v){
          ggplot(data = surv_data,

@@ -23,15 +23,30 @@ samples.ecoEffect_s = samples %>% select(contains('effect_ecosub')) %>% as.data.
 samples.plotEffect_s = samples %>% select(contains('effect_plot')) %>% as.data.frame()
 
 
-mort_retrodictions = 
+intermediate = 
   do.call('bind_rows',
           lapply(X = 1:nrow(samples),
                  FUN = function(i){
                    beta_s = as.numeric(samples.beta_s[i,])
+                   
+                   eco_effects = 
+                     rnorm(n = pila_training$E,
+                           mean = 0,
+                           sd = samples$sigma_ecosub[i])
+                   
+                   plot_effects = 
+                     rnorm(n = pila_training$P,
+                           mean = 0,
+                           sd = samples$sigma_plot)
+                   
                    logitp = 
                      as.numeric(pila_training$X %*% beta_s)+
-                     as.numeric(samples.ecoEffect_s[i,])[pila_training$ecosub_id]+
-                     as.numeric(samples.plotEffect_s[i,])[pila_training$plot_id]
+                     #as.numeric(samples.ecoEffect_s[i,])[pila_training$ecosub_id]+
+                     #as.numeric(samples.plotEffect_s[i,])[pila_training$plot_id]
+                      eco_effects[pila_training$ecosub_id]+
+                     plot_effects[pila_training$plot_id]
+                     
+                     
                    p = boot::inv.logit(logitp)
                    surv_sim = rbinom(n = pila_training$N, 
                                  size = 1, 
@@ -47,40 +62,23 @@ mort_retrodictions =
                    result$surv_true = pila_training$surv
                    result$iter = i
                    return(result)
-                 })) %>%
+                 })) 
+
+mort_retrodictions = 
+  intermediate %>%
   group_by(tree_id, surv_true) %>%
   summarise(p.50 = quantile(p, 0.5),
             p.mean = mean(p),
             p.025 = quantile(p, 0.025),
             p.975 = quantile(p, 0.975)) %>%
   ungroup() %>%
-  mutate(r = dense_rank(p.mean),
+  mutate(r = dense_rank(p.50),
          r_bin = cut(r, breaks = seq(0, nrow(.)+1, length.out = 20)))
 
-do.call('bind_rows',
-        lapply(X = 1:nrow(samples),
-               FUN = function(i){
-                 beta_s = as.numeric(samples.beta_s[i,])
-                 logitp = 
-                   as.numeric(pila_training$X %*% beta_s)+
-                   as.numeric(samples.ecoEffect_s[i,])[pila_training$ecosub_id]+
-                   as.numeric(samples.plotEffect_s[i,])[pila_training$plot_id]
-                 p = boot::inv.logit(logitp)
-                 surv_sim = rbinom(n = pila_training$N, 
-                                   size = 1, 
-                                   prob = p)
-                 
-                 result = 
-                   pila_training$X %>% 
-                   as_tibble() %>%
-                   rownames_to_column('tree_id')
-                 result$logitp = logitp
-                 result$p = p
-                 result$surv_sim = surv_sim
-                 result$surv_true = pila_training$surv
-                 result$iter = i
-                 return(result)
-               })) %>%
+
+
+
+intermediate %>%
   group_by(tree_id, dbh_m.init, surv_true) %>%
   summarise(p.50 = quantile(p, 0.5),
             p.mean = mean(p),
@@ -109,7 +107,7 @@ surv_retrodictions_plot =
   geom_jitter(height = 0.1, width = 0, size = 1, color = 'red')+
   theme_minimal()+
   geom_point(data = mort_retrodictions,
-             aes(x = r, y = p.mean))+
+             aes(x = r, y = p.50))+
   geom_ribbon(data = mort_retrodictions,
               aes(x = r, ymin = p.025, ymax = p.975, y = p.50),
               alpha = 0.2)+
@@ -123,6 +121,33 @@ surv_retrodictions_plot =
              color = 'blue', pch = 4)
 
 surv_retrodictions_plot
+
+head(intermediate)
+
+head(mort_retrodictions)
+
+mort_retrodictions %>%
+  filter(r_bin == '(538,605]') %>%
+  left_join(intermediate %>%
+              select(tree_id,
+                     dbh_m.init, dbh_m2.init, fire, wpbr, ba_scaled, cwd_dep90_scaled, cwd_mean_scaled)) %>%
+  group_by(tree_id, dbh_m.init, surv_true) %>%
+  summarise() %>%
+  ungroup() %>%
+  ggplot(aes(x = dbh_m.init, y = surv_true))+
+  geom_jitter(width = 0, height = 0.1)+
+  geom_smooth(method = 'glm',
+              method.arg = list(family = 'binomial'),
+              formula = y~x+I(x**2))
+
+mort_retrodictions %>%
+  filter(r_bin == '(538,605]') %>%
+  left_join(intermediate %>%
+              select(tree_id,
+                     dbh_m.init, dbh_m2.init, fire, wpbr, ba_scaled, cwd_dep90_scaled, cwd_mean_scaled))
+  
+
+
 # looks pretty good
 ggsave(surv_retrodictions_plot,
        filename = here::here('04-communication',

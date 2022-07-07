@@ -461,6 +461,31 @@ plot_data %>%
             count = n()) %>%
   ungroup()
 
+#### this one #################
+plot_data %>%
+  select(plot_id,
+         `2001-2009` = pila_ba_m2ha.init,
+         `2010-2019` = pila_ba_m2ha.re) %>%
+  pivot_longer(cols = c(`2001-2009`, `2010-2019`),
+               names_to = 'timestep',
+               values_to = 'pila_ba_m2ha') %>%
+  ggplot(aes(x = pila_ba_m2ha, fill = timestep))+
+  geom_histogram(position = position_dodge())+
+  theme_minimal()+
+  facet_grid(timestep~.)
+
+plot_data %>%
+  select(plot_id,
+         `2001-2009` = pila_tph.init,
+         `2010-2019` = pila_tph.re) %>%
+  pivot_longer(cols = c(`2001-2009`, `2010-2019`),
+               names_to = 'timestep',
+               values_to = 'pila_ba_m2ha') %>%
+  ggplot(aes(x = pila_ba_m2ha, fill = timestep))+
+  geom_histogram(position = position_dodge())+
+  theme_minimal()+
+  facet_grid(timestep~.)
+
 basal_area_plot = 
   plot_data %>%
   select(plot_id,
