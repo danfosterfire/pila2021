@@ -23,6 +23,67 @@ samples.ecoEffect_s = samples %>% select(contains('effect_ecosub')) %>% as.data.
 samples.plotEffect_s = samples %>% select(contains('effect_plot')) %>% as.data.frame()
 
 
+samples.plotEffect_s %>%
+  rowid_to_column('draw') %>%
+  pivot_longer(cols = c(-draw),
+               names_to = 'parameter',
+               values_to = 'value') %>%
+  ggplot(aes(x = value, group = parameter))+
+  geom_line(stat = 'density', alpha = 0.4)+
+  theme_minimal()
+
+fitted_model$summary(variables = c('beta', 'sigma_plot', 'sigma_ecosub'))
+
+beta_s.med = 
+  samples.beta_s %>%
+  summarise_all(median) %>%
+  as.numeric()
+
+eco_effects = 
+  samples.ecoEffect_s %>%
+  summarise_all(median) %>%
+  as.numeric()
+
+plot_effects = 
+  samples.plotEffect_s %>%
+  summarise_all(median) %>%
+  as.numeric()
+
+logitp.med = 
+  as.numeric(pila_training$X %*% beta_s.med)+
+  as.numeric(eco_effects)[pila_training$ecosub_id]+
+  as.numeric(plot_effects)[pila_training$plot_id]
+
+median_results = 
+  pila_training$X %>%
+  as_tibble()
+
+median_results$logitp = logitp.med
+median_results$p = boot::inv.logit(logitp.med)
+median_results$surv_true = pila_training$surv
+
+median_results = 
+  median_results %>%
+  mutate(r = dense_rank(p),
+         r_bin = cut(r, breaks = seq(0, nrow(.)+1, length.out = 20)))
+
+median_results %>%
+  ggplot()+
+  geom_point(aes(x = r, y = p))+
+  geom_jitter(aes(x = r, y = surv_true),
+              color = 'red',
+              size = 0,
+              height = 0.1, width = 0)+
+  geom_point(data = 
+               median_results %>%
+               group_by(r_bin) %>%
+               summarise(surv_true = sum(surv_true)/n(),
+                         r = mean(r)) %>%
+               ungroup(),
+             color = 'blue',
+             aes(x = r, y = surv_true))+
+  theme_minimal()
+
 intermediate = 
   do.call('bind_rows',
           lapply(X = 1:nrow(samples),
@@ -34,17 +95,21 @@ intermediate =
                            mean = 0,
                            sd = samples$sigma_ecosub[i])
                    
-                   plot_effects = 
-                     rnorm(n = pila_training$P,
-                           mean = 0,
-                           sd = samples$sigma_plot)
+                   #plot_effects = 
+                  #   rnorm(n = pila_training$P,
+                   #        mean = 0,
+                    #       sd = samples$sigma_plot)
                    
-                   logitp = 
-                     as.numeric(pila_training$X %*% beta_s)+
+                   XB = as.numeric(pila_training$X %*% beta_s)
+                   realized_eco = as.numeric(samples.ecoEffect_s[i,])[pila_training$ecosub_id]
+                   #realized_plot = as.numeric(samples.plotEffect_s[i,])[pila_training$plot_id]
+                   
+                   logitp = XB  + realized_eco #+ realized_plot
+                     #as.numeric(pila_training$X %*% beta_s)+
                      #as.numeric(samples.ecoEffect_s[i,])[pila_training$ecosub_id]+
                      #as.numeric(samples.plotEffect_s[i,])[pila_training$plot_id]
-                      eco_effects[pila_training$ecosub_id]+
-                     plot_effects[pila_training$plot_id]
+                    #  eco_effects[pila_training$ecosub_id]+
+                     #plot_effects[pila_training$plot_id]
                      
                      
                    p = boot::inv.logit(logitp)
@@ -56,6 +121,9 @@ intermediate =
                      pila_training$X %>% 
                      as_tibble() %>%
                      rownames_to_column('tree_id')
+                   result$XB = XB
+                   result$realized_eco = realized_eco
+                   #result$realized_plot = realized_plot
                    result$logitp = logitp
                    result$p = p
                    result$surv_sim = surv_sim
@@ -63,6 +131,54 @@ intermediate =
                    result$iter = i
                    return(result)
                  })) 
+
+intermediate %>%
+  group_by(tree_id, surv_true) %>%
+  summarise(p.mean = mean(p)) %>%
+  ungroup() %>%
+  mutate(cutoff = ifelse(p.mean>=0.85, 'above',
+                         ifelse(p.mean>=0.75 & p.mean < 0.85,
+                                'around', 
+                                'below'))) %>%
+  left_join(intermediate) %>%
+  ggplot(aes(x = realized_plot, group = tree_id))+
+  geom_line(stat = 'density', alpha = 0.2)+
+  facet_grid(cutoff ~.)
+
+
+intermediate %>%
+  group_by(tree_id, surv_true) %>%
+  summarise(XB.mean = mean(XB),
+            eco.mean = mean(realized_eco),
+            plot.mean = mean(realized_plot),
+            p.mean = mean(p)) %>%
+  ungroup() %>%
+  ggplot(aes(x = plot.mean, y = p.mean))+
+  geom_point(size = 0)+
+  theme_minimal()
+
+intermediate %>%
+  group_by(tree_id, surv_true) %>%
+  summarise(XB.mean = mean(XB),
+            p.mean = mean(p)) %>%
+  ungroup() %>%
+  mutate(r = dense_rank(XB.mean),
+         r_bin = cut(r, breaks = seq(0, nrow(.)+1, length.out = 20))) %>%
+  ggplot()+
+  geom_point(aes(x = r, y = boot::inv.logit(XB.mean)))+
+  geom_point(data = 
+               intermediate %>%
+               group_by(tree_id, surv_true) %>%
+               summarise(XB.mean = mean(XB), p.mean = mean(p)) %>%
+               ungroup() %>%
+               mutate(r = dense_rank(XB.mean),
+                      r_bin = cut(r, breaks = seq(0, nrow(.)+1, length.out = 20))) %>%
+               group_by(., r_bin) %>%
+               summarise(surv_true = sum(surv_true)/n(),
+                         r = mean(r)) %>%
+               ungroup(),
+             aes(x = r, y = surv_true),
+             color = 'blue')
 
 mort_retrodictions = 
   intermediate %>%
@@ -72,7 +188,7 @@ mort_retrodictions =
             p.025 = quantile(p, 0.025),
             p.975 = quantile(p, 0.975)) %>%
   ungroup() %>%
-  mutate(r = dense_rank(p.50),
+  mutate(r = dense_rank(p.mean),
          r_bin = cut(r, breaks = seq(0, nrow(.)+1, length.out = 20)))
 
 
@@ -107,7 +223,7 @@ surv_retrodictions_plot =
   geom_jitter(height = 0.1, width = 0, size = 1, color = 'red')+
   theme_minimal()+
   geom_point(data = mort_retrodictions,
-             aes(x = r, y = p.50))+
+             aes(x = r, y = p.mean))+
   geom_ribbon(data = mort_retrodictions,
               aes(x = r, ymin = p.025, ymax = p.975, y = p.50),
               alpha = 0.2)+

@@ -504,7 +504,7 @@ basal_area_plot =
                     ymax = mean_ba_m2ha+se_ba_m2ha),
                 width = 0.25)+
   theme_minimal()+
-  labs(x = 'Period', y = 'Basal Area (m^2 / ha)')
+  labs(x = 'Period', y = 'Basal Area (m^2 / ha)', title = 'a')
 
 basal_area_plot
 
@@ -585,7 +585,7 @@ tph_plot =
                 width = 0.25)+
   theme_minimal()+
   labs(y = 'Stem Density (trees / ha)',
-       x = 'Period')
+       x = 'Period', title = 'b')
   
 tph_plot
 

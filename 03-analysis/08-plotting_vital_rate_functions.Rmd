@@ -500,10 +500,10 @@ predict_survival_fixeff =
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(p.median = median(p),
-            p.025 = quantile(p, probs = 0.025),
+            p.05 = quantile(p, probs = 0.05),
             p.25 = quantile(p, probs = 0.25),
             p.75 = quantile(p, probs = 0.75),
-            p.975 = quantile(p, probs = 0.975)) %>%
+            p.95 = quantile(p, probs = 0.95)) %>%
     ungroup() %>%
     select(dbh_m.init, p.median)
 
@@ -534,22 +534,24 @@ size_fixeff_s =
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(p.median = median(p),
-            p.025 = quantile(p, probs = 0.025),
+            p.05 = quantile(p, probs = 0.05),
             p.25 = quantile(p, probs = 0.25),
             p.75 = quantile(p, probs = 0.75),
-            p.975 = quantile(p, probs = 0.975)) %>%
+            p.95 = quantile(p, probs = 0.95)) %>%
   ggplot(data = .,
          aes(x = dbh_m.init))+
-  geom_ribbon(aes(ymin = p.025, ymax = p.975),
-              color = NA, alpha = 0.1)+
+  geom_ribbon(aes(ymin = p.05, ymax = p.95),
+              color = NA, alpha = 0.5)+
   geom_ribbon(aes(ymin = p.25, ymax = p.75),
-              color = NA, alpha = 0.25)+
-  geom_line(aes(y = p.median), lwd = 1.5)+
+              color = NA, alpha = 0)+
+  geom_line(aes(y = p.median), lwd = 1)+
   scale_y_continuous(limits = c(0, 1))+
   theme_minimal()+
   labs(y = 'Survival',
-       x = 'DBH (m)')+
+       x = 'DBH (m)',
+       title = 'a')+
   theme(legend.position = 'bottom')
+
 
 # size X fire
 fire_fixeff_s = 
@@ -576,17 +578,17 @@ fire_fixeff_s =
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(p.median = median(p),
-            p.025 = quantile(p, probs = 0.025),
+            p.05 = quantile(p, probs = 0.05),
             p.25 = quantile(p, probs = 0.25),
             p.75 = quantile(p, probs = 0.75),
-            p.975 = quantile(p, probs = 0.975)) %>%
+            p.95 = quantile(p, probs = 0.95)) %>%
   ggplot(data = .,
          aes(x = dbh_m.init, color = as.factor(fire)))+
-  geom_ribbon(aes(ymin = p.025, ymax = p.975, fill = as.factor(fire)),
-              color = NA, alpha = 0.1)+
+  geom_ribbon(aes(ymin = p.05, ymax = p.95, fill = as.factor(fire)),
+              color = NA, alpha = 0.5)+
   geom_ribbon(aes(ymin = p.25, ymax = p.75, fill = as.factor(fire)),
-              color = NA, alpha = 0.25)+
-  geom_line(aes(y = p.median), lwd = 1.5)+
+              color = NA, alpha = 0)+
+  geom_line(aes(y = p.median), lwd = 1)+
   scale_y_continuous(limits = c(0, 1))+
   scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
   scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
@@ -594,7 +596,8 @@ fire_fixeff_s =
   labs(y = 'Survival',
        fill = 'Fire',
        color = 'Fire',
-       x = 'DBH (m)')+
+       x = 'DBH (m)',
+       title = 'b')+
   theme(legend.position = 'bottom')
 
 # size X wpbr
@@ -622,17 +625,17 @@ wpbr_fixeff_s =
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(p.median = median(p),
-            p.025 = quantile(p, probs = 0.025),
+            p.05 = quantile(p, probs = 0.05),
             p.25 = quantile(p, probs = 0.25),
             p.75 = quantile(p, probs = 0.75),
-            p.975 = quantile(p, probs = 0.975)) %>%
+            p.95 = quantile(p, probs = 0.95)) %>%
   ggplot(data = .,
          aes(x = dbh_m.init, color = as.factor(wpbr)))+
-  geom_ribbon(aes(ymin = p.025, ymax = p.975, fill = as.factor(wpbr)),
-              color = NA, alpha = 0.1)+
+  geom_ribbon(aes(ymin = p.05, ymax = p.95, fill = as.factor(wpbr)),
+              color = NA, alpha = 0.5)+
   geom_ribbon(aes(ymin = p.25, ymax = p.75, fill = as.factor(wpbr)),
-              color = NA, alpha = 0.25)+
-  geom_line(aes(y = p.median), lwd = 1.5)+
+              color = NA, alpha = 0)+
+  geom_line(aes(y = p.median), lwd = 1)+
   scale_y_continuous(limits = c(0, 1))+
   scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
   scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
@@ -640,7 +643,8 @@ wpbr_fixeff_s =
   labs(y = 'Survival',
        fill = 'WPBR',
        color = 'WPBR',
-       x = 'DBH (m)')+
+       x = 'DBH (m)',
+       title = 'c')+
   theme(legend.position = 'bottom')
 
 # size X Basal area
@@ -668,17 +672,17 @@ ba_fixeff_s =
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(p.median = median(p),
-            p.025 = quantile(p, probs = 0.025),
+            p.05 = quantile(p, probs = 0.05),
             p.25 = quantile(p, probs = 0.25),
             p.75 = quantile(p, probs = 0.75),
-            p.975 = quantile(p, probs = 0.975)) %>%
+            p.95 = quantile(p, probs = 0.95)) %>%
   ggplot(data = .,
          aes(x = dbh_m.init, color = as.factor(ba_scaled)))+
-  geom_ribbon(aes(ymin = p.025, ymax = p.975, fill = as.factor(ba_scaled)),
-              color = NA, alpha = 0.1)+
+  geom_ribbon(aes(ymin = p.05, ymax = p.95, fill = as.factor(ba_scaled)),
+              color = NA, alpha = 0.5)+
   geom_ribbon(aes(ymin = p.25, ymax = p.75, fill = as.factor(ba_scaled)),
-              color = NA, alpha = 0.25)+
-  geom_line(aes(y = p.median), lwd = 1.5)+
+              color = NA, alpha = 0)+
+  geom_line(aes(y = p.median), lwd = 1)+
   scale_y_continuous(limits = c(0, 1))+
   scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
   scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
@@ -686,7 +690,8 @@ ba_fixeff_s =
   labs(y = 'Survival',
        fill = 'Basal Area',
        color = 'Basal Area',
-       x = 'DBH (m)')+
+       x = 'DBH (m)',
+       title = 'd')+
   theme(legend.position = 'bottom')
 
 # size X drought
@@ -714,17 +719,17 @@ drought_fixeff_s =
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(p.median = median(p),
-            p.025 = quantile(p, probs = 0.025),
+            p.05 = quantile(p, probs = 0.05),
             p.25 = quantile(p, probs = 0.25),
             p.75 = quantile(p, probs = 0.75),
-            p.975 = quantile(p, probs = 0.975)) %>%
+            p.95 = quantile(p, probs = 0.95)) %>%
   ggplot(data = .,
          aes(x = dbh_m.init, color = as.factor(cwd_dep90_scaled)))+
-  geom_ribbon(aes(ymin = p.025, ymax = p.975, fill = as.factor(cwd_dep90_scaled)),
-              color = NA, alpha = 0.1)+
+  geom_ribbon(aes(ymin = p.05, ymax = p.95, fill = as.factor(cwd_dep90_scaled)),
+              color = NA, alpha = 0.5)+
   geom_ribbon(aes(ymin = p.25, ymax = p.75, fill = as.factor(cwd_dep90_scaled)),
-              color = NA, alpha = 0.25)+
-  geom_line(aes(y = p.median), lwd = 1.5)+
+              color = NA, alpha = 0)+
+  geom_line(aes(y = p.median), lwd = 1)+
   scale_y_continuous(limits = c(0, 1))+
   scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
   scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
@@ -732,7 +737,8 @@ drought_fixeff_s =
   labs(y = 'Survival',
        fill = 'Drought',
        color = 'Drought',
-       x = 'DBH (m)')+
+       x = 'DBH (m)',
+       title = 'e')+
   theme(legend.position = 'bottom')
 
 # size X dryness
@@ -760,17 +766,17 @@ dryness_fixeff_s =
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(p.median = median(p),
-            p.025 = quantile(p, probs = 0.025),
+            p.05 = quantile(p, probs = 0.05),
             p.25 = quantile(p, probs = 0.25),
             p.75 = quantile(p, probs = 0.75),
-            p.975 = quantile(p, probs = 0.975)) %>%
+            p.95 = quantile(p, probs = 0.95)) %>%
   ggplot(data = .,
          aes(x = dbh_m.init, color = as.factor(cwd_mean_scaled)))+
-  geom_ribbon(aes(ymin = p.025, ymax = p.975, fill = as.factor(cwd_mean_scaled)),
-              color = NA, alpha = 0.1)+
+  geom_ribbon(aes(ymin = p.05, ymax = p.95, fill = as.factor(cwd_mean_scaled)),
+              color = NA, alpha = 0.5)+
   geom_ribbon(aes(ymin = p.25, ymax = p.75, fill = as.factor(cwd_mean_scaled)),
-              color = NA, alpha = 0.25)+
-  geom_line(aes(y = p.median), lwd = 1.5)+
+              color = NA, alpha = 0)+
+  geom_line(aes(y = p.median), lwd = 1)+
   scale_y_continuous(limits = c(0, 1))+
   scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
   scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
@@ -778,7 +784,8 @@ dryness_fixeff_s =
   labs(y = 'Survival',
        fill = 'Site Dryness',
        color = 'Site Dryness',
-       x = 'DBH (m)')+
+       x = 'DBH (m)',
+       title = 'f')+
   theme(legend.position = 'bottom')
 
 
@@ -811,6 +818,8 @@ fixeff_s_ppt =
 
 fixeff_s_ppt
 
+fixeff_s
+
 ggsave(fixeff_s_ppt,
        filename = here::here('04-communication',
                              'figures',
@@ -823,7 +832,7 @@ ggsave(fixeff_s,
                              'figures',
                              'manuscript',
                              'fixeff_s.png'), 
-       height = 8, width = 6.5, units = 'in')
+       height = 7.5, width = 6.5, units = 'in')
 ```
 
 ## Growth
@@ -886,20 +895,21 @@ size_fixeff_g =
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(grow.median = median(grow),
-            grow.025 = quantile(grow, probs = 0.025),
+            grow.025 = quantile(grow, probs = 0.05),
             grow.25 = quantile(grow, probs = 0.25),
             grow.75 = quantile(grow, probs = 0.75),
-            grow.975 = quantile(grow, probs = 0.975)) %>%
+            grow.975 = quantile(grow, probs = 0.95)) %>%
   ggplot(data = .,
          aes(x = dbh_m.init))+
   geom_ribbon(aes(ymin = grow.025, ymax = grow.975),
-              color = NA, alpha = 0.1)+
+              color = NA, alpha = 0.5)+
   geom_ribbon(aes(ymin = grow.25, ymax = grow.75),
-              color = NA, alpha = 0.25)+
-  geom_line(aes(y = grow.median), lwd = 1.5)+
+              color = NA, alpha = 0)+
+  geom_line(aes(y = grow.median), lwd = 1)+
   theme_minimal()+
   labs(y = 'DBH growth (m)',
-       x = 'DBH (m)')+
+       x = 'DBH (m)',
+       title = 'a')+
   theme(legend.position = 'bottom')+
   scale_y_continuous(limits = c(-0.01, 0.07))
 
@@ -930,24 +940,25 @@ fire_fixeff_g =
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(grow.median = median(grow),
-            grow.025 = quantile(grow, probs = 0.025),
+            grow.025 = quantile(grow, probs = 0.05),
             grow.25 = quantile(grow, probs = 0.25),
             grow.75 = quantile(grow, probs = 0.75),
-            grow.975 = quantile(grow, probs = 0.975)) %>%
+            grow.975 = quantile(grow, probs = 0.95)) %>%
   ggplot(data = .,
          aes(x = dbh_m.init, color = as.factor(fire)))+
   geom_ribbon(aes(ymin = grow.025, ymax = grow.975, fill = as.factor(fire)),
-              color = NA, alpha = 0.1)+
+              color = NA, alpha = 0.5)+
   geom_ribbon(aes(ymin = grow.25, ymax = grow.75, fill = as.factor(fire)),
-              color = NA, alpha = 0.25)+
-  geom_line(aes(y = grow.median), lwd = 1.5)+
+              color = NA, alpha = 0)+
+  geom_line(aes(y = grow.median), lwd = 1)+
   scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
   scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
   theme_minimal()+
   labs(y = 'DBH growth (m)',
        fill = 'Fire',
        color = 'Fire',
-       x = 'DBH (m)')+
+       x = 'DBH (m)',
+       title = 'b')+
   theme(legend.position = 'bottom')+
   scale_y_continuous(limits = c(-0.01, 0.07))
 
@@ -976,17 +987,17 @@ wpbr_fixeff_g =
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(grow.median = median(grow),
-            grow.025 = quantile(grow, probs = 0.025),
+            grow.025 = quantile(grow, probs = 0.05),
             grow.25 = quantile(grow, probs = 0.25),
             grow.75 = quantile(grow, probs = 0.75),
-            grow.975 = quantile(grow, probs = 0.975)) %>%
+            grow.975 = quantile(grow, probs = 0.95)) %>%
   ggplot(data = .,
          aes(x = dbh_m.init, color = as.factor(wpbr)))+
   geom_ribbon(aes(ymin = grow.025, ymax = grow.975, fill = as.factor(wpbr)),
-              color = NA, alpha = 0.1)+
+              color = NA, alpha = 0.5)+
   geom_ribbon(aes(ymin = grow.25, ymax = grow.75, fill = as.factor(wpbr)),
-              color = NA, alpha = 0.25)+
-  geom_line(aes(y = grow.median), lwd = 1.5)+
+              color = NA, alpha = 0)+
+  geom_line(aes(y = grow.median), lwd = 1)+
   #scale_y_continuous(limits = c(0, 1))+
   scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
   scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Absent', 'Present'))+
@@ -994,7 +1005,8 @@ wpbr_fixeff_g =
   labs(y = 'DBH growth (m)',
        fill = 'WPBR',
        color = 'WPBR',
-       x = 'DBH (m)')+
+       x = 'DBH (m)',
+       title = 'c')+
   theme(legend.position = 'bottom')+
   scale_y_continuous(limits = c(-0.01, 0.07))
 
@@ -1023,17 +1035,17 @@ ba_fixeff_g =
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(grow.median = median(grow),
-            grow.025 = quantile(grow, probs = 0.025),
+            grow.025 = quantile(grow, probs = 0.05),
             grow.25 = quantile(grow, probs = 0.25),
             grow.75 = quantile(grow, probs = 0.75),
-            grow.975 = quantile(grow, probs = 0.975)) %>%
+            grow.975 = quantile(grow, probs = 0.95)) %>%
   ggplot(data = .,
          aes(x = dbh_m.init, color = as.factor(ba_scaled)))+
   geom_ribbon(aes(ymin = grow.025, ymax = grow.975, fill = as.factor(ba_scaled)),
-              color = NA, alpha = 0.1)+
+              color = NA, alpha = 0.5)+
   geom_ribbon(aes(ymin = grow.25, ymax = grow.75, fill = as.factor(ba_scaled)),
-              color = NA, alpha = 0.25)+
-  geom_line(aes(y = grow.median), lwd = 1.5)+
+              color = NA, alpha = 0)+
+  geom_line(aes(y = grow.median), lwd = 1)+
   #scale_y_continuous(limits = c(0, 1))+
   scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
   scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
@@ -1041,7 +1053,8 @@ ba_fixeff_g =
   labs(y = 'DBH growth (m)',
        fill = 'Basal Area',
        color = 'Basal Area',
-       x = 'DBH (m)')+
+       x = 'DBH (m)',
+       title = 'd')+
   theme(legend.position = 'bottom')+
   scale_y_continuous(limits = c(-0.01, 0.07))
 
@@ -1070,17 +1083,17 @@ drought_fixeff_g =
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(grow.median = median(grow),
-            grow.025 = quantile(grow, probs = 0.025),
+            grow.025 = quantile(grow, probs = 0.05),
             grow.25 = quantile(grow, probs = 0.25),
             grow.75 = quantile(grow, probs = 0.75),
-            grow.975 = quantile(grow, probs = 0.975)) %>%
+            grow.975 = quantile(grow, probs = 0.95)) %>%
   ggplot(data = .,
          aes(x = dbh_m.init, color = as.factor(cwd_dep90_scaled)))+
   geom_ribbon(aes(ymin = grow.025, ymax = grow.975, fill = as.factor(cwd_dep90_scaled)),
-              color = NA, alpha = 0.1)+
+              color = NA, alpha = 0.5)+
   geom_ribbon(aes(ymin = grow.25, ymax = grow.75, fill = as.factor(cwd_dep90_scaled)),
-              color = NA, alpha = 0.25)+
-  geom_line(aes(y = grow.median), lwd = 1.5)+
+              color = NA, alpha = 0)+
+  geom_line(aes(y = grow.median), lwd = 1)+
   #scale_y_continuous(limits = c(0, 1))+
   scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
   scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
@@ -1088,7 +1101,8 @@ drought_fixeff_g =
   labs(y = 'DBH growth (m)',
        fill = 'Drought',
        color = 'Drought',
-       x = 'DBH (m)')+
+       x = 'DBH (m)',
+       title = 'e')+
   theme(legend.position = 'bottom')+
   scale_y_continuous(limits = c(-0.01, 0.07))
 
@@ -1117,17 +1131,17 @@ dryness_fixeff_g =
            cwd_dep90_scaled, cwd_mean_scaled, dbh_fire, dbh_wpbr,
            dbh_ba, dbh_cwd90, dbh_cwdmean) %>%
   summarise(grow.median = median(grow),
-            grow.025 = quantile(grow, probs = 0.025),
+            grow.025 = quantile(grow, probs = 0.05),
             grow.25 = quantile(grow, probs = 0.25),
             grow.75 = quantile(grow, probs = 0.75),
-            grow.975 = quantile(grow, probs = 0.975)) %>%
+            grow.975 = quantile(grow, probs = 0.95)) %>%
   ggplot(data = .,
          aes(x = dbh_m.init, color = as.factor(cwd_mean_scaled)))+
   geom_ribbon(aes(ymin = grow.025, ymax = grow.975, fill = as.factor(cwd_mean_scaled)),
-              color = NA, alpha = 0.1)+
+              color = NA, alpha = 0.5)+
   geom_ribbon(aes(ymin = grow.25, ymax = grow.75, fill = as.factor(cwd_mean_scaled)),
-              color = NA, alpha = 0.25)+
-  geom_line(aes(y = grow.median), lwd = 1.5)+
+              color = NA, alpha = 0)+
+  geom_line(aes(y = grow.median), lwd = 1)+
   #scale_y_continuous(limits = c(0, 1))+
   scale_color_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
   scale_fill_viridis_d(begin = 0.05, end = 0.85, labels = c('Low', 'High'))+
@@ -1135,7 +1149,8 @@ dryness_fixeff_g =
   labs(y = 'DBH growth (m)',
        fill = 'Site Dryness',
        color = 'Site Dryness',
-       x = 'DBH (m)')+
+       x = 'DBH (m)',
+       title = 'f')+
   theme(legend.position = 'bottom')+
   scale_y_continuous(limits = c(-0.01, 0.07))
 
@@ -1151,7 +1166,7 @@ ggsave(fixeff_g,
                              'figures',
                              'manuscript',
                              'fixeff_g.png'), 
-       height =8, width = 6.5, units = 'in')
+       height =7.5, width = 6.5, units = 'in')
 
 fixeff_g_ppt = 
   plot_grid(
@@ -1272,7 +1287,7 @@ plots.sf$plotEffect_s.med =
 
 ggplot(data = plots.sf,
        aes(color = plotEffect_s.med))+
-  geom_sf(size = 1, alpha = 0.5)+
+  geom_sf(size = 1, alpha = 0)+
   theme_minimal()+
   scale_color_viridis_c()
 
@@ -1320,7 +1335,7 @@ plots.sf$plotEffect_g.med =
 
 ggplot(data = plots.sf,
        aes(color = plotEffect_g.med))+
-  geom_sf(size = 1, alpha = 0.5)+
+  geom_sf(size = 1, alpha = 0)+
   theme_minimal()+
   scale_color_viridis_c()
 
@@ -1381,7 +1396,7 @@ range_map =
             spData::us_states,
           fill = NA, lwd = 1)+
   #geom_sf(color = 'blue', fill = NA)+
-  geom_sf(data = plots.sf, aes(color = 'red'), size = 1, alpha = 0.5)+
+  geom_sf(data = plots.sf, aes(color = 'red'), size = 1, alpha = 0)+
   theme_minimal()+
   coord_sf(xlim = c(390000, 1100000), ylim = c(3740000, 5020000),
            crs = "EPSG:26910")+
@@ -1401,7 +1416,7 @@ range_map_ppt =
             spData::us_states,
           fill = NA, lwd = 1)+
   #geom_sf(color = 'blue', fill = NA)+
-  geom_sf(data = plots.sf, aes(color = 'red'), size = 1, alpha = 0.5)+
+  geom_sf(data = plots.sf, aes(color = 'red'), size = 1, alpha = 0)+
   theme_minimal()+
   coord_sf(xlim = c(390000, 1100000), ylim = c(3740000, 5020000),
            crs = "EPSG:26910")+
