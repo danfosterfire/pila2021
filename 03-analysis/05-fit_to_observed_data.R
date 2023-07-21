@@ -7,6 +7,8 @@ library(cmdstanr)
 library(bayesplot)
 library(posterior)
 
+# for reproducibility, use the version of stan we used
+set_cmdstan_path("C:/Users/dfoster/Documents/.cmdstanr/cmdstan-2.28.2")
 
 # load model data
 pila_surv_training = 
@@ -36,7 +38,7 @@ surv_fit =
     parallel_chains = 4,
     output_dir = here::here('02-data', '03-results'),
     output_basename = 'pila_surv',
-    seed = 110819,
+    seed = 112188,
     adapt_delta = 0.8
   )
 

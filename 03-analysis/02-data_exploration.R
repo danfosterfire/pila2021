@@ -90,9 +90,28 @@ ggplot(data = mort_data,
        aes(x = survived))+
   geom_bar()
 
-ggplot(data = mort_data,
+ggplot(data = mort_data %>% filter(species=='PILA'),
        aes(x = tree_status.re))+
   geom_bar()
+
+head(mort_data)
+
+mort_data %>%
+  filter(species == 'PILA') %>%
+  group_by(tree_status.re) %>%
+  summarise(n = n()) %>%
+  ungroup()
+
+131/2959
+
+mort_data %>%
+  filter(species == 'PILA') %>%
+  left_join(plot_data %>%
+              select(plt_cn, fire, wpbr),
+            by = c('plt_cn.re' = 'plt_cn')) %>%
+  group_by(tree_status.re, fire, wpbr) %>%
+  summarise(n = n()) %>%
+  ungroup()
 
 ggplot(data = mort_data,
        aes(x = species))+

@@ -59,6 +59,8 @@ A_hypotheticals =
           sapply(X = 1:nrow(posterior_s),
                  FUN = function(draw){
                    
+                   print(paste0('Working on draw ', draw))
+                   
                    # get beta_s for the current draw
                    beta_s = 
                      posterior_s %>%

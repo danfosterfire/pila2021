@@ -2,7 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
-
+.RDataTmp
 02-data/*
 !02-data/03-results/noRanEff-1.csv
 !02-data/03-results/noRanEff-2.csv
