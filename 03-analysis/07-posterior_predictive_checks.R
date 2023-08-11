@@ -4,6 +4,8 @@ library(cmdstanr)
 library(posterior)
 library(bayesplot)
 
+set.seed(110819)
+
 #### survival ##################################################################
 
 fitted_model = readRDS(here::here('02-data',
@@ -271,8 +273,8 @@ recruitment.predictions =
                              size = samples$kappa[i])
                    
                    result = 
-                     data.frame(plot = 1:pila_validation$P)
-                   as_tibble()
+                     data.frame(plot = 1:pila_validation$P) %>%
+                     as_tibble()
                    
                    result$density_pred = 
                      nprime %>%

@@ -4,6 +4,8 @@ library(cmdstanr)
 library(posterior)
 library(bayesplot)
 
+set.seed(110819)
+
 #### survival ##################################################################
 
 fitted_model = readRDS(here::here('02-data',
@@ -56,7 +58,7 @@ logitp.med =
 
 median_results = 
   pila_training$X %>%
-  as_tibble()
+  as_tibble(x = .)
 
 median_results$logitp = logitp.med
 median_results$p = boot::inv.logit(logitp.med)
@@ -119,7 +121,7 @@ intermediate =
                    
                    result = 
                      pila_training$X %>% 
-                     as_tibble() %>%
+                     as_tibble(x = .) %>%
                      rownames_to_column('tree_id')
                    result$XB = XB
                    result$realized_eco = realized_eco
@@ -306,7 +308,7 @@ growth_retrodictions =
                    
                    result = 
                      pila_training$X %>% 
-                     as_tibble() %>%
+                     as_tibble(x = .) %>%
                      rownames_to_column('tree_id')
                    result$mu = mu
                    result$size1_sim = size1_sim
@@ -411,8 +413,8 @@ recruitment.retrodictions =
                              size = samples$kappa[i])
                    
                    result = 
-                     data.frame(plot = 1:pila_training$P)
-                     as_tibble()
+                     data.frame(plot = 1:pila_training$P) %>%
+                     as_tibble(x = .)
                    
                    result$density_pred = 
                      nprime %>%
