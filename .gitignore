@@ -3,7 +3,9 @@
 .RData
 .Ruserdata
 .RDataTmp
-02-data/*
+02-data/00-source/*
+02-data/03-results/real_fits/*
+
 !02-data/03-results/noRanEff-1.csv
 !02-data/03-results/noRanEff-2.csv
 !02-data/03-results/noRanEff-3.csv
