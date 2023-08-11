@@ -1,7 +1,7 @@
 #### setup #####################################################################
 
 # load packages
-library(here)v
+library(here)
 library(tidyverse)
 library(cmdstanr)
 library(bayesplot)

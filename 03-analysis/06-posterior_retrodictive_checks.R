@@ -97,21 +97,21 @@ intermediate =
                            mean = 0,
                            sd = samples$sigma_ecosub[i])
                    
-                   #plot_effects = 
-                  #   rnorm(n = pila_training$P,
-                   #        mean = 0,
-                    #       sd = samples$sigma_plot)
+                   plot_effects = 
+                     rnorm(n = pila_training$P,
+                           mean = 0,
+                           sd = samples$sigma_plot)
                    
                    XB = as.numeric(pila_training$X %*% beta_s)
                    realized_eco = as.numeric(samples.ecoEffect_s[i,])[pila_training$ecosub_id]
-                   #realized_plot = as.numeric(samples.plotEffect_s[i,])[pila_training$plot_id]
+                   realized_plot = as.numeric(samples.plotEffect_s[i,])[pila_training$plot_id]
                    
-                   logitp = XB  + realized_eco #+ realized_plot
-                     #as.numeric(pila_training$X %*% beta_s)+
-                     #as.numeric(samples.ecoEffect_s[i,])[pila_training$ecosub_id]+
-                     #as.numeric(samples.plotEffect_s[i,])[pila_training$plot_id]
-                    #  eco_effects[pila_training$ecosub_id]+
-                     #plot_effects[pila_training$plot_id]
+                   logitp = XB  + realized_eco + realized_plot
+                     as.numeric(pila_training$X %*% beta_s)+
+                     as.numeric(samples.ecoEffect_s[i,])[pila_training$ecosub_id]+
+                     as.numeric(samples.plotEffect_s[i,])[pila_training$plot_id]
+                      eco_effects[pila_training$ecosub_id]+
+                     plot_effects[pila_training$plot_id]
                      
                      
                    p = boot::inv.logit(logitp)
@@ -125,7 +125,7 @@ intermediate =
                      rownames_to_column('tree_id')
                    result$XB = XB
                    result$realized_eco = realized_eco
-                   #result$realized_plot = realized_plot
+                   result$realized_plot = realized_plot
                    result$logitp = logitp
                    result$p = p
                    result$surv_sim = surv_sim
