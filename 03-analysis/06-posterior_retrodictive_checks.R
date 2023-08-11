@@ -387,6 +387,9 @@ recruitment.retrodictions =
                  FUN = function(i){
                    beta_f = as.numeric(samples.beta_f[i,])
                    
+                   # to get mean, .05, and .95th fecundities, run this line by line
+                   # with beta_f = mean(samples.beta_f), beta_f = quantile(samples.beta_f, 0.05), etc.
+                   
                    logf = 
                      as.numeric(pila_training$X %*% beta_f)
                    

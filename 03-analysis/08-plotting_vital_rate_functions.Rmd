@@ -505,7 +505,9 @@ predict_survival_fixeff =
             p.75 = quantile(p, probs = 0.75),
             p.95 = quantile(p, probs = 0.95)) %>%
     ungroup() %>%
-    select(dbh_m.init, p.median)
+    select(dbh_m.init, p.median) %>%
+    
+    arrange(desc(p.median))
 
 
 ## size main effect (no disturbances, continuous variables held at 0, which is 
@@ -1201,7 +1203,14 @@ ggsave(fixeff_g_ppt,
 
 ## Fecundity
 
+```{r}
+head(samples_f)
+head(summary_f)
 
+exp(2.94)
+
+
+```
 
 # Random Effects
 
