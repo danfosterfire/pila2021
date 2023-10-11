@@ -14,7 +14,7 @@ hypothetical_plots =
              cwd_dep90_scaled = c(0, 0, 0, 0, 0, -1, 1, 0, 0),
              cwd_mean_scaled = c(0, 0, 0, 0, 0, 0, 0, -1, 1),
              subp_id = 1:9,
-             name = c('Undisturbed', 'Fire', 'WPBR', 'Low BA', 'High BA',
+             name = c('Reference', 'Fire', 'WPBR', 'Low BA', 'High BA',
                       'Low Drought', 'High Drought', 'Wet Site', 'Dry Site'))
 
 # load mcmc results

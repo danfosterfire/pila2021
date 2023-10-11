@@ -33,6 +33,90 @@ growth_data =
 
 growth_data$size1 = growth_list$size1
 
+growth_data$plot_id = growth_list$plot_id
+growth_data$ecosub_id = growth_list$ecosub_id
+
+library(brms)
+
+non_nested = make_stancode(formula = size1 ~ dbh_m.init + (1|plot_id)+(1|ecosub_id),
+              data = growth_data)
+
+nested = 
+  make_stancode(formula = size1 ~dbh_m.init + (1|ecosub_id/plot_id),
+                data = growth_data)
+
+nested
+
+#// add more terms to the linear predictor
+#      mu[n] += r_1_1[J_1[n]] * Z_1_1[n] + r_2_1[J_2[n]] * Z_2_1[n];
+
+non_nested
+
+#    for (n in 1:N) {
+#      // add more terms to the linear predictor
+#      mu[n] += r_1_1[J_1[n]] * Z_1_1[n] + r_2_1[J_2[n]] * Z_2_1[n];
+#    }
+#
+
+head(growth_data)
+
+plot_level_climatic_distributions = 
+  surv_data %>%
+  group_by(plot_id, cwd_dep90_scaled, cwd_mean_scaled) %>%
+  summarise() %>%
+  ungroup() %>%
+  pivot_longer(cols = c('cwd_dep90_scaled', 'cwd_mean_scaled'),
+               names_to = 'variable',
+               values_to = 'value') %>%
+  mutate(explanatory_variable = 
+           case_when(variable=='cwd_mean_scaled'~
+                       'Site Dryness\n(mean CWD)',
+                     variable=='cwd_dep90_scaled'~
+                       'Drought\n(90th percentile CWD departure)')) %>%
+  ggplot(data = .,
+         aes(x = value))+
+  geom_histogram()+
+  facet_grid(.~explanatory_variable)+
+  theme_bw()+
+  labs(x = 'Value (scaled units)', y = 'Count of plots')
+
+ggsave(plot_level_climatic_distributions,
+       filename = here::here('04-communication',
+                             'figures',
+                             'manuscript',
+                             'plot_level_climatic_distribution.png'),
+       height = 5, width = 7)
+
+individual_level_climatic_distributions = 
+  surv_data %>%
+  pivot_longer(cols = c('cwd_dep90_scaled', 'cwd_mean_scaled'),
+               names_to = 'variable',
+               values_to = 'value') %>%
+  mutate(explanatory_variable = 
+           case_when(variable=='cwd_mean_scaled'~
+                       'Site Dryness\n(mean CWD)',
+                     variable=='cwd_dep90_scaled'~
+                       'Drought\n(90th percentile CWD departure)')) %>%
+  ggplot(data = .,
+         aes(x = value))+
+  geom_histogram()+
+  facet_grid(.~explanatory_variable)+
+  theme_bw()+
+  labs(x = 'Value (scaled units)', y = 'Count of individuals')
+
+ggsave(individual_level_climatic_distributions,
+       filename = here::here('04-communication',
+                             'figures',
+                             'manuscript',
+                             'individual_level_climatic_distribution.png'),
+       height = 5, width = 7)
+
+
+growth_data %>%
+  group_by(plot_id) %>%
+  summarise(n_ind = n()) %>%
+  ungroup() %>%
+  summary()
 
 names(growth_data)
 # plot X distributions
@@ -153,6 +237,14 @@ surv_data =
   as_tibble()
 
 surv_data$surv = mort_list$surv
+
+surv_data$plot_id = mort_list$plot_id
+
+surv_data %>%
+  group_by(plot_id) %>%
+  summarise(n_ind = n()) %>%
+  ungroup() %>%
+  summary()
 
 names(surv_data)
 # plot X distributions

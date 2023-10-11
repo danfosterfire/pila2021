@@ -142,6 +142,33 @@ mort_data %>% filter(species=='PILA'&dbh_in.init>=59.1) %>%
   summarise(count = n()) %>%
   ungroup()
 
+mort_data %>%
+  filter(species=='PILA') %>%
+  group_by(tree_status.re) %>%
+  summarise(n = n()) %>%
+  ungroup() %>%
+  mutate(id = 1) %>%
+  left_join(group_by(., id) %>%
+              summarise(total = sum(n)) %>%
+              ungroup()) %>%
+  mutate(p_total = n/total)
+
+mort_data %>%
+  filter(species=='PILA') %>%
+  left_join(plot_data,
+            by = c('plot_id' = 'plot_id'),
+            relationship = 'many-to-one') %>%
+  group_by(plot_id) %>%
+  summarise(fire = any(fire),
+            harvests = any(tree_status.re == 'harvested')) %>%
+  ungroup() %>%
+  group_by(harvests) %>%
+  summarise(p_burned = sum(as.integer(fire))/n()) %>%
+  ungroup()
+
+head(mort_data)
+
+
 
 #### sizedist data #############################################################
 
@@ -304,6 +331,15 @@ ggplot(data = plot_data,
 ggplot(data = plot_data,
        aes(x = insects, fill = disease))+
   geom_bar(position = position_fill()) # disease way more likely when insects true
+
+head(mort_data)
+head(plot_data)
+plot_data %>%
+  filter(is.element(plot_id,
+                    mort_data %>%
+                      filter(species=='PILA') %>%
+                      pull(plot_id))) %>%
+  summarise(p_insects = sum(insects)/n())
 
 
 #### recruits data #############################################################
