@@ -36,6 +36,22 @@ growth_data$size1 = growth_list$size1
 growth_data$plot_id = growth_list$plot_id
 growth_data$ecosub_id = growth_list$ecosub_id
 
+growth_data %>%
+  mutate(size0_bin = cut(dbh_m.init, breaks = c(seq(from = 0, to = 1.50, by = 0.1),Inf)),
+         aridity_bin = cut(cwd_mean_scaled, breaks = c(-Inf, -1, 0, 1, Inf))) %>%
+  group_by(size0_bin,
+           aridity_bin) %>%
+  summarise(size1.med = median(size1),
+            size1.mean = mean(size1),
+            size1.se = sd(size1)/n()) %>%
+  ungroup() %>%
+  filter(aridity_bin %in%  c('(-Inf,-1]', '(1, Inf]')) %>%
+  ggplot()+
+  geom_point(aes(x = size0_bin, y = size1.mean, color = aridity_bin))+
+  geom_line(aes(x = size0_bin, y = size1.mean, color = aridity_bin, group = aridity_bin))+
+  theme_bw()
+
+
 library(brms)
 
 non_nested = make_stancode(formula = size1 ~ dbh_m.init + (1|plot_id)+(1|ecosub_id),
@@ -245,6 +261,23 @@ surv_data %>%
   summarise(n_ind = n()) %>%
   ungroup() %>%
   summary()
+
+
+ggplot(data = surv_data)+
+  geom_jitter(aes(y = surv, x = dbh_m.init, color = as.factor(fire)),
+              height = 0.1, width = 0)+
+  scale_color_manual(values  = c('red', 'blue'))+
+  geom_line(data = 
+               surv_data %>%
+               mutate(dbh_bin.init = cut(dbh_m.init, breaks = c(0, 0.05, seq(0.15, 1.25, 0.1), Inf)),
+                      dbh_bin.midpoint = round(dbh_m.init*2, digits = 0)/2) %>%
+               group_by(dbh_bin.init, dbh_bin.midpoint, fire) %>%
+               summarise(prop_surv = mean(surv)) %>%
+               ungroup(),
+             aes(x = dbh_bin.midpoint, y = prop_surv, color = as.factor(fire)))+
+  theme_minimal()
+
+
 
 names(surv_data)
 # plot X distributions

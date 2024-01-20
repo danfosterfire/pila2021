@@ -1128,6 +1128,369 @@ fecd_post = readRDS(here::here('02-data',
                                '03-results',
                                'fecd_post_size.rds'))
 
+
+size_metadata = 
+  readRDS(here::here('02-data',
+                     '01-preprocessed',
+                     'size_metadata.rds')) %>%
+  # convert to metric
+  mutate(bin_midpoint = bin_midpoint * 0.0254,
+         bin_lower = bin_lower * 0.0254,
+         bin_upper = bin_upper * 0.0254) 
+
+head(size_metadata)
+
+ecoregions = 
+  readRDS(here::here('02-data', '02-for_analysis', 'union_ecosubs.rds'))
+
+
+build_transitions = 
+  function(draw_range){
+    
+    A_ecoregions = 
+      array(dim = c(nrow(size_metadata), # sizeclass to
+                    nrow(size_metadata), # sizeclass from
+                    nrow(ecoregions), # ecoregions
+                    length(draw_range)), # posterior draws
+            dimnames = list('class_to' = 1:nrow(size_metadata),
+                            'class_from' = 1:nrow(size_metadata),
+                            'ecoregion' = 1:nrow(ecoregions),
+                            'draw' = draw_range),
+            data = 
+              sapply(X = draw_range,
+                     FUN = function(draw){
+                       
+                       print(paste0('Working on draw ', draw))
+                       
+                       # get beta_s for the current draw
+                       beta_s = 
+                         surv_post %>%
+                         select(contains('beta')) %>%
+                         slice(draw) %>%
+                         as.data.frame() %>%
+                         as.numeric()
+                       
+                       beta_g = 
+                         growth_post %>%
+                         select(contains('beta')) %>%
+                         slice(draw) %>%
+                         as.data.frame() %>%
+                         as.numeric()
+                       
+                       beta_f = 
+                         fecd_post %>%
+                         select(contains('beta')) %>%
+                         slice(draw) %>%
+                         as.data.frame() %>%
+                         as.numeric()
+                       
+                       ecoEffect_s = 
+                         surv_post %>%
+                         select(contains('effect_ecosub')) %>%
+                         slice(draw) %>%
+                         as.data.frame() %>%
+                         as.numeric()
+                       
+                       ecoEffect_g = 
+                         growth_post %>%
+                         select(contains('effect_ecosub')) %>%
+                         slice(draw) %>%
+                         as.data.frame() %>%
+                         as.numeric()
+                       
+                       sigmaEpsilon_g = 
+                         growth_post %>%
+                         slice(draw) %>%
+                         pull(sigma_epsilon) %>%
+                         as.numeric()
+                       
+                       sapply(X = 1:nrow(ecoregions),
+                              FUN = function(eco){
+                                
+                                # construct explanatory variable matrix for survival 
+                                # for the current ecoregion
+                                # construct explanatory variable matrix for vital rate 
+                                # functions for the current plot
+                                X_g = 
+                                  ecoregions %>%
+                                  slice(eco) %>%
+                                  expand(intercept = 1,
+                                         dbh = size_metadata$bin_midpoint) %>%
+                                  mutate(dbh2 = dbh**2) %>%
+                                  select(intercept, dbh, dbh2) %>%
+                                  as.matrix()
+                                
+                                X_s = 
+                                  ecoregions %>%
+                                  slice(eco) %>%
+                                  expand(intercept = 1,
+                                         dbh = size_metadata$bin_midpoint) %>%
+                                  mutate(dbh2 = dbh**2) %>%
+                                  select(intercept, dbh, dbh2) %>%
+                                  as.matrix()
+                                
+                                X_f = 
+                                  ecoregions %>%
+                                  slice(eco) %>%
+                                  expand(intercept = 1,
+                                         dbh = size_metadata$bin_midpoint) %>%
+                                  select(intercept) %>%
+                                  as.matrix()
+                                # calculate vector of survival probabilities for each 
+                                # size class on this plot with this parameter draw
+                                p = 
+                                  boot::inv.logit(as.numeric(X_s %*% beta_s) +
+                                                    ecoEffect_s[ecoregions$ecosub.i[eco]])
+                                
+                                # calculate vector of mean size at time 2 for each size 
+                                # class on this plot with this parameter draw
+                                mu = as.numeric(X_g %*% beta_g)+
+                                  ecoEffect_g[ecoregions$ecosub.i[eco]]
+                                
+                                # calculate vector of fecundity for each size class on this 
+                                # plot with this parameter draw
+                                f = 
+                                  exp(as.numeric(X_f %*% beta_f))
+                                
+                                # loop over each "from" size class
+                                sapply(X = 1:nrow(size_metadata),
+                                       FUN = function(class_from){
+                                         
+                                         # growth kernel from this size class into 
+                                         # each other size class, using the cumulative 
+                                         # density function as recommended by Doak et al. 2021
+                                         g = 
+                                           ((pnorm(size_metadata$bin_upper,
+                                                   mu[class_from],
+                                                   sigmaEpsilon_g) - 
+                                               pnorm(size_metadata$bin_lower,
+                                                     mu[class_from],
+                                                     sigmaEpsilon_g))/
+                                              (1-pnorm(0.0254,
+                                                       mu[class_from],
+                                                       sigmaEpsilon_g)))
+                                         
+                                         # loop over every destination size class; 
+                                         # now vectorized
+                                         # calculate the transition kernel between the 
+                                         # current 'from' class and every 'to' class
+                                         transition_kern = 
+                                           # survival of each from class
+                                           (p[class_from] *
+                                              # probability of growth from this class to 
+                                              # every other class
+                                              g)+(
+                                                # total number of new recruits from this class 
+                                                f[class_from]*
+                                                  
+                                                  # proportion of new recruits falling in the 
+                                                  # to class
+                                                  size_metadata$r)
+                                         
+                                         return(transition_kern)
+                                         
+                                       })
+                              })
+                     })
+      )
+    
+    saveRDS(A_ecoregions,
+            here::here('02-data',
+                       '03-results',
+                       'real_fits',
+                       paste0('A_ecoregions_',
+                              max(draw_range),
+                              '.rds')))
+    
+    rm(A_ecoregions)
+    gc()
+    
+  }
+
+build_transitions(draw_range = 1:1000)
+build_transitions(draw_range = 1001:2000)
+build_transitions(draw_range = 2001:3000)
+build_transitions(draw_range = 3001:4000)
+
+
+
+#### lambda ####################################################################
+
+extract_lambda = 
+  function(A_file){
+    
+    A_all = readRDS(here::here('02-data',
+                               '03-results',
+                               'real_fits',
+                               paste0('A_ecoregions_',
+                                      A_file,
+                                      '.rds')))
+    
+    lambda_observed = 
+      sapply(X = 1:nrow(ecoregions),
+             FUN = function(eco){
+               print(paste0('FILE: ', A_file, ' ECOREGION: ', eco,'....................'))
+               sapply(X = 1:1000,
+                      FUN = function(draw){
+                        A_ecodraw = A_all[,,eco,draw]
+                        lambda_ecodraw = max(as.numeric(Re(eigen(A_ecodraw)$values)))
+                        return(lambda_ecodraw)
+                      })
+             })
+    
+    
+    rm(A_all)
+    gc()
+    
+    dimnames(lambda_observed) = list('draw' = as.numeric(A_file)-(999:0), 
+                                     'eco' = 1:nrow(ecoregions))
+
+    lambda_tibble = 
+      as_tibble(lambda_observed) %>%
+      rowid_to_column('draw_i') %>%
+      mutate(draw = as.numeric(A_file)-(1000-draw_i)) %>%
+      select(-draw_i) %>%
+      pivot_longer(cols = -draw,
+                   names_to = 'eco',
+                   values_to = 'lambda')
+    
+    saveRDS(lambda_tibble,
+            here::here('02-data',
+                       '03-results',
+                       'real_fits',
+                       paste0('lambda_ecoregions_',A_file,'.rds')))
+    
+    rm(lambda_observed)
+    rm(lambda_tibble)
+    gc()
+    return('success')
+  }
+
+lapply(X = c('1000', '2000', '3000', '4000'),
+       FUN = extract_lambda)
+
+all_lambdas = 
+  do.call('bind_rows',
+          lapply(X = c('1000', '2000', '3000', '4000'),
+                 FUN = function(x){
+                   readRDS(here::here('02-data',
+                                      '03-results',
+                                      'real_fits',
+                                      paste0('lambda_ecoregions_',x,'.rds')))
+                 }))
+
+head(all_lambdas)
+
+all_lambdas_summary = 
+  all_lambdas %>%
+  group_by(eco) %>%
+  summarise(lambda_med = median(lambda),
+            lambda_05 = quantile(lambda, 0.05),
+            lambda_95 = quantile(lambda, 0.95)) %>%
+  ungroup() %>%
+  mutate(eco = as.character(eco)) %>%
+  left_join(ecoregions %>%
+              mutate(ecosub.i = as.character(ecosub.i)),
+            by = c('eco' = 'ecosub.i')) %>%
+  mutate(strong_decline = 
+           ifelse(lambda_95 < 1,
+                  'Strong evidence for decline',
+                  'Low confidence in decline'))
+
+library(sf)
+
+ecosub.sf = 
+  st_read(here::here('02-data',
+                     '00-source',
+                     'usfs',
+                     'S_USA.EcomapSubsections',
+                     'S_USA.EcomapSubsections.shp')) %>%
+  st_make_valid() %>%
+  select(MAP_UNIT_S, MAP_UNIT_N) %>%
+  left_join(
+    all_lambdas_summary,
+    by = c('MAP_UNIT_S' = 'ecosubcd')
+  )
+
+head(ecosub.sf)
+
+
+map_table = 
+  ecosub.sf %>%
+  as_tibble() %>%
+  select(-geometry) %>%
+  filter(!is.na(eco)) %>%
+  arrange(desc(lambda_med)) %>%
+  mutate(strong_decline = 
+           ifelse(strong_decline=='Low confidence in decline','',strong_decline))
+
+map_table %>%
+  write_csv(.,
+            here::here('04-communication', 'tables', 'mapped_lambdas.csv'))
+
+library(ggspatial)
+
+palette_breaks = 
+  c(-Inf, 0.9, 0.95, 0.99, 1.01, 1.05, 1.1, Inf)
+
+palette_labels = 
+  c('Less than 0.90', '0.90 to 0.95', '0.95 to 0.99', 
+    '0.99 to 1.01','1.01 to 1.05', '1.05 to 1.10', 'Greater than 1.10')
+
+palette_colors = 
+  RColorBrewer::brewer.pal(n = length(palette_breaks)-1,
+                           name = 'RdBu')
+  
+# spectral
+#palette_colors = "#D53E4F" "#F46D43" "#FDAE61" "#FEE08B" "#FFFFBF" "#E6F598" "#ABDDA4" "#66C2A5" "#3288BD"
+
+# RdBu
+palette_colors = 
+  c("#B2182B", "#EF8A62", "#FDDBC7", "#F7F7F7", "#D1E5F0", "#67A9CF", "#2166AC")
+
+ecosub.sf$lambda_binned = 
+  cut(ecosub.sf$lambda_med,
+      breaks = palette_breaks,
+      labels = palette_labels)
+
+ecosub.sf$lambda_binned = 
+  factor(ecosub.sf$lambda_binned,
+         levels = rev(levels(ecosub.sf$lambda_binned)))
+
+ecosub_lambda_map = 
+  ggplot()+
+  geom_sf(data = 
+            USAboundaries::us_states(),
+          fill = NA)+
+  geom_sf(data = ecosub.sf %>% filter(!is.na(lambda_binned)),
+          aes(fill = lambda_binned))+
+  theme_minimal()+
+  scale_fill_manual(values = rev(palette_colors), na.value = 'transparent', drop = FALSE)+
+  geom_sf(data = ecosub.sf %>% 
+            filter(!is.na(strong_decline)&
+                     strong_decline=='Strong evidence for decline'),
+          aes(color = strong_decline),
+          lwd = 0.5,
+          fill = NA)+
+  scale_color_manual(values = c('black'), na.value = 'transparent', drop = TRUE)+
+  labs(fill = 'Ecoregion lambda',
+       color = NULL)+
+  theme(legend.position = c(0.8, 0.7),
+        legend.background = element_rect(fill = 'white', color = 'black'))+
+  coord_sf(xlim = c(390000, 1100000), ylim = c(3740000, 5020000),
+           crs = "EPSG:26910")+
+  annotation_scale()
+
+ggsave(ecosub_lambda_map,
+       filename = here::here('04-communication', 'figures', 'manuscript', 'ecosub_lambda_map.png'),
+       height = 7, width = 5)
+
+
+#### scratch ###################################################################
+
+# the below version just uses the median parameter value for everything, rather than 
+# working across all the draws
+
 # extract parameters
 beta_s = 
   surv_post %>%
@@ -1150,21 +1513,6 @@ beta_f =
   as.data.frame() %>%
   as.numeric()
 
-#plotEffect_s = 
-#  surv_post %>%
-#  select(contains('effect_plot')) %>%
-#  summarise_all(median) %>%
-#  as.data.frame() %>%
-#  as.numeric()
-
-#plotEffect_g = 
-#  growth_post %>%
-#  select(contains('effect_plot')) %>%
-#  summarise_all(median) %>%
-#  as.data.frame() %>%
-#  as.numeric()
-
-
 ecoEffect_s = 
   surv_post %>%
   select(contains('effect_ecosub')) %>%
@@ -1186,21 +1534,8 @@ sigmaEpsilon_g =
   pull(sigma_epsilon) %>%
   as.numeric()
 
-size_metadata = 
-  readRDS(here::here('02-data',
-                     '01-preprocessed',
-                     'size_metadata.rds')) %>%
-  # convert to metric
-  mutate(bin_midpoint = bin_midpoint * 0.0254,
-         bin_lower = bin_lower * 0.0254,
-         bin_upper = bin_upper * 0.0254) 
 
-head(size_metadata)
-
-ecoregions = 
-  readRDS(here::here('02-data', '02-for_analysis', 'union_ecosubs.rds'))
-
-
+        
 A_observed = 
     array(dim = list(nrow(size_metadata),
                      nrow(size_metadata),
@@ -1332,26 +1667,6 @@ transitions.df %>%
   ggplot(aes(x = class_from_midpoint, y = class_to_midpoint, fill = value))+
   geom_tile()+
   scale_fill_viridis_c()
-
-#### lambda ####################################################################
-
-
-lambda_observed = 
-  sapply(X = 1:nrow(ecoregions),
-         FUN = function(eco){
-           A_eco = A_observed[,,eco]
-           lambda_eco = max(as.numeric(Re(eigen(A_eco)$values)))
-           return(lambda_eco)
-         })
-
-summary(lambda_observed)
-
-results = 
-  ecoregions %>%
-  bind_cols(tibble(lambda = lambda_observed))
-
-library(sf)
-
 ecosub.sf = 
   st_read(here::here('02-data',
                      '00-source',
@@ -1379,7 +1694,7 @@ palette_labels =
 palette_colors = 
   RColorBrewer::brewer.pal(n = length(palette_breaks)-1,
                            name = 'RdBu')
-  
+
 # spectral
 #palette_colors = "#D53E4F" "#F46D43" "#FDAE61" "#FEE08B" "#FFFFBF" "#E6F598" "#ABDDA4" "#66C2A5" "#3288BD"
 
@@ -1398,7 +1713,7 @@ ecosub.sf$lambda_binned =
 
 ecosub_lambda_map = 
   ggplot(data = ecosub.sf %>% filter(!is.na(lambda_binned)),
-       aes(fill = lambda_binned))+
+         aes(fill = lambda_binned))+
   geom_sf(data = 
             USAboundaries::us_states(),
           fill = NA)+
@@ -1415,5 +1730,3 @@ ecosub_lambda_map =
 ggsave(ecosub_lambda_map,
        filename = here::here('04-communication', 'figures', 'manuscript', 'ecosub_lambda_map.png'),
        height = 7, width = 4.5)
-
-

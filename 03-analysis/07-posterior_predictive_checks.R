@@ -122,7 +122,9 @@ surv_predictions_plot =
                          r = mean(r)) %>%
                ungroup(),
              aes(x = r, y = surv_true),
-             color = 'blue', pch = 4)
+             color = 'blue', pch = 4)+
+  labs(x = 'Rank (of predicted survival probability)',
+       y = 'Survival')
 
 
 surv_predictions_plot
@@ -191,7 +193,7 @@ growth_predictions_plot =
   geom_line(aes(x = r, y = size1_sim.50), color = 'blue')+
   geom_ribbon(aes(x = r, ymin = size1_sim.025, ymax = size1_sim.975, y = size1_sim.50),
               alpha = 0.2)+
-  labs(x = 'rank (simulated size)', y = 'Size at remeasure')
+  labs(x = 'Rank (simulated size)', y = 'Size at remeasure')
 
 growth_predictions_plot
 
@@ -211,7 +213,9 @@ growth_predictions_plot2 =
   theme_minimal()+
   geom_ribbon(aes(x = size1_sim.50, ymin = size1_sim.025, ymax = size1_sim.975, y = size1_sim.50),
               alpha = 0.2)+
-  geom_abline(intercept = 0, slope = 1, color = 'blue')
+  geom_abline(intercept = 0, slope = 1, color = 'blue')+
+  labs(x = 'Median posterior predicted DBH (m)',
+       y = 'True DBH (m)')
 
 growth_predictions_plot2
 
@@ -296,7 +300,8 @@ recr_predictions_plot =
   ggplot(aes(x = count, fill = source))+
   geom_bar(position = position_dodge())+
   #scale_x_continuous(limits = c(-1, 10))+
-  theme_minimal()
+  theme_minimal()+
+  labs(x = 'Count of new recreuits', y = 'Count of simulated plots')
 
 recr_predictions_plot
 # looks good

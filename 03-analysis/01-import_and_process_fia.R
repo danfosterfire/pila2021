@@ -817,6 +817,10 @@ names(cwd_departure) = paste0('cwddeparture_', as.character(2000:2020))
 
 plot(cwd_departure)
 
+head(cwd_departure)
+
+plot(cwd_departure$cwddeparture_2014)
+
 head(plot_data)
 
 cwd_departures = 

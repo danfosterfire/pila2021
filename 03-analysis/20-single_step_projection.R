@@ -119,7 +119,7 @@ tph_figure =
   theme_minimal()+
   theme(axis.text.y = element_blank())+
   labs(y = 'Posterior Density',
-       x = 'Stem density (trees / ha)')
+       x = 'Stem Density (trees / ha)')
 
 tph_figure
 
