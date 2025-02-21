@@ -780,6 +780,32 @@ plots_bbox =
 
 plots_bbox
 
+cwd_year = 
+  rast(here::here('02-data',
+                  '00-source',
+                  'terraclimate',
+                  paste0('TerraClimate_def_',2000,'.nc'))) %>%
+  crop(.,
+       c(plots_bbox$lon_min, plots_bbox$lon_max,
+                    plots_bbox$lat_min, plots_bbox$lat_max))
+
+library(tmap)
+
+tm_shape(cwd_year[[5:10]])+
+  tm_raster(title = 'Monthly CWD',
+            palette = 'viridis')
+
+plot(cwd_year[[5:10]])
+
+plot(mean(cwd_year[[5:10]]),
+     main = 'Mean Growing Season CWD (2000)')
+
+tm_shape(mean(cwd_year[[5:10]]))+
+  tm_raster(title = 'Mean Growing Season\nCWD (2000)',
+            palette = 'viridis')+
+  tm_layout(legend.outside.position = c('right', 'top'),
+            legend.outside = TRUE)
+
 cwd_growseason_means = 
   lapply(X = 2000:2020,
          FUN = function(y){
@@ -808,6 +834,18 @@ names(cwd_growseason_means) =
 
 plot(cwd_growseason_means)
 
+cwd_growseason_means_for_mapping = 
+  cwd_growseason_means
+
+names(cwd_growseason_means_for_mapping) = 
+  as.character(2000:2020)
+
+tm_shape(cwd_growseason_means_for_mapping)+
+  tm_raster(palette = 'viridis',
+            title = 'Mean Growing Season CWD')+
+  tm_layout(legend.outside = TRUE,
+            legend.outside.position = c('right'))
+
 # get departure from "normal" (20 year mean) CWD for each 
 # year on each location
 cwd_departure = 
@@ -815,6 +853,15 @@ cwd_departure =
 
 names(cwd_departure) = paste0('cwddeparture_', as.character(2000:2020))
 
+cwd_departure_for_mapping = cwd_departure
+
+names(cwd_departure_for_mapping) = as.character(2000:2020)
+
+tm_shape(cwd_departure_for_mapping)+
+  tm_raster(palette = '-RdBu',
+            title = 'Departure from\nMean Growing Season CWD')+
+  tm_layout(legend.outside = TRUE,
+            legend.outside.position = c('right'))
 plot(cwd_departure)
 
 head(cwd_departure)
@@ -856,7 +903,120 @@ plot_data$cwd_mean =
   extract(mean(cwd_growseason_means),
           plot_data[,c('lon', 'lat')])$mean
 
+head(plot_data)
 
+library(sf)
+extracted_cwd_points = 
+  plot_data %>%
+  select(plt_cn, lat, lon, cwd_departure90, cwd_mean) %>%
+  mutate(cwd_departure90.scaled = as.numeric(scale(cwd_departure90)),
+         cwd_mean.scaled = as.numeric(scale(cwd_mean))) %>%
+  select(-cwd_departure90, -cwd_mean) %>%
+  pivot_longer(cols = c('cwd_departure90.scaled', 'cwd_mean.scaled'),
+               names_to = 'metric',
+               values_to = 'value') %>%
+  st_as_sf(coords = c('lon', 'lat'),
+           crs = 'EPSG:4326') %>%
+  st_transform(crs = 'EPSG:26910')
+  
+library(tmap)
+
+tm_shape(extracted_cwd_points)+
+  tm_dots('value', palette = 'BrBG')+
+  tm_facets('metric')
+
+library(ggspatial)
+
+
+overview_map = 
+  ggplot(data = 
+         spData::world %>%
+         filter(continent=='North America'))+
+  geom_sf(fill = NA, lwd = 1)+
+  geom_rect(xmin = 390000, xmax = 1100000, ymin = 3740000, ymax = 5020000,
+            fill = NA, color = 'red', lwd = 2)+
+  coord_sf(crs = "EPSG:26910",
+           xlim = c(200000, 5000000), ylim = c(1000000, 8000000))+
+  theme_minimal()+
+  theme(axis.text.y = element_blank(), axis.text.x = element_blank(),
+        panel.grid = element_blank(),
+        plot.background = element_rect(fill = 'white'),
+        plot.margin = unit(c(0, 0, 0, 0), 'cm'))
+
+overview_map
+library(ggspatial)
+climate_data_map = 
+  ggplot()+
+  geom_sf(data = 
+            spData::us_states,
+          fill = NA, lwd = 1)+
+  #geom_sf(color = 'blue', fill = NA)+
+  geom_sf(data = extracted_cwd_points, aes(color = value), size = 1, alpha = 0.5)+
+  theme_minimal()+
+  coord_sf(xlim = c(390000, 1100000), ylim = c(3740000, 5020000),
+           crs = "EPSG:26910")+
+  annotation_scale()+
+  colorspace::scale_color_continuous_diverging()+
+  facet_wrap(~metric)+
+  theme(legend.position = 'bottom',
+        axis.text.x = element_text(angle = 45))
+
+plot_data %>%
+  mutate(cwd_dep90.scaled = as.numeric(scale(cwd_departure90)),
+         cwd_mean.scaled = as.numeric(scale(cwd_mean))) %>%
+  ggplot(data = .,
+         aes(x = cwd_dep90.scaled, y = cwd_mean.scaled))+
+  geom_point()+
+  geom_smooth(method = 'lm')
+
+plot_data %>%
+  mutate(cwd_dep90.scaled = as.numeric(scale(cwd_departure90)),
+         cwd_mean.scaled = as.numeric(scale(cwd_mean))) %>% 
+  select(cwd_dep90.scaled, cwd_mean.scaled) %>%
+  cor(.)
+climate_data_map
+library(colorspace)
+range_map_ppt = 
+  ggplot()+
+  geom_sf(data = 
+            spData::us_states,
+          fill = NA, lwd = 1)+
+  #geom_sf(color = 'blue', fill = NA)+
+  geom_sf(data = plots.sf, aes(color = 'red'), size = 1, alpha = 0)+
+  theme_minimal()+
+  coord_sf(xlim = c(390000, 1100000), ylim = c(3740000, 5020000),
+           crs = "EPSG:26910")+
+  annotation_scale()+
+  scale_color_manual(name = '', 
+                     values = c('red' = 'red'), 
+                     labels = c('FIA plots'))+
+  theme(legend.position = 'bottom',
+        text = element_text(size = 18),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank())
+
+range_map_ppt
+
+data_map = 
+  ggdraw()+
+  draw_plot(range_map)+
+  draw_plot(overview_map,
+            x = 0.58, y = 0.57, width = 0.3, height = 0.3)
+
+data_map_ppt = 
+  ggdraw()+
+  draw_plot(range_map_ppt)+
+  draw_plot(overview_map,
+            x = 0.48, y = 0.6, width = 0.3, height = 0.3)
+
+data_map
+
+ggsave(data_map,
+       filename = here::here('04-communication',
+                             'figures',
+                             'manuscript',
+                             'data_map.png'),
+       height = 6, width = 4, units = 'in')
 #### make individual mortality data frame ######################################
 
 mort_data = 

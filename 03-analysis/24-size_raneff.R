@@ -1486,6 +1486,41 @@ ggsave(ecosub_lambda_map,
        height = 7, width = 5)
 
 
+# for NPS reviewer comments feb 21 2025 (!!! wtf)
+
+ecosub_lambda_map_entire = 
+  ggplot()+
+  geom_sf(data = 
+            USAboundaries::us_states(),
+          fill = NA)+
+  geom_sf(data = ecosub.sf %>% filter(!is.na(lambda_binned)),
+          aes(fill = lambda_binned))+
+  theme_minimal()+
+  scale_fill_manual(values = rev(palette_colors), na.value = 'transparent', drop = FALSE)+
+  geom_sf(data = ecosub.sf %>% 
+            filter(!is.na(strong_decline)&
+                     strong_decline=='Strong evidence for decline'),
+          aes(color = strong_decline),
+          lwd = 0.5,
+          fill = NA)+
+  scale_color_manual(values = c('black'), na.value = 'transparent', drop = TRUE)+
+  labs(fill = 'Ecoregion lambda',
+       color = NULL)+
+  theme(legend.position = c(0.8, 0.7),
+        legend.background = element_rect(fill = 'white', color = 'black'))+
+  coord_sf(xlim = c(390000, 1150000), ylim = c(3740000, 5320000),
+           crs = "EPSG:26910")+
+  annotation_scale()
+
+ecosub_lambda_map_entire
+
+ggsave(ecosub_lambda_map_entire,
+       filename = here::here('04-communication', 'figures', 'manuscript', 'ecosub_lambda_map_entire.png'),
+       height = 7, width = 5)
+
+
+
+
 #### scratch ###################################################################
 
 # the below version just uses the median parameter value for everything, rather than 
